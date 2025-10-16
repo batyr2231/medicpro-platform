@@ -1,0 +1,219 @@
+// schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")  // ← Добавили эту строку!
+}
+
+enum UserRole {
+  CLIENT
+  MEDIC
+  ADMIN
+}
+
+enum MedicStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  BANNED
+}
+
+enum OrderStatus {
+  NEW
+  ACCEPTED
+  ON_THE_WAY
+  STARTED
+  COMPLETED
+  PAID
+  CANCELLED
+}
+
+enum NotificationChannel {
+  WEB_PUSH
+  SMS
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  phone     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(CLIENT)
+  addresses String[] // JSON array для адресов
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  medic         Medic?
+  clientOrders  Order[]        @relation("ClientOrders")
+  medicOrders   Order[]        @relation("MedicOrders")
+  messages      Message[]
+  reviews       Review[]       @relation("ClientReviews")
+  medicReviews  Review[]       @relation("MedicReviews")
+  notifications Notification[]
+
+  @@index([email])
+  @@index([phone])
+}
+
+model Medic {
+  id           String       @id @default(cuid())
+  userId       String       @unique
+  specialty    String // Специальность
+  experience   Int // Стаж работы в годах
+  description  String?
+  documents    String[] // URLs загруженных сертификатов
+  areas        String[] // Районы выезда
+  schedule     Json? // График работы
+  status       MedicStatus  @default(PENDING)
+  ratingAvg    Float        @default(0)
+  reviewsCount Int          @default(0)
+  pushToken    String? // FCM token для push уведомлений
+  isAvailable  Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  clientId      String
+  medicId       String?
+  serviceType   String // Тип услуги
+  address       String
+  city          String
+  district      String // Район
+  scheduledTime DateTime // Желаемое время визита
+  comment       String?
+  status        OrderStatus @default(NEW)
+  paymentStatus Boolean     @default(false) // Оплата получена/не получена
+  price         Float?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  acceptedAt    DateTime? // Когда медик принял заказ
+  completedAt   DateTime? // Когда заказ завершён
+
+  // Relations
+  client   User      @relation("ClientOrders", fields: [clientId], references: [id], onDelete: Cascade)
+  medic    User?     @relation("MedicOrders", fields: [medicId], references: [id])
+  messages Message[]
+  review   Review?
+
+  @@index([clientId])
+  @@index([medicId])
+  @@index([status])
+  @@index([city, district])
+  @@index([createdAt])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  orderId    String
+  fromUserId String
+  text       String?
+  fileUrl    String? // URL загруженного файла
+  fileType   String? // image/document
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  from  User  @relation(fields: [fromUserId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([fromUserId])
+  @@index([createdAt])
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  orderId     String   @unique
+  clientId    String
+  medicId     String
+  rating      Int // 1-5
+  comment     String? // До 300 символов
+  isComplaint Boolean  @default(false)
+  complaintCategory String? // Категория жалобы
+  complaintDescription String? // Описание жалобы
+  isHidden    Boolean  @default(false) // Админ может скрыть комментарий
+  isEdited    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  editableUntil DateTime // createdAt + 24 часа
+
+  // Relations
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  client User  @relation("ClientReviews", fields: [clientId], references: [id], onDelete: Cascade)
+  medic  User  @relation("MedicReviews", fields: [medicId], references: [id], onDelete: Cascade)
+
+  @@index([medicId])
+  @@index([rating])
+  @@index([isComplaint])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  channel   NotificationChannel
+  type      String // new_order, order_accepted, order_status, reminder, complaint
+  orderId   String?
+  title     String
+  body      String
+  data      Json? // Дополнительные данные
+  status    NotificationStatus @default(PENDING)
+  sentAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Метрики для админ-панели
+model Metric {
+  id              String   @id @default(cuid())
+  date            DateTime @default(now()) @db.Date
+  totalOrders     Int      @default(0)
+  acceptedOrders  Int      @default(0) // Принятых ≤15 мин
+  completedOrders Int      @default(0)
+  avgAcceptTime   Float? // Среднее время принятия в минутах
+  avgRating       Float? // Средний рейтинг за день
+  createdAt       DateTime @default(now())
+
+  @@unique([date])
+  @@index([date])
+}
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
