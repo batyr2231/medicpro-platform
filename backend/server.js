@@ -71,49 +71,54 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // ==================== AUTH ROUTES ====================
 
-// Отправка кода верификации
-app.post('/api/auth/send-code', async (req, res) => {
-  try {
-    const { phone, method } = req.body; // method: 'sms' или 'whatsapp'
+  // Отправка кода верификации
+  app.post('/api/auth/send-code', async (req, res) => {
+    try {
+      const { phone, method } = req.body; // method: 'sms' или 'whatsapp'
 
-    // Удаляем старые коды для этого номера
-    await prisma.verificationCode.deleteMany({
-      where: { phone }
-    });
+      console.log('📱 Send code request:', { phone, method });
 
-    // Генерируем новый код
-    const code = generateCode();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // +5 минут
+      // Удаляем старые коды для этого номера
+      await prisma.verificationCode.deleteMany({
+        where: { phone }
+      });
 
-    // Сохраняем код в БД
-    await prisma.verificationCode.create({
-      data: {
-        phone,
-        code,
-        expiresAt
+      // Генерируем новый код
+      const code = generateCode();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // +5 минут
+
+      // Сохраняем код в БД
+      await prisma.verificationCode.create({
+        data: {
+          phone,
+          code,
+          expiresAt
+        }
+      });
+
+      // Отправляем код в зависимости от метода
+      let result;
+      if (method === 'whatsapp') {
+        console.log('📱 Sending via WhatsApp...');
+        result = await sendWhatsAppCode(phone, code);
+      } else {
+        console.log('📱 Sending via SMS...');
+        result = await sendVerificationCode(phone, code);
       }
-    });
 
-    // Отправляем код
-    let result;
-    if (method === 'whatsapp') {
-      result = await sendWhatsAppCode(phone, code);
-    } else {
-      result = await sendVerificationCode(phone, code);
+      if (!result.success) {
+        console.error('❌ Failed to send code:', result.error);
+        return res.status(500).json({ error: 'Failed to send code' });
+      }
+
+      console.log(`✅ Code sent to ${phone}: ${code}`);
+
+      res.json({ message: 'Code sent successfully' });
+    } catch (error) {
+      console.error('❌ Send code error:', error);
+      res.status(500).json({ error: 'Failed to send verification code' });
     }
-
-    if (!result.success) {
-      return res.status(500).json({ error: 'Failed to send code' });
-    }
-
-    console.log(`📱 Code sent to ${phone}: ${code}`); // Для разработки
-
-    res.json({ message: 'Code sent successfully' });
-  } catch (error) {
-    console.error('Send code error:', error);
-    res.status(500).json({ error: 'Failed to send verification code' });
-  }
-});
+  });
 
   // Проверка кода
   app.post('/api/auth/verify-code', async (req, res) => {
