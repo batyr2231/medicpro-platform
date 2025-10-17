@@ -48,7 +48,7 @@ export default function AuthPage() {
 
     setLoading(true);
     try {
-      await sendCode(formData.phone, 'sms'); // или 'whatsapp'
+      await sendCode(formData.phone, 'whatsapp'); // или 'whatsapp'
       toast.success('📱 Код отправлен на ваш телефон!');
       setStep('code');
       setTimer(60); // 60 секунд до повторной отправки
