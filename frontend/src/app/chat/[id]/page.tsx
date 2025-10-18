@@ -25,6 +25,8 @@ export default function ChatPage() {
     if (user) {
       const userData = JSON.parse(user);
       setCurrentUserId(userData.id);
+      console.log('👤 Current user ID:', userData.id); // ← ДОБАВЬТЕ ЭТУ СТРОКУ
+      console.log('👤 Current user role:', userData.role); // ← И ЭТУ
     }
     
     loadOrderInfo();
@@ -187,6 +189,14 @@ export default function ChatPage() {
             messages.map((msg) => {
               const fromMe = msg.fromUserId === currentUserId;
               
+                console.log('💬 Message:', {
+                  msgId: msg.id.slice(0, 8),
+                  fromUserId: msg.fromUserId,
+                  currentUserId: currentUserId,
+                  fromMe: fromMe,
+                  fromName: msg.from?.name
+                });
+
               return (
                 <div
                   key={msg.id}
