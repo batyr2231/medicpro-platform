@@ -130,18 +130,34 @@ export default function ChatPage() {
           <div className="flex items-center justify-between">
             <button
               onClick={() => {
-                const user = JSON.parse(localStorage.getItem('user') || '{}');
-                if (user.role === 'MEDIC') {
-                  router.push('/medic/dashboard');
-                } else {
-                  router.push('/client/orders');
+                const userStr = localStorage.getItem('user');
+                if (!userStr) {
+                  router.push('/auth');
+                  return;
+                }
+                
+                try {
+                  const user = JSON.parse(userStr);
+                  console.log('👤 Current user role:', user.role); // Для отладки
+                  
+                  if (user.role === 'MEDIC') {
+                    router.push('/medic/dashboard');
+                  } else if (user.role === 'CLIENT') {
+                    router.push('/client/orders');
+                  } else if (user.role === 'ADMIN') {
+                    router.push('/admin');
+                  } else {
+                    router.back();
+                  }
+                } catch (err) {
+                  console.error('Error parsing user:', err);
+                  router.push('/auth');
                 }
               }}
-              className="..."
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-
             <div className="text-center flex-1">
               <div className="font-semibold">Чат с {orderInfo?.medic?.name || orderInfo?.client?.name || 'пользователем'}</div>
               <div className="text-xs text-slate-400">Заказ #{orderId.slice(0, 8)}</div>
