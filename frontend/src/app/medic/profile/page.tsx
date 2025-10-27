@@ -8,6 +8,9 @@ import toast from 'react-hot-toast';
 export default function MedicProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [telegramChatId, setTelegramChatId] = useState('');
+  const [telegramConnected, setTelegramConnected] = useState(false);
+  const [showTelegramInput, setShowTelegramInput] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -49,6 +52,9 @@ export default function MedicProfilePage() {
           education: result.education || '',
           areas: result.areas || [],
         });
+      }
+      if (result.telegramChatId) {
+        setTelegramConnected(true);
       }
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -107,6 +113,59 @@ export default function MedicProfilePage() {
     
     setFormData({ ...formData, areas: newAreas });
   };
+
+  const handleConnectTelegram = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/connect-telegram`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ chatId: telegramChatId })
+      }
+    );
+
+    const result = await response.json();
+
+    if (response.ok) {
+      setTelegramConnected(true);
+      setShowTelegramInput(false);
+      toast.success('✅ Telegram успешно подключён!');
+    } else {
+      toast.error('❌ Ошибка: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Connect Telegram error:', error);
+    toast.error('❌ Ошибка подключения');
+  }
+};
+
+const handleDisconnectTelegram = async () => {
+  if (!confirm('Отключить Telegram уведомления?')) return;
+
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/disconnect-telegram`,
+      {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      }
+    );
+
+    if (response.ok) {
+      setTelegramConnected(false);
+      toast.success('✅ Telegram отключён');
+    }
+  } catch (error) {
+    console.error('Disconnect Telegram error:', error);
+    toast.error('❌ Ошибка');
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
@@ -248,6 +307,102 @@ export default function MedicProfilePage() {
             </div>
           </div>
 
+  {/* Telegram уведомления */}
+          <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
+            <h2 className="text-xl font-bold mb-4 flex items-center">
+              <span className="text-2xl mr-2">📱</span>
+              Telegram уведомления
+            </h2>
+
+            {telegramConnected ? (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2 text-green-400">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="font-semibold">Telegram подключён</span>
+                </div>
+
+                <p className="text-sm text-slate-400">
+                  Вы будете получать уведомления о новых заказах в Telegram
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleDisconnectTelegram}
+                  className="px-4 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                >
+                  Отключить Telegram
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {!showTelegramInput ? (
+                  <div>
+                    <p className="text-slate-300 mb-4">
+                      Подключите Telegram чтобы получать мгновенные уведомления о новых заказах
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowTelegramInput(true)}
+                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 font-semibold shadow-lg transition-all"
+                    >
+                      📱 Подключить Telegram
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <p className="text-sm text-slate-300 mb-2">
+                        <strong>Инструкция:</strong>
+                      </p>
+                      <ol className="text-sm text-slate-400 space-y-1 list-decimal list-inside">
+                        <li>Откройте Telegram</li>
+                        <li>Найдите бота (создайте через @BotFather)</li>
+                        <li>Нажмите <strong>/start</strong></li>
+                        <li>Скопируйте Chat ID который бот отправит</li>
+                        <li>Вставьте код ниже</li>
+                      </ol>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Chat ID из бота:
+                      </label>
+                      <input
+                        type="text"
+                        value={telegramChatId}
+                        onChange={(e) => setTelegramChatId(e.target.value)}
+                        placeholder="Например: 123456789"
+                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white"
+                      />
+                    </div>
+
+                    <div className="flex space-x-3">
+                      <button
+                        type="button"
+                        onClick={handleConnectTelegram}
+                        disabled={!telegramChatId}
+                        className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg transition-all"
+                      >
+                        Подключить
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowTelegramInput(false)}
+                        className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                      >
+                        Отмена
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
           {/* Submit Button */}
           <button
             type="submit"
