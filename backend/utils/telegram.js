@@ -68,8 +68,8 @@ async function sendOrderNotification(chatId, orderData) {
       `⏰ <i>Время ограничено! Первый медик получит заказ.</i>`;
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.url('✅ Принять заказ', `https://medicpro-platform.vercel.app/medic/orders/${orderId}`)],
-      [Markup.button.url('👁 Посмотреть детали', `https://medicpro-platform.vercel.app/medic/dashboard`)]
+      [Markup.button.url('✅ Открыть заказ', `https://medicpro-platform.vercel.app/medic/orders/${orderId}`)],
+      [Markup.button.url('📋 Все заказы', `https://medicpro-platform.vercel.app/medic/dashboard`)]
     ]);
 
     await bot.telegram.sendMessage(chatId, message, {
