@@ -1,73 +1,50 @@
-const { Telegraf, Markup } = require('telegraf');
+import { Telegraf, Markup } from 'telegraf';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const DEV_MODE = process.env.NODE_ENV !== 'production';
 
-// Создать бота
 let bot = null;
 
 if (TELEGRAM_BOT_TOKEN) {
   bot = new Telegraf(TELEGRAM_BOT_TOKEN);
-  console.log('✅ Telegram Bot инициализирован (Telegraf)');
+  console.log('✅ Telegram Bot инициализирован');
 } else {
   console.warn('⚠️ TELEGRAM_BOT_TOKEN не найден');
 }
 
-// Обработчик команды /start
 if (bot) {
   bot.start((ctx) => {
     const chatId = ctx.chat.id;
-    
     ctx.replyWithHTML(
-      `Привет! 👋\n\n` +
-      `Я бот для уведомлений MedicPro.\n\n` +
-      `Чтобы подключить уведомления:\n` +
-      `1. Откройте сайт MedicPro\n` +
-      `2. Перейдите в Профиль\n` +
-      `3. Введите этот код:\n\n` +
-      `<code>${chatId}</code>\n\n` +
-      `После этого вы будете получать уведомления о новых заказах!`
+      `Привет! 👋\n\nЯ бот для уведомлений MedicPro.\n\nЧтобы подключить уведомления:\n1. Откройте сайт MedicPro\n2. Перейдите в Профиль\n3. Введите этот код:\n\n<code>${chatId}</code>\n\nПосле этого вы будете получать уведомления о новых заказах!`
     );
   });
 
-  // Команда /help
   bot.help((ctx) => {
     ctx.replyWithHTML(
-      `<b>Команды бота:</b>\n\n` +
-      `/start - Получить код для привязки\n` +
-      `/status - Проверить статус\n` +
-      `/stop - Отключить уведомления\n` +
-      `/help - Эта справка`
+      `<b>Команды бота:</b>\n\n/start - Получить код для привязки\n/status - Проверить статус\n/stop - Отключить уведомления\n/help - Эта справка`
     );
   });
 
-  // Команда /status
   bot.command('status', (ctx) => {
     const chatId = ctx.chat.id;
-    ctx.replyWithHTML(
-      `Ваш Chat ID: <code>${chatId}</code>\n\n` +
-      `Статус: Активен ✅`
-    );
+    ctx.replyWithHTML(`Ваш Chat ID: <code>${chatId}</code>\n\nСтатус: Активен ✅`);
   });
 
-  // Команда /stop
   bot.command('stop', (ctx) => {
     ctx.reply('Уведомления отключены. Чтобы включить снова, используйте /start');
   });
 
-  // Запуск бота только если нужно
   if (process.env.ENABLE_TELEGRAM_POLLING === 'true') {
     bot.launch()
-      .then(() => console.log('🤖 Telegram Bot запущен (polling)'))
+      .then(() => console.log('🤖 Telegram Bot запущен'))
       .catch(err => console.error('❌ Ошибка запуска бота:', err));
 
-    // Graceful stop
     process.once('SIGINT', () => bot.stop('SIGINT'));
     process.once('SIGTERM', () => bot.stop('SIGTERM'));
   }
 }
 
-// Отправка уведомления о новом заказе
 async function sendOrderNotification(chatId, orderData) {
   if (!bot) {
     console.warn('⚠️ Telegram Bot не инициализирован');
@@ -78,10 +55,7 @@ async function sendOrderNotification(chatId, orderData) {
     const { orderId, district, serviceType, scheduledTime, price, address } = orderData;
 
     if (DEV_MODE) {
-      console.log('📱 [DEV] Telegram уведомление о заказе:');
-      console.log(`   Chat ID: ${chatId}`);
-      console.log(`   Район: ${district}`);
-      console.log(`   Услуга: ${serviceType}`);
+      console.log('📱 [DEV] Telegram уведомление о заказе:', { chatId, district, serviceType });
     }
 
     const message = 
@@ -103,7 +77,7 @@ async function sendOrderNotification(chatId, orderData) {
       ...keyboard
     });
 
-    console.log('✅ Telegram уведомление отправлено в chat:', chatId);
+    console.log('✅ Telegram уведомление отправлено:', chatId);
     return { success: true };
 
   } catch (error) {
@@ -112,7 +86,6 @@ async function sendOrderNotification(chatId, orderData) {
   }
 }
 
-// Отправка уведомления о принятии заказа (клиенту)
 async function sendOrderAcceptedNotification(chatId, orderData) {
   if (!bot) return { success: false, error: 'Bot not initialized' };
 
@@ -134,7 +107,7 @@ async function sendOrderAcceptedNotification(chatId, orderData) {
       ...keyboard
     });
 
-    console.log('✅ Уведомление клиенту отправлено в chat:', chatId);
+    console.log('✅ Уведомление клиенту отправлено:', chatId);
     return { success: true };
 
   } catch (error) {
@@ -143,7 +116,6 @@ async function sendOrderAcceptedNotification(chatId, orderData) {
   }
 }
 
-// Отправка уведомления о смене статуса
 async function sendStatusUpdateNotification(chatId, orderData) {
   if (!bot) return { success: false, error: 'Bot not initialized' };
 
@@ -174,7 +146,7 @@ async function sendStatusUpdateNotification(chatId, orderData) {
   }
 }
 
-module.exports = {
+export {
   sendOrderNotification,
   sendOrderAcceptedNotification,
   sendStatusUpdateNotification,
