@@ -6,6 +6,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
+import { sendVerificationCode, sendSMS } from './utils/sms.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { v2 as cloudinary } from 'cloudinary';
@@ -289,7 +290,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     resetCodes.set(phone, { code, expiresAt, attempts: 0 });
 
     // Отправляем SMS
-    await sendSMS(phone, `Ваш код для сброса пароля MedicPro: ${code}`);
+    await sendVerificationCode(phone, code);
 
     console.log(`[FORGOT PASSWORD] Код для ${phone}: ${code}`);
 

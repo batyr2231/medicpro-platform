@@ -64,3 +64,36 @@ export const sendWhatsAppCode = async (phone, code) => {
     return { success: false, error: error.message };
   }
 };
+
+// Универсальная отправка SMS (для восстановления пароля и других целей)
+export const sendSMS = async (phone, message) => {
+  try {
+    // В dev режиме логируем в консоль
+    if (isDevelopment) {
+      console.log('📱 ========================================');
+      console.log('📱 SMS MESSAGE');
+      console.log('📱 Phone:', phone);
+      console.log('📱 Message:', message);
+      console.log('📱 ========================================');
+    }
+
+    const result = await client.messages.create({
+      body: message,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone
+    });
+    
+    console.log('✅ SMS sent:', result.sid);
+    return { success: true, sid: result.sid };
+  } catch (error) {
+    console.error('❌ SMS error:', error.message);
+    
+    // В dev режиме возвращаем успех даже при ошибке
+    if (isDevelopment) {
+      console.log('⚠️ DEV MODE: Ignoring SMS error');
+      return { success: true, sid: 'dev-mock-' + Date.now() };
+    }
+    
+    return { success: false, error: error.message };
+  }
+};
