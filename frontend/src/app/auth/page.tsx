@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, Phone, Lock, User, Eye, EyeOff, ArrowLeft, Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import Link from 'next/link';
 import { useVerification } from '../hooks/useVerification';
 import toast from 'react-hot-toast';
 
@@ -249,6 +250,11 @@ export default function AuthPage() {
               >
                 {loading ? 'Вход...' : 'Войти'}
               </button>
+              <div className="text-center mt-4">
+                <Link href="/auth/forgot-password" className="text-blue-600 hover:underline text-sm">
+                  Забыли пароль?
+                </Link>
+              </div>
             </form>
           )}
 

@@ -180,94 +180,118 @@ export default function AdminDashboard() {
     return badges[status] || badges.PENDING;
   };
 
+  // Функция просмотра документов
+  const viewDocuments = async (medicId: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics/${medicId}/documents`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await res.json();
+      
+      // Проверяем, что documents существует и это массив
+      if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
+        toast.error('Документы не загружены');
+        return;
+      }
+
+      // Открываем документы в новых вкладках
+      data.documents.forEach((doc: { url: string; type: string }) => {
+        window.open(doc.url, '_blank');
+      });
+
+      toast.success(`Открыто документов: ${data.documents.length}`);
+
+    } catch (err) {
+      console.error(err);
+      toast.error('Ошибка загрузки документов');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
-      {/* Header */}
-      <header className="border-b border-white/10 backdrop-blur-xl bg-slate-900/50 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
-                <Shield className="w-6 h-6" />
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 shadow-xl">
+                <Shield className="w-8 h-8" />
               </div>
               <div>
-                <div className="font-bold text-lg">Админ панель</div>
-                <div className="text-xs text-slate-400">MedicPro</div>
+                <h1 className="text-2xl sm:text-3xl font-bold">Админ панель</h1>
+                <p className="text-sm text-slate-400">Управление платформой</p>
               </div>
             </div>
-
-            <button
-              onClick={() => {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                toast.success('👋 Выход выполнен');
-                setTimeout(() => router.push('/auth'), 500);
-              }}
-              className="px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-all"
-            >
-              Выйти
-            </button>
           </div>
         </div>
-      </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          <button
-            onClick={() => setActiveTab('medics')}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all flex items-center space-x-2 ${
-              activeTab === 'medics'
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg'
-                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            <span>Медики</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all flex items-center space-x-2 ${
-              activeTab === 'orders'
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg'
-                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <Package className="w-5 h-5" />
-            <span>Заказы</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('complaints')}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all flex items-center space-x-2 ${
-              activeTab === 'complaints'
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg'
-                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <AlertTriangle className="w-5 h-5" />
-            <span>Жалобы</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('stats')}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all flex items-center space-x-2 ${
-              activeTab === 'stats'
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg'
-                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <TrendingUp className="w-5 h-5" />
-            <span>Статистика</span>
-          </button>
+        {/* Navigation Tabs */}
+        <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-2 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button
+              onClick={() => setActiveTab('medics')}
+              className={`py-3 px-4 rounded-xl font-medium transition-all ${
+                activeTab === 'medics'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg'
+                  : 'hover:bg-white/10'
+              }`}
+            >
+              <Users className="w-5 h-5 mx-auto mb-1" />
+              <span className="text-sm">Медики</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`py-3 px-4 rounded-xl font-medium transition-all ${
+                activeTab === 'orders'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg'
+                  : 'hover:bg-white/10'
+              }`}
+            >
+              <Package className="w-5 h-5 mx-auto mb-1" />
+              <span className="text-sm">Заказы</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('complaints')}
+              className={`py-3 px-4 rounded-xl font-medium transition-all ${
+                activeTab === 'complaints'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg'
+                  : 'hover:bg-white/10'
+              }`}
+            >
+              <AlertTriangle className="w-5 h-5 mx-auto mb-1" />
+              <span className="text-sm">Жалобы</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('stats')}
+              className={`py-3 px-4 rounded-xl font-medium transition-all ${
+                activeTab === 'stats'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg'
+                  : 'hover:bg-white/10'
+              }`}
+            >
+              <TrendingUp className="w-5 h-5 mx-auto mb-1" />
+              <span className="text-sm">Статистика</span>
+            </button>
+          </div>
         </div>
 
         {/* Content */}
         {loading ? (
-          <div className="text-center py-20">
-            <Loader className="w-12 h-12 text-cyan-500 animate-spin mx-auto mb-4" />
-            <div className="text-slate-400">Загрузка...</div>
+          <div className="flex items-center justify-center py-20">
+            <Loader className="w-12 h-12 animate-spin text-cyan-400" />
           </div>
         ) : (
           <>
@@ -284,7 +308,7 @@ export default function AdminDashboard() {
                     <p className="text-slate-400">Нет медиков</p>
                   </div>
                 ) : (
-                  medics.map((medic) => {
+                  medics.map((medic: any) => {
                     const statusBadge = getStatusBadge(medic.status);
                     return (
                       <div
@@ -299,7 +323,7 @@ export default function AdminDashboard() {
                             <div>
                               <div className="font-semibold text-lg">{medic.name}</div>
                               <div className="text-sm text-slate-400">{medic.phone}</div>
-                              <div className="text-xs text-slate-500">ID: {medic.id.substring(0, 8)}</div>
+                              <div className="text-xs text-slate-500">ID: {medic.id}</div>
                             </div>
                           </div>
                           <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusBadge.class}`}>
@@ -324,6 +348,17 @@ export default function AdminDashboard() {
                             <div className="text-xs text-slate-400 mb-1">Районы</div>
                             <div className="font-medium text-sm">{medic.areas?.join(', ') || 'Не указаны'}</div>
                           </div>
+                        </div>
+
+                        {/* Кнопка просмотра документов */}
+                        <div className="mb-3">
+                          <button
+                            onClick={() => viewDocuments(medic.id)}
+                            className="w-full py-2 rounded-xl bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 hover:from-blue-500/30 hover:to-cyan-500/30 font-medium text-sm transition-all flex items-center justify-center"
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            📄 Просмотреть документы
+                          </button>
                         </div>
 
                         {medic.status === 'PENDING' && (
@@ -364,7 +399,7 @@ export default function AdminDashboard() {
                     <p className="text-slate-400">Нет заказов</p>
                   </div>
                 ) : (
-                  orders.map((order) => (
+                  orders.map((order: any) => (
                     <div
                       key={order.id}
                       className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6"
@@ -372,7 +407,7 @@ export default function AdminDashboard() {
                       <div className="flex items-start justify-between mb-4">
                         <div>
                           <div className="font-semibold text-lg">{order.serviceType}</div>
-                          <div className="text-xs text-slate-400">#{order.id.substring(0, 8)}</div>
+                          <div className="text-xs text-slate-400">#{order.id}</div>
                         </div>
                         <span className="px-3 py-1 rounded-full text-xs font-medium border bg-cyan-500/20 border-cyan-500/30 text-cyan-400">
                           {order.status}
@@ -412,7 +447,7 @@ export default function AdminDashboard() {
                     <p className="text-slate-400">Нет жалоб</p>
                   </div>
                 ) : (
-                  complaints.map((complaint) => (
+                  complaints.map((complaint: any) => (
                     <div
                       key={complaint.id}
                       className="rounded-2xl bg-gradient-to-br from-red-500/10 to-pink-500/5 backdrop-blur-xl border border-red-500/30 p-6"
@@ -420,7 +455,7 @@ export default function AdminDashboard() {
                       <div className="flex items-start justify-between mb-4">
                         <div>
                           <div className="font-semibold text-lg text-red-400">{complaint.complaintCategory}</div>
-                          <div className="text-xs text-slate-400">Заказ #{complaint.orderId.substring(0, 8)}</div>
+                          <div className="text-xs text-slate-400">Заказ #{complaint.orderId}</div>
                         </div>
                       </div>
 

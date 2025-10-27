@@ -20,6 +20,9 @@ export default function MedicProfilePage() {
     areas: [] as string[],
   });
 
+  const [uploading, setUploading] = useState(false);
+  const [documents, setDocuments] = useState<any[]>([]);
+
   const districts = [
     'Алмалинский', 'Ауэзовский', 'Бостандыкский', 'Жетысуский',
     'Медеуский', 'Наурызбайский', 'Турксибский', 'Алатауский'
@@ -166,6 +169,83 @@ const handleDisconnectTelegram = async () => {
     toast.error('❌ Ошибка');
   }
 };
+
+  const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>, type: 'LICENSE' | 'CERTIFICATE') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      alert('Только PDF файлы');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Файл должен быть меньше 5MB');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('documentType', type);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/medics/upload-document`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error);
+
+      alert('✅ Документ загружен! Требуется повторная модерация');
+      // Перезагрузить профиль
+      window.location.reload();
+
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Добавь в JSX (после секции с районами):
+  <div className="bg-white rounded-lg shadow-md p-6">
+    <h2 className="text-xl font-bold mb-4">📄 Документы</h2>
+    
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-2">Лицензия</label>
+        <input
+          type="file"
+          accept=".pdf"
+          onChange={(e) => handleUploadDocument(e, 'LICENSE')}
+          disabled={uploading}
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-2">Сертификаты</label>
+        <input
+          type="file"
+          accept=".pdf"
+          onChange={(e) => handleUploadDocument(e, 'CERTIFICATE')}
+          disabled={uploading}
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+      </div>
+    </div>
+
+    {uploading && (
+      <div className="mt-4 text-blue-600">Загрузка...</div>
+    )}
+  </div>
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
@@ -402,7 +482,7 @@ const handleDisconnectTelegram = async () => {
               </div>
             )}
           </div>
-          
+
           {/* Submit Button */}
           <button
             type="submit"
