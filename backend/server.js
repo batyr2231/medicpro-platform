@@ -6,12 +6,11 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
-import { sendVerificationCode, sendSMS } from './utils/sms.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
-import { sendVerificationCode, sendWhatsAppCode, generateCode } from './utils/sms.js';
+import { sendVerificationCode, sendWhatsAppCode, generateCode, sendSMS } from './utils/sms.js';
 
 
 dotenv.config();
