@@ -263,6 +263,124 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Хранилище кодов сброса пароля (в памяти)
+const resetCodes = new Map(); // { phone: { code, expiresAt, attempts } }
+
+// Forgot Password - отправка кода
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ error: 'Телефон обязателен' });
+    }
+
+    // Проверяем существование пользователя
+    const user = await prisma.user.findUnique({ where: { phone } });
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    // Генерируем 6-значный код
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 минут
+
+    // Сохраняем код
+    resetCodes.set(phone, { code, expiresAt, attempts: 0 });
+
+    // Отправляем SMS
+    await sendSMS(phone, `Ваш код для сброса пароля MedicPro: ${code}`);
+
+    console.log(`[FORGOT PASSWORD] Код для ${phone}: ${code}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Код отправлен на ваш телефон',
+      expiresIn: 300 // секунды
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Ошибка отправки кода' });
+  }
+});
+
+// Reset Password - смена пароля по коду
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { phone, code, newPassword } = req.body;
+
+    if (!phone || !code || !newPassword) {
+      return res.status(400).json({ error: 'Все поля обязательны' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Пароль должен быть минимум 6 символов' });
+    }
+
+    // Проверяем наличие кода
+    const resetData = resetCodes.get(phone);
+    if (!resetData) {
+      return res.status(400).json({ error: 'Код не найден. Запросите новый код' });
+    }
+
+    // Проверяем срок действия
+    if (Date.now() > resetData.expiresAt) {
+      resetCodes.delete(phone);
+      return res.status(400).json({ error: 'Код истёк. Запросите новый код' });
+    }
+
+    // Проверяем количество попыток
+    if (resetData.attempts >= 3) {
+      resetCodes.delete(phone);
+      return res.status(400).json({ error: 'Превышено количество попыток. Запросите новый код' });
+    }
+
+    // Проверяем код
+    if (resetData.code !== code) {
+      resetData.attempts++;
+      return res.status(400).json({ 
+        error: 'Неверный код',
+        attemptsLeft: 3 - resetData.attempts
+      });
+    }
+
+    // Хешируем новый пароль
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Обновляем пароль
+    await prisma.user.update({
+      where: { phone },
+      data: { password: hashedPassword }
+    });
+
+    // Удаляем использованный код
+    resetCodes.delete(phone);
+
+    console.log(`[RESET PASSWORD] Пароль изменён для ${phone}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Пароль успешно изменён' 
+    });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Ошибка смены пароля' });
+  }
+});
+
+// Очистка устаревших кодов (каждые 10 минут)
+setInterval(() => {
+  const now = Date.now();
+  for (const [phone, data] of resetCodes.entries()) {
+    if (now > data.expiresAt) {
+      resetCodes.delete(phone);
+      console.log(`[CLEANUP] Удалён устаревший код для ${phone}`);
+    }
+  }
+}, 10 * 60 * 1000);
+
 // ==================== ORDER ROUTES ====================
 
 // Создание заказа
@@ -949,6 +1067,96 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Update medic profile error:', error);
     res.status(500).json({ error: 'Failed to update profile: ' + error.message });
+  }
+});
+
+
+// Upload документов медика
+app.post('/api/medics/upload-document', authenticateToken, upload.single('document'), async (req, res) => {
+  try {
+    if (req.user.role !== 'MEDIC') {
+      return res.status(403).json({ error: 'Только для медиков' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Файл не загружен' });
+    }
+
+    const { documentType } = req.body; // 'LICENSE' или 'CERTIFICATE'
+    
+    if (!['LICENSE', 'CERTIFICATE'].includes(documentType)) {
+      return res.status(400).json({ error: 'Неверный тип документа' });
+    }
+
+    // Загружаем в Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'medicpro/documents',
+      resource_type: 'auto',
+      format: 'pdf'
+    });
+
+    // Сохраняем в БД
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.id }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Профиль медика не найден' });
+    }
+
+    // Обновляем documents (JSON поле)
+    const documents = medic.documents ? JSON.parse(medic.documents) : [];
+    documents.push({
+      type: documentType,
+      url: result.secure_url,
+      publicId: result.public_id,
+      uploadedAt: new Date().toISOString()
+    });
+
+    await prisma.medic.update({
+      where: { id: medic.id },
+      data: { 
+        documents: JSON.stringify(documents),
+        isApproved: false // Требует повторной модерации
+      }
+    });
+
+    console.log(`[DOCUMENT UPLOAD] ${documentType} загружен медиком ID ${medic.id}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Документ загружен',
+      url: result.secure_url
+    });
+
+  } catch (error) {
+    console.error('Upload document error:', error);
+    res.status(500).json({ error: 'Ошибка загрузки документа' });
+  }
+});
+
+// Получение документов медика (для админа)
+app.get('/api/admin/medics/:medicId/documents', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Только для админов' });
+    }
+
+    const medic = await prisma.medic.findUnique({
+      where: { id: parseInt(req.params.medicId) }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Медик не найден' });
+    }
+
+    const documents = medic.documents ? JSON.parse(medic.documents) : [];
+
+    res.json({ documents });
+
+  } catch (error) {
+    console.error('Get documents error:', error);
+    res.status(500).json({ error: 'Ошибка получения документов' });
   }
 });
 
