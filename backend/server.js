@@ -12,11 +12,13 @@ import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 import { sendVerificationCode, sendWhatsAppCode, generateCode } from './utils/sms.js';
 
+
 dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
 const prisma = new PrismaClient();
+const { sendOrderNotification, sendOrderAcceptedNotification, sendStatusUpdateNotification } = require('./utils/telegram');
 
 // Middleware
 app.use(helmet());
@@ -294,6 +296,35 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
     io.to(`medics-city-${district}`).emit('new-order', order);
     console.log(`📢 New order broadcast to: medics-city-${district}`);
 
+        // Найти медиков в этом районе с Telegram
+    try {
+      const medicsInArea = await prisma.medic.findMany({
+        where: {
+          areas: { has: order.district },
+          status: 'APPROVED',
+          telegramChatId: { not: null }
+        },
+        include: { user: true }
+      });
+
+      console.log(`📢 Найдено ${medicsInArea.length} медиков с Telegram в районе ${order.district}`);
+
+      // Отправить уведомления
+      for (const medic of medicsInArea) {
+        await sendOrderNotification(medic.telegramChatId, {
+          orderId: order.id,
+          district: order.district,
+          serviceType: order.serviceType,
+          scheduledTime: order.scheduledTime,
+          price: order.price,
+          address: order.address
+        });
+      }
+    } catch (telegramError) {
+      console.error('❌ Ошибка отправки Telegram уведомлений:', telegramError);
+      // Не падаем если Telegram не работает
+    }
+
     res.json(order);
   } catch (error) {
     console.error('Order creation error:', error);
@@ -553,6 +584,18 @@ app.post('/api/orders/:orderId/accept', authenticateToken, async (req, res) => {
 
     // Удаляем заказ из комнат других медиков
     io.to(`medics-${order.city}-${order.district}`).emit('order-taken', { orderId });
+        // Уведомление клиенту
+    try {
+      if (order.client.telegramChatId) {
+        await sendOrderAcceptedNotification(order.client.telegramChatId, {
+          orderId: order.id,
+          medicName: order.medic.user.name,
+          medicPhone: order.medic.user.phone
+        });
+      }
+    } catch (telegramError) {
+      console.error('❌ Ошибка отправки уведомления клиенту:', telegramError);
+    }
 
     res.json(updatedOrder);
   } catch (error) {
@@ -807,8 +850,6 @@ app.post('/api/reviews', authenticateToken, async (req, res) => {
 
 // ==================== MEDIC PROFILE ====================
 
-// ==================== MEDIC PROFILE ====================
-
 // Получение профиля медика
 app.get('/api/medics/profile', authenticateToken, async (req, res) => {
   try {
@@ -910,6 +951,59 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to update profile: ' + error.message });
   }
 });
+
+// ========== TELEGRAM ENDPOINTS (НОВОЕ) ==========
+
+// Привязать Telegram к профилю медика
+app.post('/api/medics/connect-telegram', authenticateToken, async (req, res) => {
+  try {
+    const { chatId } = req.body;
+
+    if (!chatId) {
+      return res.status(400).json({ error: 'Chat ID required' });
+    }
+
+    // Проверить что это медик
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!medic) {
+      return res.status(403).json({ error: 'Only medics can connect Telegram' });
+    }
+
+    await prisma.medic.update({
+      where: { userId: req.user.userId },
+      data: { telegramChatId: chatId }
+    });
+
+    console.log('✅ Telegram подключён для медика:', req.user.userId);
+
+    res.json({ success: true, message: 'Telegram успешно подключён!' });
+  } catch (error) {
+    console.error('❌ Connect Telegram error:', error);
+    res.status(500).json({ error: 'Failed to connect Telegram' });
+  }
+});
+
+// Отключить Telegram
+app.post('/api/medics/disconnect-telegram', authenticateToken, async (req, res) => {
+  try {
+    await prisma.medic.update({
+      where: { userId: req.user.userId },
+      data: { telegramChatId: null }
+    });
+
+    console.log('✅ Telegram отключён для медика:', req.user.userId);
+
+    res.json({ success: true, message: 'Telegram отключён' });
+  } catch (error) {
+    console.error('❌ Disconnect Telegram error:', error);
+    res.status(500).json({ error: 'Failed to disconnect Telegram' });
+  }
+});
+
+// ================================================
 
 // ==================== ADMIN ENDPOINTS ====================
 
