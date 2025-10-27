@@ -18,7 +18,7 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 const prisma = new PrismaClient();
-const { sendOrderNotification, sendOrderAcceptedNotification, sendStatusUpdateNotification } = require('./utils/telegram');
+import { sendOrderNotification, sendOrderAcceptedNotification, sendStatusUpdateNotification } from './utils/telegram.js';
 
 // Middleware
 app.use(helmet());
