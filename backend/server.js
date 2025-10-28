@@ -1471,6 +1471,7 @@ app.get('/api/admin/stats', authenticateToken, authenticateAdmin, async (req, re
 });
 
 // Получение жалоб с фильтрацией
+// Получение жалоб с фильтрацией
 app.get('/api/admin/complaints', authenticateToken, authenticateAdmin, async (req, res) => {
   try {
     const { status } = req.query; // ?status=NEW
@@ -1489,13 +1490,9 @@ app.get('/api/admin/complaints', authenticateToken, authenticateAdmin, async (re
           include: {
             client: {
               select: { id: true, name: true, phone: true }
-            }
-          }
-        },
-        medic: {
-          include: {
-            user: {
-              select: { name: true, phone: true }
+            },
+            medic: {
+              select: { id: true, name: true, phone: true }
             }
           }
         }
