@@ -948,11 +948,11 @@ app.post('/api/reviews', authenticateToken, async (req, res) => {
         clientId: req.user.userId,
         medicId: order.medicId,
         rating: parseInt(rating),
-        comment,
+        comment: comment || null,
         isComplaint: isComplaint || false,
         complaintCategory: isComplaint ? complaintCategory : null,
         complaintDescription: isComplaint ? complaintDescription : null,
-        complaintStatus: isComplaint ? 'NEW' : null,
+        complaintStatus: isComplaint ? 'NEW' : 'RESOLVED',
         editableUntil
       }
     });
@@ -964,13 +964,20 @@ app.post('/api/reviews', authenticateToken, async (req, res) => {
 
     const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
 
-    await prisma.medic.update({
-      where: { id: order.medicId },
-      data: {
-        ratingAvg: avgRating,
-        reviewsCount: reviews.length
-      }
+    // ИСПРАВЛЕНО: Сначала находим медика по userId, затем обновляем по id
+    const medic = await prisma.medic.findUnique({
+      where: { userId: order.medicId }
     });
+
+    if (medic) {
+      await prisma.medic.update({
+        where: { id: medic.id },
+        data: {
+          ratingAvg: avgRating,
+          reviewsCount: reviews.length
+        }
+      });
+    }
 
     console.log(`[REVIEW] ${isComplaint ? 'Жалоба' : 'Отзыв'} создан для заказа ${orderId}`);
 
