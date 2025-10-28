@@ -84,9 +84,14 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const url = complaintFilter !== 'ALL' 
-        ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints?status=${complaintFilter}`
-        : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints`;
+      
+      // Формируем URL с учётом фильтра
+      let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints`;
+      if (complaintFilter && complaintFilter !== 'ALL') {
+        url += `?status=${complaintFilter}`;
+      }
+      
+      console.log('Loading complaints with filter:', complaintFilter); // Для дебага
       
       const response = await fetch(url, {
         headers: {
@@ -95,10 +100,15 @@ export default function AdminDashboard() {
       });
 
       const result = await response.json();
+      
       if (response.ok) {
+        console.log('Complaints loaded:', result.length); // Для дебага
         setComplaints(result);
+      } else {
+        throw new Error(result.error);
       }
     } catch (err) {
+      console.error('Load complaints error:', err);
       toast.error('Ошибка загрузки жалоб');
     } finally {
       setLoading(false);
@@ -279,6 +289,7 @@ export default function AdminDashboard() {
   const updateComplaintStatus = async (complaintId: string, status: string) => {
     try {
       const token = localStorage.getItem('token');
+      
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints/${complaintId}/status`,
         {
@@ -291,13 +302,19 @@ export default function AdminDashboard() {
         }
       );
 
-      if (!res.ok) throw new Error('Ошибка обновления статуса');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Ошибка обновления статуса');
+      }
 
       toast.success('✅ Статус обновлён');
-      loadComplaints();
+      
+      // ВАЖНО: Перезагрузить жалобы после обновления
+      await loadComplaints();
 
     } catch (err: any) {
-      toast.error(err.message);
+      console.error('Update complaint error:', err);
+      toast.error(err.message || 'Ошибка обновления');
     }
   };
 
