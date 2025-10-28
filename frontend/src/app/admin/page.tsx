@@ -602,7 +602,9 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <div className="text-xs text-slate-400">Медик</div>
-                          <div className="font-medium">{complaint.medic.user.name}</div>
+                          <div className="font-medium">
+                            {complaint.order.medic?.name || 'Не назначен'}
+                          </div>
                         </div>
                       </div>
 
