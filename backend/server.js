@@ -1102,7 +1102,7 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
 
     // Сохраняем в БД
     const medic = await prisma.medic.findUnique({
-      where: { userId: req.user.id }
+      where: { userId: req.user.userId }
     });
 
     if (!medic) {
