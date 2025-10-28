@@ -1110,7 +1110,16 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
     }
 
     // Обновляем documents (JSON поле)
-    const documents = medic.documents ? JSON.parse(medic.documents) : [];
+    let documents = [];
+    try {
+      if (medic.documents && medic.documents.trim() !== '') {
+        documents = JSON.parse(medic.documents);
+      }
+    } catch (e) {
+      console.log('Ошибка парсинга documents, создаём новый массив');
+      documents = [];
+    }
+
     documents.push({
       type: documentType,
       url: result.secure_url,
@@ -1155,7 +1164,16 @@ app.get('/api/admin/medics/:medicId/documents', authenticateToken, async (req, r
       return res.status(404).json({ error: 'Медик не найден' });
     }
 
-    const documents = medic.documents ? JSON.parse(medic.documents) : [];
+    // Безопасный парсинг documents
+    let documents = [];
+    try {
+      if (medic.documents && typeof medic.documents === 'string' && medic.documents.trim() !== '') {
+        documents = JSON.parse(medic.documents);
+      }
+    } catch (e) {
+      console.log('Ошибка парсинга documents');
+      documents = [];
+    }
 
     res.json({ documents });
 
