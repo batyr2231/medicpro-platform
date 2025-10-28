@@ -85,13 +85,15 @@ export default function AdminDashboard() {
     try {
       const token = localStorage.getItem('token');
       
-      // Формируем URL с учётом фильтра
+      // Формируем URL
       let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints`;
+      
+      // Добавляем фильтр
       if (complaintFilter && complaintFilter !== 'ALL') {
         url += `?status=${complaintFilter}`;
       }
       
-      console.log('Loading complaints with filter:', complaintFilter); // Для дебага
+      console.log(`[COMPLAINTS] Загрузка с фильтром: ${complaintFilter}, URL: ${url}`);
       
       const response = await fetch(url, {
         headers: {
@@ -102,13 +104,13 @@ export default function AdminDashboard() {
       const result = await response.json();
       
       if (response.ok) {
-        console.log('Complaints loaded:', result.length); // Для дебага
+        console.log(`[COMPLAINTS] Загружено: ${result.length} жалоб`);
         setComplaints(result);
       } else {
         throw new Error(result.error);
       }
-    } catch (err) {
-      console.error('Load complaints error:', err);
+    } catch (err: any) {
+      console.error('[COMPLAINTS] Ошибка загрузки:', err);
       toast.error('Ошибка загрузки жалоб');
     } finally {
       setLoading(false);
@@ -266,7 +268,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const getComplaintStatusBadge = (status: string) => {
+const getComplaintStatusBadge = (status: string) => {
     const badges: Record<string, string> = {
       NEW: 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400',
       IN_PROGRESS: 'bg-blue-500/20 border-blue-500/30 text-blue-400',
@@ -290,6 +292,8 @@ export default function AdminDashboard() {
     try {
       const token = localStorage.getItem('token');
       
+      console.log(`[COMPLAINTS] Обновление статуса ${complaintId} → ${status}`);
+      
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints/${complaintId}/status`,
         {
@@ -302,18 +306,21 @@ export default function AdminDashboard() {
         }
       );
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || 'Ошибка обновления статуса');
       }
 
+      console.log(`[COMPLAINTS] Статус успешно обновлён`);
+      
       toast.success('✅ Статус обновлён');
       
-      // ВАЖНО: Перезагрузить жалобы после обновления
+      // Перезагружаем жалобы с текущим фильтром
       await loadComplaints();
 
     } catch (err: any) {
-      console.error('Update complaint error:', err);
+      console.error('[COMPLAINTS] Ошибка обновления:', err);
       toast.error(err.message || 'Ошибка обновления');
     }
   };
@@ -551,36 +558,46 @@ export default function AdminDashboard() {
             {activeTab === 'complaints' && (
               <div className="space-y-4">
                 {/* Фильтры */}
-                <div className="flex gap-2 mb-4 overflow-x-auto">
+                <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
                   <button
                     onClick={() => setComplaintFilter('ALL')}
-                    className={`px-4 py-2 rounded-lg whitespace-nowrap ${complaintFilter === 'ALL' ? 'bg-cyan-500' : 'bg-white/10'}`}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
+                      complaintFilter === 'ALL' 
+                        ? 'bg-cyan-500 shadow-lg' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
                   >
                     Все
                   </button>
                   <button
                     onClick={() => setComplaintFilter('NEW')}
-                    className={`px-4 py-2 rounded-lg whitespace-nowrap ${complaintFilter === 'NEW' ? 'bg-yellow-500' : 'bg-white/10'}`}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
+                      complaintFilter === 'NEW' 
+                        ? 'bg-yellow-500 shadow-lg' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
                   >
                     Новые
                   </button>
                   <button
                     onClick={() => setComplaintFilter('IN_PROGRESS')}
-                    className={`px-4 py-2 rounded-lg whitespace-nowrap ${complaintFilter === 'IN_PROGRESS' ? 'bg-blue-500' : 'bg-white/10'}`}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
+                      complaintFilter === 'IN_PROGRESS' 
+                        ? 'bg-blue-500 shadow-lg' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
                   >
                     В работе
                   </button>
                   <button
-                    onClick={() => setComplaintFilter('RESOLVED')}
-                    className={`px-4 py-2 rounded-lg whitespace-nowrap ${complaintFilter === 'RESOLVED' ? 'bg-green-500' : 'bg-white/10'}`}
+                    onClick={() => setComplaintFilter('COMPLETED')}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
+                      complaintFilter === 'COMPLETED' 
+                        ? 'bg-green-500 shadow-lg' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
                   >
-                    Решены
-                  </button>
-                  <button
-                    onClick={() => setComplaintFilter('REJECTED')}
-                    className={`px-4 py-2 rounded-lg whitespace-nowrap ${complaintFilter === 'REJECTED' ? 'bg-gray-500' : 'bg-white/10'}`}
-                  >
-                    Отклонены
+                    Завершённые
                   </button>
                 </div>
 
