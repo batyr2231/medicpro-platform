@@ -170,49 +170,51 @@ const handleDisconnectTelegram = async () => {
   }
 };
 
-  const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>, type: 'LICENSE' | 'CERTIFICATE') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>, type: 'LICENSE' | 'CERTIFICATE') => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    if (file.type !== 'application/pdf') {
-      alert('Только PDF файлы');
-      return;
-    }
+  // Проверка типа файла
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    toast.error('Только JPG, PNG или WEBP файлы');
+    return;
+  }
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Файл должен быть меньше 5MB');
-      return;
-    }
+  // Проверка размера (10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    toast.error('Файл должен быть меньше 10MB');
+    return;
+  }
 
-    setUploading(true);
+  setUploading(true);
 
-    try {
-      const formData = new FormData();
-      formData.append('document', file);
-      formData.append('documentType', type);
+  try {
+    const formData = new FormData();
+    formData.append('document', file);
+    formData.append('documentType', type);
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/medics/upload-document`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/medics/upload-document`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: formData
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error);
+    if (!res.ok) throw new Error(data.error);
 
-      alert('✅ Документ загружен! Требуется повторная модерация');
-      // Перезагрузить профиль
-      window.location.reload();
+    toast.success('✅ Фото документа загружено!');
+    setTimeout(() => window.location.reload(), 1500);
 
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setUploading(false);
-    }
-  };
+  } catch (err: any) {
+    toast.error(err.message || 'Ошибка загрузки');
+  } finally {
+    setUploading(false);
+  }
+};
 
   // Добавь в JSX (после секции с районами):
   <div className="bg-white rounded-lg shadow-md p-6">
@@ -487,7 +489,7 @@ const handleDisconnectTelegram = async () => {
           <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
             <h2 className="text-xl font-bold mb-6 flex items-center">
               <Award className="w-6 h-6 mr-2 text-cyan-400" />
-              📄 Документы
+              📄 Документы (фото)
             </h2>
 
             <div className="space-y-4">
@@ -498,19 +500,19 @@ const handleDisconnectTelegram = async () => {
                 <label className="flex-1 cursor-pointer block">
                   <div className="flex items-center justify-center gap-2 px-4 py-4 bg-blue-600/20 border-2 border-dashed border-blue-500/50 rounded-xl hover:bg-blue-600/30 hover:border-blue-500/70 transition-all">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span className="font-medium">Загрузить лицензию (PDF)</span>
+                    <span className="font-medium">Загрузить фото лицензии</span>
                   </div>
                   <input
                     type="file"
-                    accept=".pdf"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
                     onChange={(e) => handleUploadDocument(e, 'LICENSE')}
                     disabled={uploading}
                     className="hidden"
                   />
                 </label>
-                <p className="text-xs text-slate-400 mt-2">Максимальный размер: 5MB</p>
+                <p className="text-xs text-slate-400 mt-2">JPG, PNG, WEBP • Макс 10MB</p>
               </div>
 
               <div>
@@ -520,32 +522,32 @@ const handleDisconnectTelegram = async () => {
                 <label className="flex-1 cursor-pointer block">
                   <div className="flex items-center justify-center gap-2 px-4 py-4 bg-blue-600/20 border-2 border-dashed border-blue-500/50 rounded-xl hover:bg-blue-600/30 hover:border-blue-500/70 transition-all">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span className="font-medium">Загрузить сертификат (PDF)</span>
+                    <span className="font-medium">Загрузить фото сертификата</span>
                   </div>
                   <input
                     type="file"
-                    accept=".pdf"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
                     onChange={(e) => handleUploadDocument(e, 'CERTIFICATE')}
                     disabled={uploading}
                     className="hidden"
                   />
                 </label>
-                <p className="text-xs text-slate-400 mt-2">Максимальный размер: 5MB</p>
+                <p className="text-xs text-slate-400 mt-2">JPG, PNG, WEBP • Макс 10MB</p>
               </div>
             </div>
 
             {uploading && (
               <div className="mt-4 flex items-center justify-center gap-2 text-blue-400 bg-blue-500/10 rounded-xl p-4">
                 <Loader className="w-5 h-5 animate-spin" />
-                <span>Загрузка документа...</span>
+                <span>Загрузка фото...</span>
               </div>
             )}
 
             <div className="mt-6 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
               <p className="text-sm text-yellow-300">
-                ⚠️ После загрузки документов ваш профиль будет отправлен на повторную модерацию
+                ⚠️ После загрузки фото документов ваш профиль будет отправлен на повторную модерацию
               </p>
             </div>
           </div>

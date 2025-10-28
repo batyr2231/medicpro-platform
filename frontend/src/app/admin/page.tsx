@@ -191,53 +191,40 @@ const viewDocuments = async (medicId: number | string) => {
       return;
     }
 
-    console.log('Fetching documents for medic:', medicId);
-    console.log('Token exists:', !!token);
-
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics/${medicId}/documents`,
       {
-        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       }
     );
 
-    console.log('Response status:', res.status);
-
-    if (res.status === 401) {
-      toast.error('Сессия истекла. Войдите снова');
-      localStorage.removeItem('token');
-      router.push('/auth');
-      return;
-    }
-
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(errorData.error || 'Ошибка загрузки документов');
+      if (res.status === 401) {
+        toast.error('Сессия истекла');
+        router.push('/auth');
+        return;
+      }
+      throw new Error('Ошибка загрузки документов');
     }
 
     const data = await res.json();
-    
-    console.log('Documents received:', data);
     
     if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
       toast.error('Документы не загружены');
       return;
     }
 
-    // Открываем документы в новых вкладках
+    // Открываем все документы (теперь это изображения)
     data.documents.forEach((doc: { url: string; type: string }) => {
-      console.log('Opening document:', doc.url);
       window.open(doc.url, '_blank');
     });
 
     toast.success(`Открыто документов: ${data.documents.length}`);
 
   } catch (err: any) {
-    console.error('View documents error:', err);
+    console.error(err);
     toast.error(err.message || 'Ошибка загрузки документов');
   }
 };
