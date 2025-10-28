@@ -164,9 +164,9 @@ model Review {
   isComplaint          Boolean         @default(false)
   complaintCategory    String?
   complaintDescription String?
-  complaintStatus      ComplaintStatus @default(NEW)
-  complaintResolvedAt  DateTime?
-  complaintResolvedBy  String?
+  complaintStatus      ComplaintStatus @default(NEW)  // ← Проверь
+  complaintResolvedAt  DateTime?                      // ← Проверь
+  complaintResolvedBy  String?                        // ← Проверь
   isHidden             Boolean         @default(false)
   isEdited             Boolean         @default(false)
   createdAt            DateTime        @default(now())

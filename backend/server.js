@@ -1510,40 +1510,53 @@ app.get('/api/admin/complaints', authenticateToken, authenticateAdmin, async (re
   }
 });
 
+
 // Обновление статуса жалобы
 app.patch('/api/admin/complaints/:complaintId/status', authenticateToken, authenticateAdmin, async (req, res) => {
   try {
     const { complaintId } = req.params;
-    const { status } = req.body; // NEW, IN_PROGRESS, RESOLVED, REJECTED
+    const { status } = req.body;
+
+    console.log(`[ADMIN] Обновление статуса жалобы ${complaintId} на ${status}`);
 
     if (!['NEW', 'IN_PROGRESS', 'RESOLVED', 'REJECTED'].includes(status)) {
       return res.status(400).json({ error: 'Неверный статус' });
     }
 
+    // Сначала проверяем что жалоба существует
+    const existingReview = await prisma.review.findUnique({
+      where: { id: complaintId }
+    });
+
+    if (!existingReview) {
+      return res.status(404).json({ error: 'Жалоба не найдена' });
+    }
+
+    if (!existingReview.isComplaint) {
+      return res.status(400).json({ error: 'Это не жалоба' });
+    }
+
+    // Обновляем статус
     const review = await prisma.review.update({
       where: { id: complaintId },
       data: { 
         complaintStatus: status,
-        complaintResolvedAt: status === 'RESOLVED' || status === 'REJECTED' ? new Date() : null,
-        complaintResolvedBy: status === 'RESOLVED' || status === 'REJECTED' ? req.user.userId : null
-      },
-      include: {
-        order: true,
-        medic: {
-          include: {
-            user: true
-          }
-        }
+        complaintResolvedAt: (status === 'RESOLVED' || status === 'REJECTED') ? new Date() : null,
+        complaintResolvedBy: (status === 'RESOLVED' || status === 'REJECTED') ? req.user.userId : null,
+        updatedAt: new Date()
       }
     });
 
-    console.log(`[ADMIN] Статус жалобы ${complaintId} изменён на ${status}`);
+    console.log(`[ADMIN] Статус жалобы ${complaintId} успешно изменён на ${status}`);
 
     res.json({ success: true, review });
 
   } catch (error) {
-    console.error('Update complaint status error:', error);
-    res.status(500).json({ error: 'Ошибка обновления статуса' });
+    console.error('[ADMIN] Update complaint status error:', error);
+    res.status(500).json({ 
+      error: 'Ошибка обновления статуса',
+      details: error.message 
+    });
   }
 });
 
