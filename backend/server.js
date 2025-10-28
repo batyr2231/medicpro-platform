@@ -1088,11 +1088,16 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
       return res.status(400).json({ error: 'Неверный тип документа' });
     }
 
+    // Конвертируем buffer в base64 для Cloudinary
+    const b64 = Buffer.from(req.file.buffer).toString('base64');
+    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+
     // Загружаем в Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, {
+    const result = await cloudinary.uploader.upload(dataURI, {
       folder: 'medicpro/documents',
       resource_type: 'auto',
-      format: 'pdf'
+      format: 'pdf',
+      public_id: `${req.user.id}_${documentType}_${Date.now()}`
     });
 
     // Сохраняем в БД
@@ -1131,7 +1136,7 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
 
   } catch (error) {
     console.error('Upload document error:', error);
-    res.status(500).json({ error: 'Ошибка загрузки документа' });
+    res.status(500).json({ error: 'Ошибка загрузки документа: ' + error.message });
   }
 });
 
