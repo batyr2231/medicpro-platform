@@ -1470,45 +1470,46 @@ app.get('/api/admin/stats', authenticateToken, authenticateAdmin, async (req, re
   }
 });
 
-// Получение жалоб с фильтрацией
-// Получение жалоб с фильтрацией
-app.get('/api/admin/complaints', authenticateToken, authenticateAdmin, async (req, res) => {
-  try {
-    const { status } = req.query; // ?status=NEW
+  // Получение жалоб с фильтрацией
+  app.get('/api/admin/complaints', authenticateToken, authenticateAdmin, async (req, res) => {
+    try {
+      const { status } = req.query; // ?status=NEW
 
-    const where = status && status !== 'ALL' ? { 
-      isComplaint: true,
-      complaintStatus: status 
-    } : { 
-      isComplaint: true 
-    };
+      console.log(`[ADMIN] Запрос жалоб с фильтром: ${status || 'ALL'}`);
 
-    const complaints = await prisma.review.findMany({
-      where,
-      include: {
-        order: {
-          include: {
-            client: {
-              select: { id: true, name: true, phone: true }
-            },
-            medic: {
-              select: { id: true, name: true, phone: true }
+      // ИСПРАВЛЕНО: правильная логика фильтрации
+      let where = { isComplaint: true };
+      
+      if (status && status !== 'ALL') {
+        where.complaintStatus = status;
+      }
+
+      const complaints = await prisma.review.findMany({
+        where,
+        include: {
+          order: {
+            include: {
+              client: {
+                select: { id: true, name: true, phone: true }
+              },
+              medic: {
+                select: { id: true, name: true, phone: true }
+              }
             }
           }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+        },
+        orderBy: { createdAt: 'desc' }
+      });
 
-    console.log(`[ADMIN] Получено жалоб: ${complaints.length}, фильтр: ${status || 'ALL'}`);
+      console.log(`[ADMIN] Получено жалоб: ${complaints.length} (фильтр: ${status || 'ALL'})`);
 
-    res.json(complaints);
+      res.json(complaints);
 
-  } catch (error) {
-    console.error('Get complaints error:', error);
-    res.status(500).json({ error: 'Ошибка загрузки жалоб' });
-  }
-});
+    } catch (error) {
+      console.error('Get complaints error:', error);
+      res.status(500).json({ error: 'Ошибка загрузки жалоб' });
+    }
+  });
 
 
 // Обновление статуса жалобы
