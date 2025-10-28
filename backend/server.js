@@ -906,8 +906,10 @@ app.post('/api/reviews', authenticateToken, async (req, res) => {
   try {
     const { orderId, rating, comment, isComplaint, complaintCategory, complaintDescription } = req.body;
 
+    // Проверяем заказ
     const order = await prisma.order.findUnique({
-      where: { id: orderId }
+      where: { id: orderId },
+      include: { medic: true }
     });
 
     if (!order || order.clientId !== req.user.userId) {
@@ -927,18 +929,30 @@ app.post('/api/reviews', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Review already exists' });
     }
 
+    // Валидация жалобы
+    if (isComplaint) {
+      if (!complaintCategory) {
+        return res.status(400).json({ error: 'Укажите категорию жалобы' });
+      }
+      if (!complaintDescription || complaintDescription.trim().length < 10) {
+        return res.status(400).json({ error: 'Опишите жалобу подробнее (минимум 10 символов)' });
+      }
+    }
+
     const editableUntil = new Date(Date.now() + 24 * 60 * 60 * 1000); // +24 часа
 
+    // Создаём отзыв с жалобой
     const review = await prisma.review.create({
       data: {
         orderId,
         clientId: req.user.userId,
         medicId: order.medicId,
-        rating,
+        rating: parseInt(rating),
         comment,
-        isComplaint,
-        complaintCategory,
-        complaintDescription,
+        isComplaint: isComplaint || false,
+        complaintCategory: isComplaint ? complaintCategory : null,
+        complaintDescription: isComplaint ? complaintDescription : null,
+        complaintStatus: isComplaint ? 'NEW' : null,
         editableUntil
       }
     });
@@ -951,14 +965,21 @@ app.post('/api/reviews', authenticateToken, async (req, res) => {
     const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
 
     await prisma.medic.update({
-      where: { userId: order.medicId },
+      where: { id: order.medicId },
       data: {
         ratingAvg: avgRating,
         reviewsCount: reviews.length
       }
     });
 
-    res.json(review);
+    console.log(`[REVIEW] ${isComplaint ? 'Жалоба' : 'Отзыв'} создан для заказа ${orderId}`);
+
+    res.json({ 
+      success: true, 
+      review,
+      message: isComplaint ? 'Жалоба отправлена на рассмотрение' : 'Спасибо за отзыв!'
+    });
+
   } catch (error) {
     console.error('Create review error:', error);
     res.status(500).json({ error: 'Failed to create review' });
@@ -1439,6 +1460,86 @@ app.get('/api/admin/stats', authenticateToken, authenticateAdmin, async (req, re
   } catch (error) {
     console.error('Get stats error:', error);
     res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
+
+// Получение жалоб с фильтрацией
+app.get('/api/admin/complaints', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { status } = req.query; // ?status=NEW
+
+    const where = status && status !== 'ALL' ? { 
+      isComplaint: true,
+      complaintStatus: status 
+    } : { 
+      isComplaint: true 
+    };
+
+    const complaints = await prisma.review.findMany({
+      where,
+      include: {
+        order: {
+          include: {
+            client: {
+              select: { id: true, name: true, phone: true }
+            }
+          }
+        },
+        medic: {
+          include: {
+            user: {
+              select: { name: true, phone: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    console.log(`[ADMIN] Получено жалоб: ${complaints.length}, фильтр: ${status || 'ALL'}`);
+
+    res.json(complaints);
+
+  } catch (error) {
+    console.error('Get complaints error:', error);
+    res.status(500).json({ error: 'Ошибка загрузки жалоб' });
+  }
+});
+
+// Обновление статуса жалобы
+app.patch('/api/admin/complaints/:complaintId/status', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { complaintId } = req.params;
+    const { status } = req.body; // NEW, IN_PROGRESS, RESOLVED, REJECTED
+
+    if (!['NEW', 'IN_PROGRESS', 'RESOLVED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ error: 'Неверный статус' });
+    }
+
+    const review = await prisma.review.update({
+      where: { id: complaintId },
+      data: { 
+        complaintStatus: status,
+        complaintResolvedAt: status === 'RESOLVED' || status === 'REJECTED' ? new Date() : null,
+        complaintResolvedBy: status === 'RESOLVED' || status === 'REJECTED' ? req.user.userId : null
+      },
+      include: {
+        order: true,
+        medic: {
+          include: {
+            user: true
+          }
+        }
+      }
+    });
+
+    console.log(`[ADMIN] Статус жалобы ${complaintId} изменён на ${status}`);
+
+    res.json({ success: true, review });
+
+  } catch (error) {
+    console.error('Update complaint status error:', error);
+    res.status(500).json({ error: 'Ошибка обновления статуса' });
   }
 });
 
