@@ -181,53 +181,80 @@ export default function AdminDashboard() {
   };
 
   // Функция просмотра документов
-const viewDocuments = async (medicId: number | string) => {
-  try {
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      toast.error('Необходима авторизация');
-      router.push('/auth');
-      return;
-    }
-
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics/${medicId}/documents`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-
-    if (!res.ok) {
-      if (res.status === 401) {
-        toast.error('Сессия истекла');
+  const viewDocuments = async (medicId: number | string) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        toast.error('Необходима авторизация');
         router.push('/auth');
         return;
       }
-      throw new Error('Ошибка загрузки документов');
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics/${medicId}/documents`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          toast.error('Сессия истекла');
+          router.push('/auth');
+          return;
+        }
+        throw new Error('Ошибка загрузки документов');
+      }
+
+      const data = await res.json();
+      
+      if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
+        toast.error('Документы не загружены');
+        return;
+      }
+
+      // Открываем все документы (теперь это изображения)
+      data.documents.forEach((doc: { url: string; type: string }) => {
+        window.open(doc.url, '_blank');
+      });
+
+      toast.success(`Открыто документов: ${data.documents.length}`);
+
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Ошибка загрузки документов');
     }
+  };
 
-    const data = await res.json();
-    
-    if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
-      toast.error('Документы не загружены');
-      return;
+    const clearDocuments = async (medicId: number | string) => {
+    if (!confirm('Удалить все документы этого медика?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics/${medicId}/clear-documents`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!res.ok) throw new Error('Ошибка удаления');
+
+      toast.success('✅ Документы удалены');
+      loadMedics(); // Перезагрузить список
+
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Ошибка удаления документов');
     }
-
-    // Открываем все документы (теперь это изображения)
-    data.documents.forEach((doc: { url: string; type: string }) => {
-      window.open(doc.url, '_blank');
-    });
-
-    toast.success(`Открыто документов: ${data.documents.length}`);
-
-  } catch (err: any) {
-    console.error(err);
-    toast.error(err.message || 'Ошибка загрузки документов');
-  }
-};
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
@@ -365,14 +392,23 @@ const viewDocuments = async (medicId: number | string) => {
                           </div>
                         </div>
 
-                        {/* Кнопка просмотра документов */}
-                        <div className="mb-3">
+                        {/* Кнопки для работы с документами */}
+                        <div className="mb-3 flex gap-2">
                           <button
                             onClick={() => viewDocuments(medic.id)}
-                            className="w-full py-2 rounded-xl bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 hover:from-blue-500/30 hover:to-cyan-500/30 font-medium text-sm transition-all flex items-center justify-center"
+                            className="flex-1 py-2 rounded-xl bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 hover:from-blue-500/30 hover:to-cyan-500/30 font-medium text-sm transition-all flex items-center justify-center"
                           >
                             <Eye className="w-4 h-4 mr-2" />
-                            📄 Просмотреть документы
+                            📄 Просмотреть
+                          </button>
+                          
+                          <button
+                            onClick={() => clearDocuments(medic.id)}
+                            className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30 hover:from-red-500/30 hover:to-pink-500/30 font-medium text-sm transition-all flex items-center justify-center"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
                           </button>
                         </div>
 
