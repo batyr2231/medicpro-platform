@@ -1082,11 +1082,13 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
       return res.status(400).json({ error: 'Файл не загружен' });
     }
 
-    const { documentType } = req.body; // 'LICENSE' или 'CERTIFICATE'
+    const { documentType } = req.body;
     
     if (!['LICENSE', 'CERTIFICATE'].includes(documentType)) {
       return res.status(400).json({ error: 'Неверный тип документа' });
     }
+
+    console.log(`[UPLOAD] Uploading ${documentType} for user ${req.user.userId}`);
 
     // Конвертируем buffer в base64 для Cloudinary
     const b64 = Buffer.from(req.file.buffer).toString('base64');
@@ -1097,8 +1099,10 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
       folder: 'medicpro/documents',
       resource_type: 'auto',
       format: 'pdf',
-      public_id: `${req.user.id}_${documentType}_${Date.now()}`
+      public_id: `${req.user.userId}_${documentType}_${Date.now()}`
     });
+
+    console.log(`[UPLOAD] Cloudinary upload successful: ${result.secure_url}`);
 
     // Сохраняем в БД
     const medic = await prisma.medic.findUnique({
@@ -1109,17 +1113,13 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
       return res.status(404).json({ error: 'Профиль медика не найден' });
     }
 
-    // Обновляем documents (JSON поле)
+    // Безопасно получаем documents (теперь это Json, не String)
     let documents = [];
-    try {
-      if (medic.documents && medic.documents.trim() !== '') {
-        documents = JSON.parse(medic.documents);
-      }
-    } catch (e) {
-      console.log('Ошибка парсинга documents, создаём новый массив');
-      documents = [];
+    if (medic.documents && Array.isArray(medic.documents)) {
+      documents = medic.documents;
     }
 
+    // Добавляем новый документ
     documents.push({
       type: documentType,
       url: result.secure_url,
@@ -1127,11 +1127,12 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
       uploadedAt: new Date().toISOString()
     });
 
+    // Обновляем медика (теперь передаём массив, не JSON.stringify)
     await prisma.medic.update({
       where: { id: medic.id },
       data: { 
-        documents: JSON.stringify(documents),
-        isApproved: false // Требует повторной модерации
+        documents: documents,  // ← Передаём массив напрямую
+        status: 'PENDING' // Требует повторной модерации
       }
     });
 
@@ -1157,23 +1158,15 @@ app.get('/api/admin/medics/:medicId/documents', authenticateToken, async (req, r
     }
 
     const medic = await prisma.medic.findUnique({
-      where: { id: parseInt(req.params.medicId) }
+      where: { id: req.params.medicId }
     });
 
     if (!medic) {
       return res.status(404).json({ error: 'Медик не найден' });
     }
 
-    // Безопасный парсинг documents
-    let documents = [];
-    try {
-      if (medic.documents && typeof medic.documents === 'string' && medic.documents.trim() !== '') {
-        documents = JSON.parse(medic.documents);
-      }
-    } catch (e) {
-      console.log('Ошибка парсинга documents');
-      documents = [];
-    }
+    // documents теперь уже массив
+    const documents = medic.documents || [];
 
     res.json({ documents });
 
