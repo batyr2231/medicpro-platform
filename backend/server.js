@@ -1536,8 +1536,21 @@ socket.on('send-message', async (data) => {
   });
 });
 
+// Health check для Render
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Server is running' });
+});
+
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'MedicPro API Server',
+    version: '1.0.0'
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
