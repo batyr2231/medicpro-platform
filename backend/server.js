@@ -1204,9 +1204,13 @@ app.post('/api/medics/disconnect-telegram', authenticateToken, async (req, res) 
 
 // ================================================
 
+// Middleware для логирования всех admin запросов
+app.use('/api/admin/*', (req, res, next) => {
+  console.log(`[ADMIN REQUEST] ${req.method} ${req.path}`);
+  next();
+});
 // ==================== ADMIN ENDPOINTS ====================
 
-// Получение всех медиков
 // Получение всех медиков
 app.get('/api/admin/medics', authenticateToken, authenticateAdmin, async (req, res) => {
   try {
@@ -1305,23 +1309,26 @@ app.post('/api/admin/medics/:medicId/reject', authenticateToken, authenticateAdm
 // Получение документов медика (для админа)
 app.get('/api/admin/medics/:medicId/documents', authenticateToken, authenticateAdmin, async (req, res) => {
   try {
+    console.log(`[ADMIN] Запрос документов для медика: ${req.params.medicId}`);
+    
     const medic = await prisma.medic.findUnique({
       where: { id: req.params.medicId }
     });
 
     if (!medic) {
+      console.log(`[ADMIN] Медик не найден: ${req.params.medicId}`);
       return res.status(404).json({ error: 'Медик не найден' });
     }
 
     const documents = medic.documents || [];
 
-    console.log(`[ADMIN] Документы медика ${req.params.medicId}:`, documents);
+    console.log(`[ADMIN] Найдено документов: ${documents.length}`, documents);
 
     res.json({ documents });
 
   } catch (error) {
-    console.error('Get documents error:', error);
-    res.status(500).json({ error: 'Ошибка получения документов' });
+    console.error('[ADMIN] Get documents error:', error);
+    res.status(500).json({ error: 'Ошибка получения документов', details: error.message });
   }
 });
 
