@@ -483,6 +483,73 @@ const handleDisconnectTelegram = async () => {
             )}
           </div>
 
+          {/* Загрузка документов */}
+          <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
+            <h2 className="text-xl font-bold mb-6 flex items-center">
+              <Award className="w-6 h-6 mr-2 text-cyan-400" />
+              📄 Документы
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-300">
+                  🏥 Медицинская лицензия
+                </label>
+                <label className="flex-1 cursor-pointer block">
+                  <div className="flex items-center justify-center gap-2 px-4 py-4 bg-blue-600/20 border-2 border-dashed border-blue-500/50 rounded-xl hover:bg-blue-600/30 hover:border-blue-500/70 transition-all">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span className="font-medium">Загрузить лицензию (PDF)</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => handleUploadDocument(e, 'LICENSE')}
+                    disabled={uploading}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-xs text-slate-400 mt-2">Максимальный размер: 5MB</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-300">
+                  🎓 Сертификаты и дипломы
+                </label>
+                <label className="flex-1 cursor-pointer block">
+                  <div className="flex items-center justify-center gap-2 px-4 py-4 bg-blue-600/20 border-2 border-dashed border-blue-500/50 rounded-xl hover:bg-blue-600/30 hover:border-blue-500/70 transition-all">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span className="font-medium">Загрузить сертификат (PDF)</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => handleUploadDocument(e, 'CERTIFICATE')}
+                    disabled={uploading}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-xs text-slate-400 mt-2">Максимальный размер: 5MB</p>
+              </div>
+            </div>
+
+            {uploading && (
+              <div className="mt-4 flex items-center justify-center gap-2 text-blue-400 bg-blue-500/10 rounded-xl p-4">
+                <Loader className="w-5 h-5 animate-spin" />
+                <span>Загрузка документа...</span>
+              </div>
+            )}
+
+            <div className="mt-6 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+              <p className="text-sm text-yellow-300">
+                ⚠️ После загрузки документов ваш профиль будет отправлен на повторную модерацию
+              </p>
+            </div>
+          </div>
+
           {/* Submit Button */}
           <button
             type="submit"
