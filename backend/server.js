@@ -1094,12 +1094,12 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
     const b64 = Buffer.from(req.file.buffer).toString('base64');
     const dataURI = `data:${req.file.mimetype};base64,${b64}`;
 
-    // Загружаем в Cloudinary
+    // Загружаем в Cloudinary с правильными настройками для PDF
     const result = await cloudinary.uploader.upload(dataURI, {
       folder: 'medicpro/documents',
-      resource_type: 'auto',
-      format: 'pdf',
-      public_id: `${req.user.userId}_${documentType}_${Date.now()}`
+      resource_type: 'raw',  // ← ВАЖНО: 'raw' для PDF файлов
+      public_id: `${req.user.userId}_${documentType}_${Date.now()}`,
+      format: 'pdf'
     });
 
     console.log(`[UPLOAD] Cloudinary upload successful: ${result.secure_url}`);
@@ -1113,7 +1113,7 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
       return res.status(404).json({ error: 'Профиль медика не найден' });
     }
 
-    // Безопасно получаем documents (теперь это Json, не String)
+    // Безопасно получаем documents
     let documents = [];
     if (medic.documents && Array.isArray(medic.documents)) {
       documents = medic.documents;
@@ -1124,14 +1124,15 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
       type: documentType,
       url: result.secure_url,
       publicId: result.public_id,
-      uploadedAt: new Date().toISOString()
+      uploadedAt: new Date().toISOString(),
+      fileName: req.file.originalname
     });
 
-    // Обновляем медика (теперь передаём массив, не JSON.stringify)
+    // Обновляем медика
     await prisma.medic.update({
       where: { id: medic.id },
       data: { 
-        documents: documents,  // ← Передаём массив напрямую
+        documents: documents,
         status: 'PENDING' // Требует повторной модерации
       }
     });
@@ -1147,32 +1148,6 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
   } catch (error) {
     console.error('Upload document error:', error);
     res.status(500).json({ error: 'Ошибка загрузки документа: ' + error.message });
-  }
-});
-
-// Получение документов медика (для админа)
-app.get('/api/admin/medics/:medicId/documents', authenticateToken, async (req, res) => {
-  try {
-    if (req.user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Только для админов' });
-    }
-
-    const medic = await prisma.medic.findUnique({
-      where: { id: req.params.medicId }
-    });
-
-    if (!medic) {
-      return res.status(404).json({ error: 'Медик не найден' });
-    }
-
-    // documents теперь уже массив
-    const documents = medic.documents || [];
-
-    res.json({ documents });
-
-  } catch (error) {
-    console.error('Get documents error:', error);
-    res.status(500).json({ error: 'Ошибка получения документов' });
   }
 });
 
