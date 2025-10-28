@@ -1302,6 +1302,29 @@ app.post('/api/admin/medics/:medicId/reject', authenticateToken, authenticateAdm
   }
 });
 
+// Получение документов медика (для админа)
+app.get('/api/admin/medics/:medicId/documents', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const medic = await prisma.medic.findUnique({
+      where: { id: req.params.medicId }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Медик не найден' });
+    }
+
+    const documents = medic.documents || [];
+
+    console.log(`[ADMIN] Документы медика ${req.params.medicId}:`, documents);
+
+    res.json({ documents });
+
+  } catch (error) {
+    console.error('Get documents error:', error);
+    res.status(500).json({ error: 'Ошибка получения документов' });
+  }
+});
+
 // Получение всех заказов
 app.get('/api/admin/orders', authenticateToken, authenticateAdmin, async (req, res) => {
   try {
