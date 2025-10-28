@@ -1071,7 +1071,7 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
 });
 
 
-// Upload документов медика
+// Upload документов медика (ФОТО вместо PDF)
 app.post('/api/medics/upload-document', authenticateToken, upload.single('document'), async (req, res) => {
   try {
     if (req.user.role !== 'MEDIC') {
@@ -1082,7 +1082,7 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
       return res.status(400).json({ error: 'Файл не загружен' });
     }
 
-    const { documentType } = req.body;
+    const { documentType } = req.body; // 'LICENSE' или 'CERTIFICATE'
     
     if (!['LICENSE', 'CERTIFICATE'].includes(documentType)) {
       return res.status(400).json({ error: 'Неверный тип документа' });
@@ -1094,12 +1094,14 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
     const b64 = Buffer.from(req.file.buffer).toString('base64');
     const dataURI = `data:${req.file.mimetype};base64,${b64}`;
 
-    // Загружаем в Cloudinary с правильными настройками для PDF
+    // Загружаем в Cloudinary как изображение
     const result = await cloudinary.uploader.upload(dataURI, {
       folder: 'medicpro/documents',
-      resource_type: 'raw',  // ← ВАЖНО: 'raw' для PDF файлов
+      resource_type: 'image',  // ← Изображение
       public_id: `${req.user.userId}_${documentType}_${Date.now()}`,
-      format: 'pdf'
+      transformation: [
+        { quality: 'auto', fetch_format: 'auto' }  // Автооптимизация
+      ]
     });
 
     console.log(`[UPLOAD] Cloudinary upload successful: ${result.secure_url}`);
@@ -1125,7 +1127,8 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
       url: result.secure_url,
       publicId: result.public_id,
       uploadedAt: new Date().toISOString(),
-      fileName: req.file.originalname
+      fileName: req.file.originalname,
+      format: result.format  // jpg, png, etc
     });
 
     // Обновляем медика
