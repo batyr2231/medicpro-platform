@@ -12,12 +12,13 @@ export default function AdminDashboard() {
   const [complaints, setComplaints] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [complaintFilter, setComplaintFilter] = useState('ALL');
   
   const router = useRouter();
 
   useEffect(() => {
     loadData();
-  }, [activeTab]);
+  }, [activeTab, complaintFilter]);
 
   const loadData = () => {
     if (activeTab === 'medics') {
@@ -83,14 +84,15 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
+      const url = complaintFilter !== 'ALL' 
+        ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints?status=${complaintFilter}`
+        : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
       const result = await response.json();
       if (response.ok) {
@@ -180,7 +182,6 @@ export default function AdminDashboard() {
     return badges[status] || badges.PENDING;
   };
 
-  // Функция просмотра документов
   const viewDocuments = async (medicId: number | string) => {
     try {
       const token = localStorage.getItem('token');
@@ -216,7 +217,6 @@ export default function AdminDashboard() {
         return;
       }
 
-      // Открываем все документы (теперь это изображения)
       data.documents.forEach((doc: { url: string; type: string }) => {
         window.open(doc.url, '_blank');
       });
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
     }
   };
 
-    const clearDocuments = async (medicId: number | string) => {
+  const clearDocuments = async (medicId: number | string) => {
     if (!confirm('Удалить все документы этого медика?')) return;
 
     try {
@@ -248,11 +248,56 @@ export default function AdminDashboard() {
       if (!res.ok) throw new Error('Ошибка удаления');
 
       toast.success('✅ Документы удалены');
-      loadMedics(); // Перезагрузить список
+      loadMedics();
 
     } catch (err: any) {
       console.error(err);
       toast.error('Ошибка удаления документов');
+    }
+  };
+
+  const getComplaintStatusBadge = (status: string) => {
+    const badges: Record<string, string> = {
+      NEW: 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400',
+      IN_PROGRESS: 'bg-blue-500/20 border-blue-500/30 text-blue-400',
+      RESOLVED: 'bg-green-500/20 border-green-500/30 text-green-400',
+      REJECTED: 'bg-gray-500/20 border-gray-500/30 text-gray-400',
+    };
+    return badges[status] || badges.NEW;
+  };
+
+  const getComplaintStatusText = (status: string) => {
+    const texts: Record<string, string> = {
+      NEW: 'Новая',
+      IN_PROGRESS: 'В работе',
+      RESOLVED: 'Решена',
+      REJECTED: 'Отклонена',
+    };
+    return texts[status] || status;
+  };
+
+  const updateComplaintStatus = async (complaintId: string, status: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints/${complaintId}/status`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status })
+        }
+      );
+
+      if (!res.ok) throw new Error('Ошибка обновления статуса');
+
+      toast.success('✅ Статус обновлён');
+      loadComplaints();
+
+    } catch (err: any) {
+      toast.error(err.message);
     }
   };
 
@@ -392,7 +437,7 @@ export default function AdminDashboard() {
                           </div>
                         </div>
 
-                        {/* Кнопки для работы с документами */}
+                        {/* Кнопки документов */}
                         <div className="mb-3 flex gap-2">
                           <button
                             onClick={() => viewDocuments(medic.id)}
@@ -488,8 +533,38 @@ export default function AdminDashboard() {
             {/* Complaints Tab */}
             {activeTab === 'complaints' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-bold">Жалобы ({complaints.length})</h2>
+                {/* Фильтры */}
+                <div className="flex gap-2 mb-4 overflow-x-auto">
+                  <button
+                    onClick={() => setComplaintFilter('ALL')}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap ${complaintFilter === 'ALL' ? 'bg-cyan-500' : 'bg-white/10'}`}
+                  >
+                    Все
+                  </button>
+                  <button
+                    onClick={() => setComplaintFilter('NEW')}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap ${complaintFilter === 'NEW' ? 'bg-yellow-500' : 'bg-white/10'}`}
+                  >
+                    Новые
+                  </button>
+                  <button
+                    onClick={() => setComplaintFilter('IN_PROGRESS')}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap ${complaintFilter === 'IN_PROGRESS' ? 'bg-blue-500' : 'bg-white/10'}`}
+                  >
+                    В работе
+                  </button>
+                  <button
+                    onClick={() => setComplaintFilter('RESOLVED')}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap ${complaintFilter === 'RESOLVED' ? 'bg-green-500' : 'bg-white/10'}`}
+                  >
+                    Решены
+                  </button>
+                  <button
+                    onClick={() => setComplaintFilter('REJECTED')}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap ${complaintFilter === 'REJECTED' ? 'bg-gray-500' : 'bg-white/10'}`}
+                  >
+                    Отклонены
+                  </button>
                 </div>
 
                 {complaints.length === 0 ? (
@@ -503,18 +578,77 @@ export default function AdminDashboard() {
                       key={complaint.id}
                       className="rounded-2xl bg-gradient-to-br from-red-500/10 to-pink-500/5 backdrop-blur-xl border border-red-500/30 p-6"
                     >
+                      {/* Заголовок */}
                       <div className="flex items-start justify-between mb-4">
                         <div>
                           <div className="font-semibold text-lg text-red-400">{complaint.complaintCategory}</div>
                           <div className="text-xs text-slate-400">Заказ #{complaint.orderId}</div>
                         </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getComplaintStatusBadge(complaint.complaintStatus)}`}>
+                          {getComplaintStatusText(complaint.complaintStatus)}
+                        </span>
                       </div>
 
+                      {/* Описание */}
                       <div className="mb-4">
-                        <div className="text-sm text-slate-300">{complaint.complaintDescription}</div>
+                        <p className="text-sm text-slate-300">{complaint.complaintDescription}</p>
                       </div>
 
-                      <div className="text-xs text-slate-500">
+                      {/* Информация */}
+                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                        <div>
+                          <div className="text-xs text-slate-400">Клиент</div>
+                          <div className="font-medium">{complaint.order.client.name}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-400">Медик</div>
+                          <div className="font-medium">{complaint.medic.user.name}</div>
+                        </div>
+                      </div>
+
+                      {/* Действия */}
+                      {complaint.complaintStatus === 'NEW' && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => updateComplaintStatus(complaint.id, 'IN_PROGRESS')}
+                            className="flex-1 py-2 rounded-xl bg-blue-500/20 border border-blue-500/30 hover:bg-blue-500/30 transition-all text-sm"
+                          >
+                            Взять в работу
+                          </button>
+                          <button
+                            onClick={() => updateComplaintStatus(complaint.id, 'RESOLVED')}
+                            className="flex-1 py-2 rounded-xl bg-green-500/20 border border-green-500/30 hover:bg-green-500/30 transition-all text-sm"
+                          >
+                            Решено
+                          </button>
+                          <button
+                            onClick={() => updateComplaintStatus(complaint.id, 'REJECTED')}
+                            className="px-4 py-2 rounded-xl bg-gray-500/20 border border-gray-500/30 hover:bg-gray-500/30 transition-all text-sm"
+                          >
+                            Отклонить
+                          </button>
+                        </div>
+                      )}
+
+                      {complaint.complaintStatus === 'IN_PROGRESS' && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => updateComplaintStatus(complaint.id, 'RESOLVED')}
+                            className="flex-1 py-2 rounded-xl bg-green-500/20 border border-green-500/30 hover:bg-green-500/30 transition-all text-sm"
+                          >
+                            Решено
+                          </button>
+                          <button
+                            onClick={() => updateComplaintStatus(complaint.id, 'REJECTED')}
+                            className="px-4 py-2 rounded-xl bg-gray-500/20 border border-gray-500/30 hover:bg-gray-500/30 transition-all text-sm"
+                          >
+                            Отклонить
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Дата */}
+                      <div className="text-xs text-slate-500 mt-4">
                         {new Date(complaint.createdAt).toLocaleString('ru-RU')}
                       </div>
                     </div>
