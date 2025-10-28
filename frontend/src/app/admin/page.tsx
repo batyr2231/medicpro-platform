@@ -181,38 +181,66 @@ export default function AdminDashboard() {
   };
 
   // Функция просмотра документов
-  const viewDocuments = async (medicId: number) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics/${medicId}/documents`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      const data = await res.json();
-      
-      // Проверяем, что documents существует и это массив
-      if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
-        toast.error('Документы не загружены');
-        return;
-      }
-
-      // Открываем документы в новых вкладках
-      data.documents.forEach((doc: { url: string; type: string }) => {
-        window.open(doc.url, '_blank');
-      });
-
-      toast.success(`Открыто документов: ${data.documents.length}`);
-
-    } catch (err) {
-      console.error(err);
-      toast.error('Ошибка загрузки документов');
+const viewDocuments = async (medicId: number | string) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      toast.error('Необходима авторизация');
+      router.push('/auth');
+      return;
     }
-  };
+
+    console.log('Fetching documents for medic:', medicId);
+    console.log('Token exists:', !!token);
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics/${medicId}/documents`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('Response status:', res.status);
+
+    if (res.status === 401) {
+      toast.error('Сессия истекла. Войдите снова');
+      localStorage.removeItem('token');
+      router.push('/auth');
+      return;
+    }
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || 'Ошибка загрузки документов');
+    }
+
+    const data = await res.json();
+    
+    console.log('Documents received:', data);
+    
+    if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
+      toast.error('Документы не загружены');
+      return;
+    }
+
+    // Открываем документы в новых вкладках
+    data.documents.forEach((doc: { url: string; type: string }) => {
+      console.log('Opening document:', doc.url);
+      window.open(doc.url, '_blank');
+    });
+
+    toast.success(`Открыто документов: ${data.documents.length}`);
+
+  } catch (err: any) {
+    console.error('View documents error:', err);
+    toast.error(err.message || 'Ошибка загрузки документов');
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
