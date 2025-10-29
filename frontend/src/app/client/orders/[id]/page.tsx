@@ -205,6 +205,20 @@ export default function OrderDetailPage() {
               </div>
             </div>
 
+            {order.price && (
+              <div className="flex items-start space-x-3">
+                <div className="w-10 h-10 p-2 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                  💰
+                </div>
+                <div>
+                  <div className="text-sm text-slate-400 mb-1">Цена</div>
+                  <div className="font-medium text-green-400 text-lg">
+                    {parseInt(order.price).toLocaleString('ru-RU')} тг
+                  </div>
+                </div>
+              </div>
+            )}
+
             {order.comment && (
               <div className="p-4 rounded-xl bg-white/5 border border-white/10">
                 <div className="text-sm text-slate-400 mb-1">Комментарий</div>
@@ -250,6 +264,39 @@ export default function OrderDetailPage() {
             ⭐ Оставить отзыв о медике
           </button>
         )}
+
+        {/* Cancel Button */}
+        {order.status === 'NEW' && (
+          <button
+            onClick={async () => {
+              if (!confirm('Вы уверены что хотите отменить заказ?')) return;
+              
+              try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(
+                  `${process.env.NEXT_PUBLIC_API_URL}/api/orders/${order.id}/cancel`,
+                  {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                  }
+                );
+
+                if (response.ok) {
+                  alert('✅ Заказ отменён');
+                  router.push('/client/orders');
+                } else {
+                  const result = await response.json();
+                  alert('❌ ' + result.error);
+                }
+              } catch (error) {
+                alert('❌ Ошибка отмены заказа');
+              }
+            }}
+            className="w-full py-4 rounded-xl bg-red-500/20 border-2 border-red-500 hover:bg-red-500/30 font-semibold transition-all flex items-center justify-center text-lg text-red-400"
+          >
+            ❌ Отменить заказ
+          </button>
+        )} 
       </div>
     </div>
   );
