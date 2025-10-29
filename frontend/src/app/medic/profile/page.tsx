@@ -505,60 +505,57 @@ const handleDisconnectTelegram = async () => {
 
                     <button
                       type="button"
-                      onClick={() => setShowTelegramInput(true)}
-                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 font-semibold shadow-lg transition-all"
+                      onClick={handleConnectTelegram}
+                      disabled={loading}
+                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 disabled:opacity-50 font-semibold shadow-lg transition-all"
                     >
-                      📱 Подключить Telegram
+                      {loading ? 'Генерация ссылки...' : '📱 Подключить Telegram'}
                     </button>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                      <p className="text-sm text-slate-300 mb-2">
-                        <strong>Инструкция:</strong>
-                      </p>
-                      <ol className="text-sm text-slate-400 space-y-1 list-decimal list-inside">
-                        <li>Откройте Telegram</li>
-                        <li>Найдите бота (создайте через @BotFather)</li>
-                        <li>Нажмите <strong>/start</strong></li>
-                        <li>Скопируйте Chat ID который бот отправит</li>
-                        <li>Вставьте код ниже</li>
-                      </ol>
-                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                        <p className="text-sm text-slate-300 mb-3">
+                          <strong>📋 Инструкция:</strong>
+                        </p>
+                        <ol className="text-sm text-slate-400 space-y-2 list-decimal list-inside">
+                          <li>Нажмите кнопку <strong>"Открыть Telegram"</strong> ниже</li>
+                          <li>В Telegram нажмите <strong>"START"</strong></li>
+                          <li>Готово! Подключение произойдёт автоматически</li>
+                        </ol>
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Chat ID из бота:
-                      </label>
-                      <input
-                        type="text"
-                        value={telegramChatId}
-                        onChange={(e) => setTelegramChatId(e.target.value)}
-                        placeholder="Например: 123456789"
-                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white"
-                      />
-                    </div>
+                      {/* Кнопка открытия Telegram */}
+                      
+                        href={telegramDeepLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full py-4 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 font-semibold shadow-lg transition-all text-center"
+                      <a>
+                        🚀 Открыть Telegram
+                      </a>
 
-                    <div className="flex space-x-3">
+                      {/* Статус проверки */}
+                      {checkingConnection && (
+                        <div className="flex items-center justify-center space-x-2 text-blue-400 bg-blue-500/10 rounded-xl p-3">
+                          <Loader className="w-5 h-5 animate-spin" />
+                          <span className="text-sm">Ожидание подключения...</span>
+                        </div>
+                      )}
+
+                      {/* Кнопка отмены */}
                       <button
                         type="button"
-                        onClick={handleConnectTelegram}
-                        disabled={!telegramChatId}
-                        className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg transition-all"
-                      >
-                        Подключить
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowTelegramInput(false)}
-                        className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                        onClick={() => {
+                          setShowTelegramInput(false);
+                          setCheckingConnection(false);
+                        }}
+                        className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm"
                       >
                         Отмена
                       </button>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             )}
           </div>
