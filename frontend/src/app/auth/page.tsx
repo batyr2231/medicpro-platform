@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import Link from 'next/link';
 import { useVerification } from '../hooks/useVerification';
 import toast from 'react-hot-toast';
+import PhoneInput from '@/components/PhoneInput';
 
 export default function AuthPage() {
   const router = useRouter();
@@ -49,10 +50,10 @@ export default function AuthPage() {
 
     setLoading(true);
     try {
-      await sendCode(formData.phone, 'whatsapp'); // или 'whatsapp'
+      await sendCode(formData.phone, 'whatsapp');
       toast.success('📱 Код отправлен на ваш телефон!');
       setStep('code');
-      setTimer(60); // 60 секунд до повторной отправки
+      setTimer(60);
     } catch (err: any) {
       toast.error(err.message || 'Ошибка отправки кода');
     } finally {
@@ -206,17 +207,13 @@ export default function AuthPage() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Телефон
                 </label>
-                <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+7 (777) 123-45-67"
-                    className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
-                    required
-                  />
-                </div>
+                <PhoneInput
+                  value={formData.phone}
+                  onChange={(value) => setFormData({ ...formData, phone: value })}
+                  placeholder="+7 (___) ___-__-__"
+                  required
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
+                />
               </div>
 
               <div>
@@ -251,7 +248,7 @@ export default function AuthPage() {
                 {loading ? 'Вход...' : 'Войти'}
               </button>
               <div className="text-center mt-4">
-                <Link href="/auth/forgot-password" className="text-blue-600 hover:underline text-sm">
+                <Link href="/auth/forgot-password" className="text-cyan-400 hover:text-cyan-300 transition-colors text-sm">
                   Забыли пароль?
                 </Link>
               </div>
@@ -298,16 +295,12 @@ export default function AuthPage() {
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Телефон
                     </label>
-                    <div className="relative">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                      <input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="+7 (777) 123-45-67"
-                        className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
-                      />
-                    </div>
+                    <PhoneInput
+                      value={formData.phone}
+                      onChange={(value) => setFormData({ ...formData, phone: value })}
+                      placeholder="+7 (___) ___-__-__"
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
+                    />
                   </div>
 
                   <button

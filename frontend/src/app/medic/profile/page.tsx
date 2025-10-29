@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Phone, MapPin, Award, Save, Loader, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import PhoneInput from '@/components/PhoneInput'; 
 
 export default function MedicProfilePage() {
   const router = useRouter();
@@ -170,84 +171,51 @@ const handleDisconnectTelegram = async () => {
   }
 };
 
-const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>, type: 'LICENSE' | 'CERTIFICATE') => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+  const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>, type: 'LICENSE' | 'CERTIFICATE') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  // Проверка типа файла
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(file.type)) {
-    toast.error('Только JPG, PNG или WEBP файлы');
-    return;
-  }
+    // Проверка типа файла
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Только JPG, PNG или WEBP файлы');
+      return;
+    }
 
-  // Проверка размера (10MB)
-  if (file.size > 10 * 1024 * 1024) {
-    toast.error('Файл должен быть меньше 10MB');
-    return;
-  }
+    // Проверка размера (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Файл должен быть меньше 10MB');
+      return;
+    }
 
-  setUploading(true);
+    setUploading(true);
 
-  try {
-    const formData = new FormData();
-    formData.append('document', file);
-    formData.append('documentType', type);
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('documentType', type);
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/medics/upload-document`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: formData
-    });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/medics/upload-document`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error);
 
-    toast.success('✅ Фото документа загружено!');
-    setTimeout(() => window.location.reload(), 1500);
+      toast.success('✅ Фото документа загружено!');
+      setTimeout(() => window.location.reload(), 1500);
 
-  } catch (err: any) {
-    toast.error(err.message || 'Ошибка загрузки');
-  } finally {
-    setUploading(false);
-  }
-};
-
-  // Добавь в JSX (после секции с районами):
-  <div className="bg-white rounded-lg shadow-md p-6">
-    <h2 className="text-xl font-bold mb-4">📄 Документы</h2>
-    
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium mb-2">Лицензия</label>
-        <input
-          type="file"
-          accept=".pdf"
-          onChange={(e) => handleUploadDocument(e, 'LICENSE')}
-          disabled={uploading}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium mb-2">Сертификаты</label>
-        <input
-          type="file"
-          accept=".pdf"
-          onChange={(e) => handleUploadDocument(e, 'CERTIFICATE')}
-          disabled={uploading}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-        />
-      </div>
-    </div>
-
-    {uploading && (
-      <div className="mt-4 text-blue-600">Загрузка...</div>
-    )}
-  </div>
+    } catch (err: any) {
+      toast.error(err.message || 'Ошибка загрузки');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
@@ -295,12 +263,12 @@ const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>, type
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Телефон
                 </label>
-                <input
-                  type="tel"
+                <PhoneInput
                   value={formData.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors"
+                  onChange={(value) => handleChange('phone', value)}
+                  placeholder="+7 (___) ___-__-__"
                   required
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors"
                 />
               </div>
             </div>

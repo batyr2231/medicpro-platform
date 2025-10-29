@@ -15,6 +15,7 @@ export default function CreateOrderPage() {
     date: '',
     time: '',
     comment: '',
+    price: '',
   });
 
   const { createOrder, loading: orderLoading, error: orderError } = useOrders();
@@ -51,6 +52,7 @@ export default function CreateOrderPage() {
         district: formData.district,
         scheduledTime: scheduledDateTime,
         comment: formData.comment,
+        price: formData.price ? parseInt(formData.price) : undefined, 
       });
 
       console.log('Order created:', result);
@@ -227,6 +229,24 @@ export default function CreateOrderPage() {
                     required
                   />
                 </div>
+                {/* Price */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
+                    💰 Предполагаемая цена (тг)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.price}
+                    onChange={(e) => handleChange('price', e.target.value)}
+                    placeholder="Например: 5000"
+                    min="0"
+                    step="100"
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors"
+                  />
+                  <p className="text-xs text-slate-400 mt-2">
+                    * Необязательно. Окончательная цена будет согласована с медиком
+                  </p>
+                </div>
               </div>
 
               <div className="flex justify-between pt-4 max-w-2xl mx-auto">
@@ -299,6 +319,14 @@ export default function CreateOrderPage() {
                       Изменить
                     </button>
                   </div>
+                  {formData.price && (
+                    <div className="border-t border-white/10 pt-4">
+                      <div className="text-sm text-slate-400 mb-1">Предполагаемая цена</div>
+                      <div className="font-medium text-green-400">
+                        {parseInt(formData.price).toLocaleString('ru-RU')} тг
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Comment */}

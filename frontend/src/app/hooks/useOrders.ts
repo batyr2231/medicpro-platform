@@ -21,6 +21,7 @@ export function useOrders() {
     district: string;
     scheduledTime: string;
     comment?: string;
+    price?: number; 
   }) => {
     setLoading(true);
     setError(null);
