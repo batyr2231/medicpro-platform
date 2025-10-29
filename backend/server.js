@@ -386,7 +386,7 @@ setInterval(() => {
 // Создание заказа
 app.post('/api/orders', authenticateToken, async (req, res) => {
   try {
-    const { serviceType, address, city, district, scheduledTime, comment } = req.body;
+    const { serviceType, address, city, district, scheduledTime, comment, price } = req.body; // ← ДОБАВИТЬ price
 
     const order = await prisma.order.create({
       data: {
@@ -397,6 +397,7 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
         district,
         scheduledTime: new Date(scheduledTime),
         comment,
+        price: price ? parseFloat(price) : null, // ← ДОБАВИТЬ ЭТУ СТРОКУ!
         status: 'NEW'
       },
       include: {
@@ -414,7 +415,7 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
     io.to(`medics-city-${district}`).emit('new-order', order);
     console.log(`📢 New order broadcast to: medics-city-${district}`);
 
-        // Найти медиков в этом районе с Telegram
+    // Найти медиков в этом районе с Telegram
     try {
       const medicsInArea = await prisma.medic.findMany({
         where: {
@@ -434,7 +435,7 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
           district: order.district,
           serviceType: order.serviceType,
           scheduledTime: order.scheduledTime,
-          price: order.price,
+          price: order.price, // ← Теперь price будет из БД!
           address: order.address
         });
       }
