@@ -133,8 +133,22 @@ export default function MedicOrderDetailPage() {
                 <div className="text-slate-300">{order.comment}</div>
               </div>
             )}
+            {order.price && (
+            <div className="mt-4 p-4 rounded-xl bg-green-500/10 border border-green-500/30">
+                <div className="flex items-center justify-between">
+                <div className="text-sm text-slate-400">Предполагаемая цена:</div>
+                <div className="text-2xl font-bold text-green-400">
+                    {parseInt(order.price).toLocaleString('ru-RU')} тг
+                </div>
+                </div>
+                <div className="text-xs text-slate-400 mt-2">
+                * Окончательная цена согласовывается с клиентом
+                </div>
+            </div>
+            )}
           </div>
         </div>
+
 
         {/* Client Info */}
         <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6 mb-6">

@@ -295,6 +295,20 @@ export default function MedicDashboard() {
                     </div>
                   )}
 
+                  {order.price && (
+                    <div className="mb-4 p-3 rounded-xl bg-green-500/10 border border-green-500/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <DollarSign className="w-5 h-5 text-green-400" />
+                          <span className="text-sm text-slate-400">Предполагаемая цена:</span>
+                        </div>
+                        <span className="text-xl font-bold text-green-400">
+                          {parseInt(order.price).toLocaleString('ru-RU')} тг
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex space-x-3">
                     <button
                       onClick={() => handleAcceptOrder(order.id)}

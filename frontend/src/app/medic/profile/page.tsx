@@ -23,6 +23,7 @@ export default function MedicProfilePage() {
 
   const [uploading, setUploading] = useState(false);
   const [documents, setDocuments] = useState<any[]>([]);
+  const [medicStatus, setMedicStatus] = useState<string>('PENDING'); 
 
   const districts = [
     'Алмалинский', 'Ауэзовский', 'Бостандыкский', 'Жетысуский',
@@ -56,9 +57,12 @@ export default function MedicProfilePage() {
           education: result.education || '',
           areas: result.areas || [],
         });
-      }
-      if (result.telegramChatId) {
-        setTelegramConnected(true);
+        
+        setMedicStatus(result.status || 'PENDING'); // ← ДОБАВИТЬ
+        
+        if (result.telegramChatId) {
+          setTelegramConnected(true);
+        }
       }
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -236,6 +240,55 @@ const handleDisconnectTelegram = async () => {
         </div>
       </header>
 
+      {/* Добавить ЗДЕСЬ бейдж верификации */}
+      <div className="max-w-4xl mx-auto px-4 pt-4">
+        {medicStatus === 'APPROVED' && (
+          <div className="mb-4 p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+                <svg className="w-7 h-7 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <div className="font-bold text-green-400 text-lg">✅ Профиль верифицирован</div>
+                <div className="text-sm text-slate-400">Ваши документы проверены администрацией</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {medicStatus === 'PENDING' && (
+          <div className="mb-4 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                <Loader className="w-7 h-7 text-yellow-400 animate-spin" />
+              </div>
+              <div>
+                <div className="font-bold text-yellow-400 text-lg">⏳ На модерации</div>
+                <div className="text-sm text-slate-400">Ваш профиль проверяется администрацией</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {medicStatus === 'REJECTED' && (
+          <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
+                <svg className="w-7 h-7 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <div className="font-bold text-red-400 text-lg">❌ Профиль отклонён</div>
+                <div className="text-sm text-slate-400">Свяжитесь с поддержкой для уточнения причины</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="max-w-4xl mx-auto px-4 py-8">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Personal Info */}
@@ -244,7 +297,6 @@ const handleDisconnectTelegram = async () => {
               <User className="w-6 h-6 mr-2 text-cyan-400" />
               Личная информация
             </h2>
-
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
