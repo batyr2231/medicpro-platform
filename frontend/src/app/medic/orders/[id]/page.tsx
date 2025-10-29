@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, MapPin, Clock, Phone, MessageSquare, CheckCircle, Loader } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Phone,DollarSign, MessageSquare, CheckCircle, Loader } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+
 
 export default function MedicOrderDetailPage() {
   const params = useParams();
@@ -126,6 +127,18 @@ export default function MedicOrderDetailPage() {
                 {new Date(order.scheduledTime).toLocaleString('ru-RU')}
               </span>
             </div>
+
+            {order.price && (
+                <div className="flex items-center space-x-3">
+                <DollarSign className="w-5 h-5 text-green-400" />
+                <div>
+                    <span className="text-slate-400 text-sm">Цена: </span>
+                    <span className="text-green-400 font-bold text-lg">
+                    {parseInt(order.price).toLocaleString('ru-RU')} тг
+                    </span>
+                </div>
+                </div>
+            )}
 
             {order.comment && (
               <div className="mt-4 p-4 rounded-xl bg-white/5 border border-white/10">

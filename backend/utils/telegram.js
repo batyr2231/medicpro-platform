@@ -63,7 +63,7 @@ async function sendOrderNotification(chatId, orderData) {
       `📍 <b>Район:</b> ${district}\n` +
       `📋 <b>Услуга:</b> ${serviceType}\n` +
       `📅 <b>Время:</b> ${new Date(scheduledTime).toLocaleString('ru-RU')}\n` +
-      `💰 <b>Цена:</b> ${price ? `${parseInt(price).toLocaleString('ru-RU')} тг` : 'Будет согласована'}\n` +
+      `💰 <b>Цена:</b> ${price ? `${parseInt(price).toLocaleString('ru-RU')} тг` : `Не указана (price=${price})`}\n` +
       `🏠 <b>Адрес:</b> ${address}\n\n` +
       `⏰ <i>Время ограничено! Первый медик получит заказ.</i>`;
 
