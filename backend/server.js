@@ -1067,6 +1067,7 @@ app.get('/api/medics/profile', authenticateToken, async (req, res) => {
       status: medic.status,
       ratingAvg: medic.ratingAvg,
       reviewsCount: medic.reviewsCount,
+      telegramChatId: medic.telegramChatId,
       createdAt: medic.createdAt,
     };
 
@@ -1236,7 +1237,6 @@ app.post('/api/medics/connect-telegram', authenticateToken, async (req, res) => 
       return res.status(400).json({ error: 'Chat ID required' });
     }
 
-    // Проверить что это медик
     const medic = await prisma.medic.findUnique({
       where: { userId: req.user.userId }
     });
