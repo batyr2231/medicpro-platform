@@ -1,4 +1,6 @@
 import { Telegraf, Markup } from 'telegraf';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const DEV_MODE = process.env.NODE_ENV !== 'production';
@@ -13,11 +15,76 @@ if (TELEGRAM_BOT_TOKEN) {
 }
 
 if (bot) {
-  bot.start((ctx) => {
+  bot.start(async (ctx) => {
+    const startParam = ctx.startPayload; // Код после ?start=
     const chatId = ctx.chat.id;
-    ctx.replyWithHTML(
-      `Привет! 👋\n\nЯ бот для уведомлений MedicPro.\n\nЧтобы подключить уведомления:\n1. Откройте сайт MedicPro\n2. Перейдите в Профиль\n3. Введите этот код:\n\n<code>${chatId}</code>\n\nПосле этого вы будете получать уведомления о новых заказах!`
-    );
+
+    console.log(`[TELEGRAM] /start command. Chat ID: ${chatId}, Param: ${startParam || 'none'}`);
+
+    if (startParam && startParam.startsWith('MED_')) {
+      // Это попытка подключения медика
+      try {
+        // Проверяем код в БД
+        const verification = await prisma.verificationCode.findFirst({
+          where: {
+            code: startParam,
+            verified: false,
+            expiresAt: { gt: new Date() }
+          }
+        });
+
+        if (!verification) {
+          ctx.reply('❌ Неверный код или код истёк.\n\nПопробуйте снова через профиль на сайте.');
+          return;
+        }
+
+        // Находим медика по userId (сохранён в phone)
+        const medic = await prisma.medic.findUnique({
+          where: { userId: verification.phone }
+        });
+
+        if (!medic) {
+          ctx.reply('❌ Медик не найден. Обратитесь в поддержку.');
+          return;
+        }
+
+        // Привязываем Chat ID
+        await prisma.medic.update({
+          where: { id: medic.id },
+          data: { telegramChatId: chatId.toString() }
+        });
+
+        // Отмечаем код как использованный
+        await prisma.verificationCode.update({
+          where: { id: verification.id },
+          data: { verified: true }
+        });
+
+        ctx.replyWithHTML(
+          `✅ <b>Отлично!</b>\n\n` +
+          `Ваш аккаунт успешно привязан к Telegram!\n\n` +
+          `Теперь вы будете получать уведомления о новых заказах прямо здесь. 🔔\n\n` +
+          `<i>Можете вернуться на сайт.</i>`
+        );
+
+        console.log(`✅ Medic ${medic.id} connected to Telegram (Chat ID: ${chatId})`);
+
+      } catch (error) {
+        console.error('❌ Telegram connect error:', error);
+        ctx.reply('❌ Ошибка подключения. Попробуйте позже или обратитесь в поддержку.');
+      }
+    } else {
+      // Обычный /start без кода
+      ctx.replyWithHTML(
+        `Привет! 👋\n\n` +
+        `Я бот для уведомлений <b>MedicPro</b>.\n\n` +
+        `Чтобы подключить уведомления о новых заказах:\n` +
+        `1️⃣ Откройте сайт MedicPro\n` +
+        `2️⃣ Перейдите в <b>Профиль</b>\n` +
+        `3️⃣ Нажмите <b>"Подключить Telegram"</b>\n\n` +
+        `После этого вы будете получать уведомления здесь! 🚀`
+      );
+    }
   });
 
   bot.help((ctx) => {

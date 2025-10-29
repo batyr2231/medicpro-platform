@@ -1228,7 +1228,53 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
 
 // ========== TELEGRAM ENDPOINTS (НОВОЕ) ==========
 
-// Привязать Telegram к профилю медика
+// ========== TELEGRAM ENDPOINTS ==========
+
+// Генерация кода для подключения Telegram (Deep Link)
+app.post('/api/medics/generate-telegram-code', authenticateToken, async (req, res) => {
+  try {
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Medic not found' });
+    }
+
+    // Генерируем уникальный код
+    const code = `MED_${medic.id.substring(0, 8)}_${Date.now().toString(36)}`;
+
+    // Сохраняем код в БД с временем истечения (10 минут)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    
+    await prisma.verificationCode.create({
+      data: {
+        phone: req.user.userId, // Используем userId как ключ
+        code: code,
+        expiresAt: expiresAt,
+        verified: false
+      }
+    });
+
+    const botUsername = 'medicpro_notifications_bot'; // ← ЗАМЕНИТЕ НА ИМЯ ВАШЕГО БОТА (без @)
+    const deepLink = `https://t.me/${botUsername}?start=${code}`;
+
+    console.log(`✅ Telegram code generated for medic ${medic.id}: ${code}`);
+
+    res.json({ 
+      code,
+      botUsername,
+      deepLink,
+      expiresIn: 600 // секунды
+    });
+
+  } catch (error) {
+    console.error('Generate telegram code error:', error);
+    res.status(500).json({ error: 'Failed to generate code' });
+  }
+});
+
+// Привязать Telegram к профилю медика (используется ботом)
 app.post('/api/medics/connect-telegram', authenticateToken, async (req, res) => {
   try {
     const { chatId } = req.body;
@@ -1237,6 +1283,7 @@ app.post('/api/medics/connect-telegram', authenticateToken, async (req, res) => 
       return res.status(400).json({ error: 'Chat ID required' });
     }
 
+    // Проверить что это медик
     const medic = await prisma.medic.findUnique({
       where: { userId: req.user.userId }
     });
@@ -1275,7 +1322,6 @@ app.post('/api/medics/disconnect-telegram', authenticateToken, async (req, res) 
     res.status(500).json({ error: 'Failed to disconnect Telegram' });
   }
 });
-
 // ================================================
 
 // Middleware для логирования всех admin запросов
