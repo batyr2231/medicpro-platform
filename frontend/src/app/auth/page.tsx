@@ -110,7 +110,7 @@ export default function AuthPage() {
 
       setTimeout(() => {
         if (result.user.role === 'CLIENT') {
-          router.push('/orders/create');
+          router.push('/client/orders');
         } else if (result.user.role === 'MEDIC') {
           router.push('/medic/dashboard');
         } else if (result.user.role === 'ADMIN') {
@@ -140,7 +140,7 @@ export default function AuthPage() {
 
       setTimeout(() => {
         if (result.user.role === 'CLIENT') {
-          router.push('/orders/create');
+          router.push('/client/orders'); // ← ИЗМЕНИТЬ С /orders/create
         } else if (result.user.role === 'MEDIC') {
           router.push('/medic/dashboard');
         } else if (result.user.role === 'ADMIN') {
