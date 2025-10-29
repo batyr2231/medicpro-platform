@@ -11,14 +11,15 @@ export function useVerification() {
   const sendCode = async (phone: string, method: 'sms' | 'whatsapp' = 'sms') => {
     setLoading(true);
     setError(null);
-
+    const cleanPhone = phone.replace(/\D/g, '');
+    const formattedPhone = '+' + cleanPhone;
     try {
       const response = await fetch(`${API_URL}/api/auth/send-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone, method }),
+        body: JSON.stringify({ phone: formattedPhone, method }),
       });
 
       const result = await response.json();

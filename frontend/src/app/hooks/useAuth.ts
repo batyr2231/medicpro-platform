@@ -16,16 +16,20 @@ export function useAuth() {
   const [error, setError] = useState<string | null>(null);
 
   const register = async (data: RegisterData) => {
+    // Очищаем телефон от маски
+    const cleanPhone = data.phone.replace(/\D/g, ''); // ← ИСПРАВЛЕНО: data.phone
+    const formattedPhone = '+' + cleanPhone;
+    
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/register`, {  // ← Должно быть /api/auth/register
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, phone: formattedPhone }),
       });
 
       const result = await response.json();
@@ -44,16 +48,20 @@ export function useAuth() {
   };
 
   const login = async (phone: string, password: string) => {
+    // Очищаем телефон от маски
+    const cleanPhone = phone.replace(/\D/g, '');
+    const formattedPhone = '+' + cleanPhone;
+    
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {  // ← Должно быть /api/auth/login
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone, password }),
+        body: JSON.stringify({ phone: formattedPhone, password }),
       });
 
       const result = await response.json();
