@@ -12,6 +12,8 @@ export default function MedicProfilePage() {
   const [telegramChatId, setTelegramChatId] = useState('');
   const [telegramConnected, setTelegramConnected] = useState(false);
   const [showTelegramInput, setShowTelegramInput] = useState(false);
+  const [telegramDeepLink, setTelegramDeepLink] = useState(''); // ← ДОБАВИТЬ
+  const [checkingConnection, setCheckingConnection] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -122,34 +124,74 @@ export default function MedicProfilePage() {
     setFormData({ ...formData, areas: newAreas });
   };
 
-  const handleConnectTelegram = async () => {
+const handleConnectTelegram = async () => {
   try {
+    setLoading(true);
     const token = localStorage.getItem('token');
+    
+    // Генерируем код для подключения
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/connect-telegram`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/medics/generate-telegram-code`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ chatId: telegramChatId })
+        headers: { 'Authorization': `Bearer ${token}` }
       }
     );
 
     const result = await response.json();
 
     if (response.ok) {
-      setTelegramConnected(true);
-      setShowTelegramInput(false);
-      toast.success('✅ Telegram успешно подключён!');
+      setTelegramDeepLink(result.deepLink);
+      setShowTelegramInput(true);
+      
+      toast.success('✅ Ссылка готова! Откройте Telegram');
+      
+      // Начинаем проверять подключение каждые 3 секунды
+      startCheckingConnection();
     } else {
-      toast.error('❌ Ошибка: ' + result.error);
+      toast.error('❌ ' + result.error);
     }
   } catch (error) {
     console.error('Connect Telegram error:', error);
-    toast.error('❌ Ошибка подключения');
+    toast.error('❌ Ошибка генерации ссылки');
+  } finally {
+    setLoading(false);
   }
+};
+
+// Функция проверки подключения
+const startCheckingConnection = () => {
+  setCheckingConnection(true);
+  
+  const interval = setInterval(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/medics/profile`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+      
+      const result = await response.json();
+      
+      if (result.telegramChatId) {
+        setTelegramConnected(true);
+        setShowTelegramInput(false);
+        setCheckingConnection(false);
+        clearInterval(interval);
+        toast.success('🎉 Telegram успешно подключён!');
+      }
+    } catch (error) {
+      console.error('Check connection error:', error);
+    }
+  }, 3000);
+  
+  // Останавливаем проверку через 2 минуты
+  setTimeout(() => {
+    clearInterval(interval);
+    setCheckingConnection(false);
+  }, 120000);
 };
 
 const handleDisconnectTelegram = async () => {
