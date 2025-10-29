@@ -1473,15 +1473,22 @@ app.get('/api/admin/stats', authenticateToken, authenticateAdmin, async (req, re
   // Получение жалоб с фильтрацией
   app.get('/api/admin/complaints', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const { status } = req.query; // ?status=NEW
+      const { status } = req.query;
 
       console.log(`[ADMIN] Запрос жалоб с фильтром: ${status || 'ALL'}`);
 
-      // ИСПРАВЛЕНО: правильная логика фильтрации
+      // Базовое условие
       let where = { isComplaint: true };
       
+      // Фильтрация по статусу
       if (status && status !== 'ALL') {
-        where.complaintStatus = status;
+        if (status === 'COMPLETED') {
+          // Завершённые = RESOLVED + REJECTED
+          where.complaintStatus = { in: ['RESOLVED', 'REJECTED'] };
+        } else {
+          // Конкретный статус
+          where.complaintStatus = status;
+        }
       }
 
       const complaints = await prisma.review.findMany({
@@ -1501,12 +1508,12 @@ app.get('/api/admin/stats', authenticateToken, authenticateAdmin, async (req, re
         orderBy: { createdAt: 'desc' }
       });
 
-      console.log(`[ADMIN] Получено жалоб: ${complaints.length} (фильтр: ${status || 'ALL'})`);
+      console.log(`[ADMIN] Найдено жалоб: ${complaints.length} (фильтр: ${status || 'ALL'})`);
 
       res.json(complaints);
 
     } catch (error) {
-      console.error('Get complaints error:', error);
+      console.error('[ADMIN] Get complaints error:', error);
       res.status(500).json({ error: 'Ошибка загрузки жалоб' });
     }
   });
