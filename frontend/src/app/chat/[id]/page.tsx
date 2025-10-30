@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader, X} from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useChat } from '../../hooks/useChat';
+
 
 //import toast from 'react-hot-toast';
 
@@ -17,6 +18,8 @@ export default function ChatPage() {
   const [orderInfo, setOrderInfo] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   
   const { messages, loading, error, sendMessage } = useChat(orderId);
 
@@ -71,45 +74,58 @@ export default function ChatPage() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+  // Проверка размера (10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    alert('Файл слишком большой! Максимум 10MB');
+    return;
+  }
 
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/upload`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          body: formData,
-        }
-      );
+  setSelectedFile(file);
+  e.target.value = ''; // Сбросить input
+};
 
-      const result = await response.json();
+  const handleSendFile = async () => {
+  if (!selectedFile) return;
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to upload');
+  setUploading(true);
+  try {
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    const token = localStorage.getItem('token');
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/upload`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
       }
+    );
 
-      // Отправляем сообщение с файлом
-      sendMessage('', result.url, result.type);
-      
-      // Очищаем input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      
-    } catch (err: any) {
-      console.error('File upload error:', err);
-      //toast.error('❌ Ошибка загрузки файла: ' + err.message);
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to upload');
     }
-  };
+
+    // Отправляем сообщение с файлом
+    sendMessage('', result.url, result.type);
+    
+    setSelectedFile(null);
+    
+  } catch (err: any) {
+    console.error('File upload error:', err);
+    alert('❌ Ошибка загрузки: ' + err.message);
+  } finally {
+    setUploading(false);
+  }
+};
 
   if (loading) {
     return (
@@ -141,7 +157,7 @@ export default function ChatPage() {
                   console.log('👤 Current user role:', user.role); // Для отладки
                   
                   if (user.role === 'MEDIC') {
-                    router.push('/medic/dashboard');
+                    router.push('/medic/orders');
                   } else if (user.role === 'CLIENT') {
                     router.push('/client/orders');
                   } else if (user.role === 'ADMIN') {
@@ -162,7 +178,6 @@ export default function ChatPage() {
               <div className="font-semibold">Чат с {orderInfo?.medic?.name || orderInfo?.client?.name || 'пользователем'}</div>
               <div className="text-xs text-slate-400">Заказ #{orderId.slice(0, 8)}</div>
             </div>
-
             <div className="w-20"></div>
           </div>
         </div>
@@ -273,71 +288,100 @@ export default function ChatPage() {
       {/* Input Area */}
       <div className="border-t border-white/10 backdrop-blur-xl bg-slate-900/50 sticky bottom-0">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <form onSubmit={handleSendMessage} className="space-y-3">
-            <div className="flex items-end space-x-3">
-              {/* File Input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                onChange={handleFileChange}
-                accept="image/*,.pdf"
-                className="hidden"
-              />
-
-              {/* Attach Button */}
-              <button
-                type="button"
-                onClick={handleFileClick}
-                className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all flex-shrink-0"
-              >
-                <Paperclip className="w-5 h-5" />
-              </button>
-
-              {/* Message Input */}
-              <div className="flex-1 relative">
-                <textarea
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage(e);
-                    }
-                  }}
-                  placeholder="Напишите сообщение..."
-                  rows={1}
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors resize-none"
-                  style={{ minHeight: '48px', maxHeight: '120px' }}
-                />
+          {/* Превью выбранного файла */}
+          {selectedFile && (
+            <div className="mb-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-3">
+                  {selectedFile.type.startsWith('image/') ? (
+                    <img 
+                      src={URL.createObjectURL(selectedFile)} 
+                      alt="Preview" 
+                      className="w-16 h-16 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg bg-red-500/20 flex items-center justify-center">
+                      <FileText className="w-8 h-8 text-red-400" />
+                    </div>
+                  )}
+                  <div>
+                    <div className="font-medium text-white">{selectedFile.name}</div>
+                    <div className="text-sm text-slate-400">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => setSelectedFile(null)}
+                  className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 transition-colors"
+                >
+                  <X className="w-5 h-5 text-red-400" />
+                </button>
               </div>
-
-              {/* Send Button */}
+              
               <button
-                type="submit"
-                disabled={!messageText.trim()}
-                className="p-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex-shrink-0 shadow-lg shadow-blue-500/30"
+                onClick={handleSendFile}
+                disabled={uploading}
+                className="w-full py-3 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 font-medium transition-all flex items-center justify-center"
               >
-                <Send className="w-5 h-5" />
+                {uploading ? (
+                  <>
+                    <Loader className="w-5 h-5 mr-2 animate-spin" />
+                    Отправка...
+                  </>
+                ) : (
+                  '📤 Отправить файл'
+                )}
               </button>
+            </div>
+          )}
+
+          <form onSubmit={handleSendMessage} className="flex items-end space-x-3">
+            {/* File Input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileChange}
+              accept="image/*,.pdf"
+              className="hidden"
+            />
+
+            {/* Attach Button */}
+            <button
+              type="button"
+              onClick={handleFileClick}
+              className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all flex-shrink-0"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
+
+            {/* Message Input */}
+            <div className="flex-1 relative">
+              <textarea
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(e);
+                  }
+                }}
+                placeholder="Напишите сообщение..."
+                rows={1}
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors resize-none"
+                style={{ minHeight: '48px', maxHeight: '120px' }}
+              />
             </div>
 
-            {/* Quick Actions */}
-            <div className="flex items-center space-x-2 overflow-x-auto pb-1">
-              <button 
-                type="button"
-                onClick={handleFileClick}
-                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-300 hover:text-white transition-all whitespace-nowrap"
-              >
-                📸 Отправить фото
-              </button>
-              <button 
-                type="button"
-                onClick={handleFileClick}
-                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-300 hover:text-white transition-all whitespace-nowrap"
-              >
-                📄 Отправить PDF
-              </button>
-            </div>
+            {/* Send Button */}
+            <button
+              type="submit"
+              disabled={!messageText.trim()}
+              className="p-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex-shrink-0 shadow-lg shadow-blue-500/30"
+            >
+              <Send className="w-5 h-5" />
+            </button>
           </form>
         </div>
       </div>

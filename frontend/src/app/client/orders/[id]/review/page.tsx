@@ -41,6 +41,14 @@ const loadOrder = async () => {
   }
 };
 
+const handleLogout = () => {
+  if (confirm('Вы уверены что хотите выйти?')) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    router.push('/auth');
+  }
+};
+
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   
@@ -53,6 +61,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     toast.error('Заполните все поля жалобы');
     return;
   }
+  
 
   setSubmitting(true);
 
@@ -129,6 +138,16 @@ const handleSubmit = async (e: React.FormEvent) => {
             <ArrowLeft className="w-5 h-5" />
             <span>Назад к заказу</span>
           </button>
+
+          <button
+          onClick={handleLogout}
+          className="flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors"
+        >
+          <span className="text-sm">Выйти</span>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+      </button>
         </div>
       </header>
 

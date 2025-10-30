@@ -139,6 +139,14 @@ export default function MedicDashboard() {
     return texts[status] || status;
   };
 
+  const handleLogout = () => {
+  if (confirm('Вы уверены что хотите выйти?')) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    router.push('/auth');
+  }
+};
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
       {/* Header */}
@@ -169,6 +177,16 @@ export default function MedicDashboard() {
               >
                 <Menu className="w-6 h-6" />
               </button>
+
+              <button
+              onClick={handleLogout}
+              className="flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors"
+            >
+              <span className="text-sm">Выйти</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button> 
             </div>
           </div>
         </div>
