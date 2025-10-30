@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
     try {
       // Отправка кода на телефон
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/send-reset-code`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/forgot-password`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
