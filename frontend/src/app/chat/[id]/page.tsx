@@ -157,7 +157,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                   console.log('👤 Current user role:', user.role); // Для отладки
                   
                   if (user.role === 'MEDIC') {
-                    router.push('/medic/orders');
+                    router.push('/medic/dashboard');
                   } else if (user.role === 'CLIENT') {
                     router.push('/client/orders');
                   } else if (user.role === 'ADMIN') {
