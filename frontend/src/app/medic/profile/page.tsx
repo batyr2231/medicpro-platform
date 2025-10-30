@@ -451,7 +451,7 @@ const handleDisconnectTelegram = async () => {
             </div>
           </div>
 
-          {/* Telegram уведомления */}
+{/* Telegram уведомления */}
           <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
             <h2 className="text-xl font-bold mb-4 flex items-center">
               <span className="text-2xl mr-2">📱</span>
@@ -512,50 +512,50 @@ const handleDisconnectTelegram = async () => {
                       {loading ? 'Генерация ссылки...' : '📱 Подключить Telegram'}
                     </button>
                   </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                        <p className="text-sm text-slate-300 mb-3">
-                          <strong>📋 Инструкция:</strong>
-                        </p>
-                        <ol className="text-sm text-slate-400 space-y-2 list-decimal list-inside">
-                          <li>Нажмите кнопку <strong>"Открыть Telegram"</strong> ниже</li>
-                          <li>В Telegram нажмите <strong>"START"</strong></li>
-                          <li>Готово! Подключение произойдёт автоматически</li>
-                        </ol>
-                      </div>
-
-                      {/* Кнопка открытия Telegram */}
-                      
-                        href={telegramDeepLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-full py-4 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 font-semibold shadow-lg transition-all text-center"
-                      <a>
-                        🚀 Открыть Telegram
-                      </a>
-
-                      {/* Статус проверки */}
-                      {checkingConnection && (
-                        <div className="flex items-center justify-center space-x-2 text-blue-400 bg-blue-500/10 rounded-xl p-3">
-                          <Loader className="w-5 h-5 animate-spin" />
-                          <span className="text-sm">Ожидание подключения...</span>
-                        </div>
-                      )}
-
-                      {/* Кнопка отмены */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowTelegramInput(false);
-                          setCheckingConnection(false);
-                        }}
-                        className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm"
-                      >
-                        Отмена
-                      </button>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <p className="text-sm text-slate-300 mb-3">
+                        <strong>📋 Инструкция:</strong>
+                      </p>
+                      <ol className="text-sm text-slate-400 space-y-2 list-decimal list-inside">
+                        <li>Нажмите кнопку <strong>"Открыть Telegram"</strong> ниже</li>
+                        <li>В Telegram нажмите <strong>"START"</strong></li>
+                        <li>Готово! Подключение произойдёт автоматически</li>
+                      </ol>
                     </div>
-                  )}
+
+                    {/* Кнопка открытия Telegram */}
+                    <a
+                      href={telegramDeepLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full py-4 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 font-semibold shadow-lg transition-all text-center"
+                    >
+                      🚀 Открыть Telegram
+                    </a>
+
+                    {/* Статус проверки */}
+                    {checkingConnection && (
+                      <div className="flex items-center justify-center space-x-2 text-blue-400 bg-blue-500/10 rounded-xl p-3">
+                        <Loader className="w-5 h-5 animate-spin" />
+                        <span className="text-sm">Ожидание подключения...</span>
+                      </div>
+                    )}
+
+                    {/* Кнопка отмены */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTelegramInput(false);
+                        setCheckingConnection(false);
+                      }}
+                      className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
