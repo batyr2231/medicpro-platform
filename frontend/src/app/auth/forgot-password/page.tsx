@@ -21,12 +21,13 @@ export default function ForgotPasswordPage() {
 
     try {
       // Отправка кода на телефон
+      const cleanPhone = phone.replace(/[^\d+]/g, '');
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/forgot-password`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone })
+          body: JSON.stringify({ phone: cleanPhone })
         }
       );
 
@@ -72,12 +73,13 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
+      const cleanPhone = phone.replace(/[^\d+]/g, '');
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/reset-password`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, code, newPassword })
+          body: JSON.stringify({ phone: cleanPhone, code, newPassword })
         }
       );
 
