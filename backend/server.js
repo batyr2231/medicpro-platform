@@ -270,7 +270,7 @@ const resetCodes = new Map(); // { phone: { code, expiresAt, attempts } }
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
     const { phone } = req.body;
-
+    
     if (!phone) {
       return res.status(400).json({ error: 'Телефон обязателен' });
     }
@@ -309,7 +309,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { phone, code, newPassword } = req.body;
-
+    
     if (!phone || !code || !newPassword) {
       return res.status(400).json({ error: 'Все поля обязательны' });
     }
@@ -1226,7 +1226,7 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
   }
 });
 
-// ========== TELEGRAM ENDPOINTS (НОВОЕ) ==========
+
 
 // ========== TELEGRAM ENDPOINTS ==========
 
