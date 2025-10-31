@@ -106,6 +106,7 @@ export default function MedicOrderDetailPage() {
             </button>
             <h1 className="text-xl font-bold">Детали заказа</h1>
             <div className="w-10"></div>
+            
           </div>
         </div>
       </header>

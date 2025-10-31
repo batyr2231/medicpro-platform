@@ -13,7 +13,14 @@ export default function MedicDashboard() {
   const { getAvailableOrders, getMyOrders, acceptOrder, updateOrderStatus, markPaymentReceived, loading: ordersLoading } = useOrders();
   const [realOrders, setRealOrders] = useState<any[]>([]);
   const [myOrders, setMyOrders] = useState<any[]>([]);
-  
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [profileProgress, setProfileProgress] = useState({
+    hasSpecialization: false,
+    hasExperience: false,
+    hasAreas: false,
+    hasDocuments: false,
+    hasTelegram: false
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -30,6 +37,46 @@ export default function MedicDashboard() {
     
     return () => clearInterval(interval);
   }, [activeTab]);
+
+  useEffect(() => {
+    checkOnboardingProgress();
+  }, []);
+
+  const checkOnboardingProgress = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/medics/profile`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+
+      const profile = await response.json();
+
+      const progress = {
+        hasSpecialization: !!profile.specialization,
+        hasExperience: profile.experience > 0,
+        hasAreas: profile.areas && profile.areas.length > 0,
+        hasDocuments: profile.documents && profile.documents.length > 0,
+        hasTelegram: !!profile.telegramChatId
+      };
+
+      setProfileProgress(progress);
+
+      const allComplete = Object.values(progress).every(v => v === true);
+      setOnboardingComplete(allComplete);
+
+      // Сохраняем в localStorage чтобы не показывать повторно
+      const dismissed = localStorage.getItem('onboarding-dismissed');
+      if (allComplete || dismissed === 'true') {
+        setOnboardingComplete(true);
+      }
+
+    } catch (error) {
+      console.error('Check onboarding error:', error);
+    }
+  };
 
   const loadMedicInfo = async () => {
     try {
@@ -140,12 +187,12 @@ export default function MedicDashboard() {
   };
 
   const handleLogout = () => {
-  if (confirm('Вы уверены что хотите выйти?')) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    router.push('/auth');
-  }
-};
+    if (confirm('Вы уверены что хотите выйти?')) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      router.push('/auth');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
@@ -179,21 +226,236 @@ export default function MedicDashboard() {
               </button>
 
               <button
-              onClick={handleLogout}
-              className="flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors"
-            >
-              <span className="text-sm">Выйти</span>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button> 
+                onClick={handleLogout}
+                className="flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors"
+              >
+                <span className="text-sm">Выйти</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button> 
             </div>
           </div>
         </div>
       </header>
 
-      {/* Stats */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* Начало основного контента. 
+        Этот div (max-w-7xl) оборачивает и Онбординг, и Stats, и Tabs 
+      */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        
+        {/* Онбординг блок */}
+        {!onboardingComplete && (
+          <div className="mb-8 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border-2 border-cyan-500/30 p-6 backdrop-blur-xl animate-pulse-slow">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Добро пожаловать в MedicPro! 👋</h3>
+                  <p className="text-slate-300 text-sm">Завершите настройку профиля чтобы начать получать заказы</p>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => {
+                  localStorage.setItem('onboarding-dismissed', 'true');
+                  setOnboardingComplete(true);
+                }}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Прогресс бар */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-slate-300">Прогресс настройки</span>
+                <span className="text-cyan-400 font-bold">
+                  {Object.values(profileProgress).filter(v => v).length} / 5
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-500"
+                  style={{ width: `${(Object.values(profileProgress).filter(v => v).length / 5) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Чеклист */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <button
+                onClick={() => router.push('/medic/profile')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  profileProgress.hasSpecialization
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-white/5 border-white/10 hover:border-cyan-500/50'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    profileProgress.hasSpecialization ? 'bg-green-500' : 'bg-white/10'
+                  }`}>
+                    {profileProgress.hasSpecialization ? (
+                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <span className="text-slate-400">1</span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className={`font-semibold ${profileProgress.hasSpecialization ? 'text-green-400' : 'text-white'}`}>
+                      Укажите специализацию
+                    </div>
+                    <div className="text-xs text-slate-400">Терапевт, Медсестра и т.д.</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => router.push('/medic/profile')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  profileProgress.hasExperience
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-white/5 border-white/10 hover:border-cyan-500/50'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    profileProgress.hasExperience ? 'bg-green-500' : 'bg-white/10'
+                  }`}>
+                    {profileProgress.hasExperience ? (
+                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <span className="text-slate-400">2</span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className={`font-semibold ${profileProgress.hasExperience ? 'text-green-400' : 'text-white'}`}>
+                      Добавьте опыт работы
+                    </div>
+                    <div className="text-xs text-slate-400">Количество лет практики</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => router.push('/medic/profile')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  profileProgress.hasAreas
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-white/5 border-white/10 hover:border-cyan-500/50'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    profileProgress.hasAreas ? 'bg-green-500' : 'bg-white/10'
+                  }`}>
+                    {profileProgress.hasAreas ? (
+                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <span className="text-slate-400">3</span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className={`font-semibold ${profileProgress.hasAreas ? 'text-green-400' : 'text-white'}`}>
+                      Выберите районы работы
+                    </div>
+                    <div className="text-xs text-slate-400">Где вы готовы принимать заказы</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => router.push('/medic/profile')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  profileProgress.hasDocuments
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-white/5 border-white/10 hover:border-cyan-500/50'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    profileProgress.hasDocuments ? 'bg-green-500' : 'bg-white/10'
+                  }`}>
+                    {profileProgress.hasDocuments ? (
+                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <span className="text-slate-400">4</span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className={`font-semibold ${profileProgress.hasDocuments ? 'text-green-400' : 'text-white'}`}>
+                      Загрузите документы
+                    </div>
+                    <div className="text-xs text-slate-400">Лицензия и сертификаты</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => router.push('/medic/profile')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  profileProgress.hasTelegram
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-white/5 border-white/10 hover:border-cyan-500/50'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    profileProgress.hasTelegram ? 'bg-green-500' : 'bg-white/10'
+                  }`}>
+                    {profileProgress.hasTelegram ? (
+                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <span className="text-slate-400">5</span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className={`font-semibold ${profileProgress.hasTelegram ? 'text-green-400' : 'text-white'}`}>
+                      Подключите Telegram
+                    </div>
+                    <div className="text-xs text-slate-400">Получайте уведомления о заказах</div>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {/* CTA кнопка */}
+            <button
+              onClick={() => router.push('/medic/profile')}
+              className="w-full mt-6 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg transition-all flex items-center justify-center"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Перейти в профиль
+            </button>
+          </div>
+        )}
+
+        {/* Этот div (max-w-7xl) был лишним, так как он дублировал 
+          тот, что на строке 176. Я его удалил, но оставил 
+          div для Stats и Tabs. 
+        */}
+        
+        {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-4">
             <div className="text-2xl font-bold text-cyan-400">{medicInfo?.ratingAvg?.toFixed(1) || '0.0'} ⭐</div>
@@ -454,7 +716,8 @@ export default function MedicDashboard() {
             )}
           </div>
         )}
-      </div>
-    </div>
+      </div> {/* <-- Этот div закрывает <div className="max-w-7xl mx-auto px-4 py-8"> */}
+      
+    </div> /* <-- ИСПРАВЛЕНИЕ: Этот недостающий </div> закрывает корневой <div className="min-h-screen..."> */
   );
 }
