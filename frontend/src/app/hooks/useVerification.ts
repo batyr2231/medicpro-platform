@@ -41,13 +41,16 @@ export function useVerification() {
     setLoading(true);
     setError(null);
 
+    const cleanPhone = phone.replace(/\D/g, '');
+    const formattedPhone = '+' + cleanPhone;
+
     try {
       const response = await fetch(`${API_URL}/api/auth/verify-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ phone: formattedPhone, code }),
       });
 
       const result = await response.json();
@@ -64,6 +67,7 @@ export function useVerification() {
       setLoading(false);
     }
   };
+
 
   return { sendCode, verifyCode, loading, error };
 }
