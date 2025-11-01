@@ -109,13 +109,19 @@ async function initBot() {
   }
 }
 
-// Обработка webhook запросов
-function handleWebhook(req, res) {
-  if (!bot) {
-    return res.status(500).send('Bot not initialized');
-  }
+async function handleWebhook(req, res) {
+  try {
+    if (!bot) {
+      console.warn('⚠️ Bot not initialized');
+      return res.status(500).send('Bot not initialized');
+    }
 
-  bot.handleUpdate(req.body, res);
+    await bot.handleUpdate(req.body);
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error('❌ Telegram Webhook error:', err);
+    res.status(500).send('Internal Server Error');
+  }
 }
 
 // Уведомление о новом заказе

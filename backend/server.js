@@ -1938,9 +1938,16 @@ app.get('/', (req, res) => {
   });
 });
 
-app.post(`/telegram-webhook/${process.env.TELEGRAM_BOT_TOKEN}`, (req, res) => {
+app.post('/telegram-webhook/:token', (req, res) => {
+  // Проверяем, что токен совпадает
+  if (req.params.token !== process.env.TELEGRAM_BOT_TOKEN) {
+    console.warn('⚠️ Invalid Telegram token in webhook');
+    return res.status(403).send('Forbidden');
+  }
+
   handleWebhook(req, res);
 });
+
 
 // Start server
 const PORT = process.env.PORT || 5000;
