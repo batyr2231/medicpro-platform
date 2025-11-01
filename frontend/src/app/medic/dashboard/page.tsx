@@ -682,6 +682,7 @@ export default function MedicDashboard() {
                       <MapPin className="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
                       <div>
                         <div className="text-xs text-slate-400 mb-1">Адрес</div>
+                        <div className="font-bold text-cyan-400">{order.city}</div> 
                         <div className="font-medium">{order.district}</div>
                         <div className="text-sm text-slate-300">{order.address}</div>
                       </div>
@@ -695,6 +696,11 @@ export default function MedicDashboard() {
                     >
                       <MessageSquare className="w-5 h-5 mr-2" />
                       Открыть чат
+                        {order.unreadCount > 0 && (
+                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                            {order.unreadCount}
+                          </span>
+                        )}
                     </button>
 
                     {order.status === 'ACCEPTED' && (

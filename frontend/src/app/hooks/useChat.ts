@@ -1,53 +1,84 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import io, { Socket } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 
-const WS_URL = process.env.NEXT_PUBLIC_API_URL || 'https://medicpro-platform.onrender.com';
-
-interface Message {
-  id: string;
-  orderId: string;
-  fromUserId: string;
-  text?: string;
-  fileUrl?: string;
-  fileType?: string;
-  isRead: boolean;
-  createdAt: string;
-  from: {
-    id: string;
-    name: string;
-    avatar?: string;
-  };
-}
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export function useChat(orderId: string) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
 
-  const getToken = () => localStorage.getItem('token');
-
-  // Загружаем историю сообщений
   useEffect(() => {
-    loadMessages();
-    connectSocket();
+    // Получаем текущего пользователя
+    const userStr = localStorage.getItem('user');
+    if (!userStr) {
+      setError('User not found');
+      setLoading(false);
+      return;
+    }
+
+    const user = JSON.parse(userStr);
+    setCurrentUserId(user.id);
+
+    // Подключаемся к Socket.IO
+    socketRef.current = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+    });
+
+    const socket = socketRef.current;
+
+    socket.on('connect', () => {
+      console.log('✅ Connected to socket');
+      
+      // ← АУТЕНТИФИКАЦИЯ SOCKET!
+      socket.emit('authenticate', user.id);
+      
+      // Подключаемся к комнате заказа
+      socket.emit('join-order', orderId);
+      console.log('🔗 Joined order room:', orderId);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('❌ Disconnected from socket');
+    });
+
+    // Получение истории сообщений
+    socket.on('message-history', (history: any[]) => {
+      console.log('📜 Message history received:', history.length);
+      setMessages(history);
+      setLoading(false);
+    });
+
+    // Новое сообщение
+    socket.on('new-message', (message: any) => {
+      console.log('💬 New message received:', message);
+      setMessages(prev => [...prev, message]);
+    });
+
+    // Ошибка
+    socket.on('message-error', (err: any) => {
+      console.error('❌ Message error:', err);
+      setError(err.error);
+    });
+
+    // Загружаем историю сообщений через REST API (на всякий случай)
+    loadMessageHistory();
 
     return () => {
-      if (socketRef.current) {
-        console.log('🔌 Disconnecting socket...');
-        socketRef.current.disconnect();
-      }
+      socket.emit('leave-order', orderId);
+      socket.disconnect();
     };
   }, [orderId]);
 
-  const loadMessages = async () => {
-    setLoading(true);
+  const loadMessageHistory = async () => {
     try {
-      const token = getToken();
+      const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${orderId}/messages`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/messages/${orderId}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -55,85 +86,39 @@ export function useChat(orderId: string) {
         }
       );
 
-      const result = await response.json();
-      if (response.ok) {
-        console.log('✅ Messages loaded:', result.length);
-        setMessages(result);
+      if (!response.ok) {
+        throw new Error('Failed to load messages');
       }
-    } catch (err) {
-      console.error('Failed to load messages:', err);
-      setError('Failed to load messages');
-    } finally {
+
+      const data = await response.json();
+      setMessages(data);
+      setLoading(false);
+    } catch (err: any) {
+      console.error('Load messages error:', err);
+      setError(err.message);
       setLoading(false);
     }
   };
 
-  const connectSocket = () => {
-    const token = getToken();
-    if (!token) return;
-
-    console.log('🔌 Connecting to socket...');
-    
-    const socket = io(WS_URL, {
-      autoConnect: true,
-    });
-
-    socket.on('connect', () => {
-      console.log('✅ Socket connected:', socket.id);
-      socket.emit('authenticate', token);
-    });
-
-    socket.on('authenticated', () => {
-      console.log('✅ Socket authenticated');
-      socket.emit('join-order', orderId);
-      console.log('✅ Joined order room:', orderId);
-    });
-
-    socket.on('new-message', (message: Message) => {
-      console.log('📨 New message received:', message);
-      setMessages((prev) => {
-        // Проверяем что сообщение ещё не добавлено
-        const exists = prev.some(m => m.id === message.id);
-        if (exists) {
-          console.log('⚠️ Message already exists, skipping');
-          return prev;
-        }
-        console.log('✅ Adding new message to state');
-        return [...prev, message];
-      });
-    });
-
-    socket.on('message-error', (data: any) => {
-      console.error('❌ Message error:', data);
-      alert('Ошибка отправки: ' + data.error);
-    });
-
-    socket.on('disconnect', () => {
-      console.log('❌ Socket disconnected');
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error('❌ Socket connection error:', err);
-    });
-
-    socketRef.current = socket;
-  };
-
   const sendMessage = (text: string, fileUrl?: string, fileType?: string) => {
-    if (!socketRef.current || (!text?.trim() && !fileUrl)) {
-      console.warn('⚠️ Cannot send message: no socket or empty message');
-      return;
-    }
+    if (!socketRef.current || (!text.trim() && !fileUrl)) return;
 
-    console.log('📤 Sending message:', { text, fileUrl, fileType });
-
-    socketRef.current.emit('send-message', {
+    const messageData = {
       orderId,
-      text: text || '',
+      message: text || '',
+      senderId: currentUserId,
       fileUrl,
       fileType,
-    });
+    };
+
+    console.log('📤 Sending message:', messageData);
+    socketRef.current.emit('send-message', messageData);
   };
 
-  return { messages, loading, error, sendMessage };
+  return {
+    messages,
+    loading,
+    error,
+    sendMessage,
+  };
 }
