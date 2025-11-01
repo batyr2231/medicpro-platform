@@ -11,6 +11,7 @@ import bcrypt from 'bcryptjs';
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 import { sendVerificationCode, sendWhatsAppCode, generateCode, sendSMS } from './utils/sms.js';
+import { getCities, getDistricts } from './utils/cities.js';
 
 
 dotenv.config();
@@ -451,6 +452,23 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
   }
 });
 
+// Получение списка городов
+app.get('/api/cities', (req, res) => {
+  const cities = getCities();
+  res.json({ cities });
+});
+
+// Получение районов по городу
+app.get('/api/cities/:city/districts', (req, res) => {
+  const { city } = req.params;
+  const districts = getDistricts(city);
+  
+  if (districts.length === 0) {
+    return res.status(404).json({ error: 'City not found' });
+  }
+  
+  res.json({ city, districts });
+});
 
 // Получение заказов клиента или медика
 app.get('/api/orders/my', authenticateToken, async (req, res) => {
@@ -554,7 +572,8 @@ app.get('/api/orders/available', authenticateToken, async (req, res) => {
     const orders = await prisma.order.findMany({
       where: {
         status: 'NEW',
-          district: {
+        city: medic.city,
+        district: {
           in: medic.areas
         }
       },
@@ -1082,9 +1101,23 @@ app.get('/api/medics/profile', authenticateToken, async (req, res) => {
 // Обновление профиля медика
 app.put('/api/medics/profile', authenticateToken, async (req, res) => {
   try {
-    const { name, phone, specialization, experience, education, areas } = req.body;
+    const { name, phone, specialization, experience, education, city, areas } = req.body;
 
-    console.log('📝 Updating medic profile:', { name, phone, specialization, experience, education, areas });
+    console.log('📝 Updating medic profile:', { name, phone, specialization, experience, education, city, areas });
+
+    // Валидация города
+    if (city && !isValidCity(city)) {
+      return res.status(400).json({ error: 'Invalid city' });
+    }
+
+    // Валидация районов для выбранного города
+    if (city && areas && areas.length > 0) {
+      for (const area of areas) {
+        if (!isValidDistrict(city, area)) {
+          return res.status(400).json({ error: `Invalid district ${area} for city ${city}` });
+        }
+      }
+    }
 
     if (name || phone) {
       await prisma.user.update({
@@ -1111,6 +1144,11 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
       updateData.description = education;
     }
     
+    if (city) {
+      updateData.city = city;
+      console.log('✅ City updated:', city);
+    }
+    
     if (areas && Array.isArray(areas)) {
       updateData.areas = areas;
       console.log('✅ Areas updated:', areas);
@@ -1134,6 +1172,7 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
       specialization: medic.specialty,
       experience: medic.experience.toString(),
       education: medic.description,
+      city: medic.city,
       areas: medic.areas,
     });
   } catch (error) {

@@ -86,6 +86,7 @@ model Medic {
   experience     Int
   description    String?
   documents      Json?
+  city           String      @default("Алматы")
   areas          String[]
   schedule       Json?
   status         MedicStatus @default(PENDING)
@@ -110,7 +111,7 @@ model Order {
   medicId       String?
   serviceType   String
   address       String
-  city          String
+  city          String      @default("Алматы")
   district      String
   scheduledTime DateTime
   comment       String?
