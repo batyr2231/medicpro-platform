@@ -4,12 +4,13 @@ import React, { useState } from 'react';
 import { MapPin, Calendar, Clock, FileText, Heart, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
 import { useRouter } from 'next/navigation';
+import { getCities, getDistricts } from 'utils/cities';
 
 export default function CreateOrderPage() {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     serviceType: '',
-    city: 'Алматы',
+    city: '',
     district: '',
     address: '',
     date: '',
@@ -43,13 +44,25 @@ export default function CreateOrderPage() {
     e.preventDefault();
     
     try {
+      // Валидация города
+      if (!formData.city) {
+        alert('❌ Выберите город');
+        return;
+      }
+
+      // Валидация района
+      if (!formData.district) {
+        alert('❌ Выберите район');
+        return;
+      }
+
       const scheduledDateTime = new Date(`${formData.date}T${formData.time}`).toISOString();
       
       const result = await createOrder({
         serviceType: services.find(s => s.id === formData.serviceType)?.name || formData.serviceType,
+        city: formData.city,          // ✅ УЖЕ ЕСТЬ!
+        district: formData.district,  // ✅ УЖЕ ЕСТЬ!
         address: formData.address,
-        city: formData.city,
-        district: formData.district,
         scheduledTime: scheduledDateTime,
         comment: formData.comment,
         price: formData.price ? parseInt(formData.price) : undefined, 
@@ -164,24 +177,59 @@ export default function CreateOrderPage() {
               </div>
 
               <div className="max-w-2xl mx-auto space-y-5">
-                {/* District */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
-                    <MapPin className="w-4 h-4 mr-2" />
-                    Район города
-                  </label>
+              {/* Выбор города */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Город <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <select
-                    value={formData.district}
-                    onChange={(e) => handleChange('district', e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors"
+                    value={formData.city}
+                    onChange={(e) => {
+                      setFormData({ 
+                        ...formData, 
+                        city: e.target.value,
+                        district: '' // Сброс района при смене города
+                      });
+                    }}
+                    className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-cyan-500 transition-colors appearance-none"
                     required
                   >
-                    <option value="" className="bg-slate-900">Выберите район</option>
-                    {districts.map((d) => (
-                      <option key={d} value={d} className="bg-slate-900">{d}</option>
+                    <option value="" className="bg-slate-900">Выберите город</option>
+                    {getCities().map(city => (
+                      <option key={city} value={city} className="bg-slate-900">
+                        {city}
+                      </option>
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Выбор района (показывается только после выбора города) */}
+              {formData.city && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Район <span className="text-red-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <select
+                      value={formData.district}
+                      onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-cyan-500 transition-colors appearance-none"
+                      required
+                    >
+                      <option value="" className="bg-slate-900">Выберите район</option>
+                      {getDistricts(formData.city).map(district => (
+                        <option key={district} value={district} className="bg-slate-900">
+                          {district}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
                 {/* Address */}
                 <div>

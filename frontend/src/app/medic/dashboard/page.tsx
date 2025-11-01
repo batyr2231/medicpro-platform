@@ -17,6 +17,7 @@ export default function MedicDashboard() {
   const [profileProgress, setProfileProgress] = useState({
     hasSpecialization: false,
     hasExperience: false,
+    hasCity: false,
     hasAreas: false,
     hasDocuments: false,
     hasTelegram: false
@@ -57,6 +58,7 @@ export default function MedicDashboard() {
       const progress = {
         hasSpecialization: !!profile.specialization,
         hasExperience: profile.experience > 0,
+        hasCity: !!profile.city,
         hasAreas: profile.areas && profile.areas.length > 0,
         hasDocuments: profile.documents && profile.documents.length > 0,
         hasTelegram: !!profile.telegramChatId
@@ -278,13 +280,15 @@ export default function MedicDashboard() {
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-slate-300">Прогресс настройки</span>
                 <span className="text-cyan-400 font-bold">
-                  {Object.values(profileProgress).filter(v => v).length} / 5
+                  {Object.values(profileProgress).filter((v) => v).length} / 6
                 </span>
               </div>
               <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-500"
-                  style={{ width: `${(Object.values(profileProgress).filter(v => v).length / 5) * 100}%` }}
+                  style={{ 
+                    width: `${(Object.values(profileProgress).filter((v) => v).length / 6) * 100}%` 
+                  }}
                 ></div>
               </div>
             </div>
@@ -352,6 +356,35 @@ export default function MedicDashboard() {
               <button
                 onClick={() => router.push('/medic/profile')}
                 className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  profileProgress.hasCity
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-white/5 border-white/10 hover:border-cyan-500/50'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    profileProgress.hasCity ? 'bg-green-500' : 'bg-white/10'
+                  }`}>
+                    {profileProgress.hasCity ? (
+                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <span className="text-slate-400">3</span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className={`font-semibold ${profileProgress.hasCity ? 'text-green-400' : 'text-white'}`}>
+                      Выберите город работы
+                    </div>
+                    <div className="text-xs text-slate-400">В каком городе работаете</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => router.push('/medic/profile')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
                   profileProgress.hasAreas
                     ? 'bg-green-500/10 border-green-500/30'
                     : 'bg-white/5 border-white/10 hover:border-cyan-500/50'
@@ -366,14 +399,14 @@ export default function MedicDashboard() {
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     ) : (
-                      <span className="text-slate-400">3</span>
+                      <span className="text-slate-400">4</span>
                     )}
                   </div>
                   <div className="flex-1">
                     <div className={`font-semibold ${profileProgress.hasAreas ? 'text-green-400' : 'text-white'}`}>
                       Выберите районы работы
                     </div>
-                    <div className="text-xs text-slate-400">Где вы готовы принимать заказы</div>
+                    <div className="text-xs text-slate-400">В каких районах принимаете заказы</div>
                   </div>
                 </div>
               </button>
@@ -557,6 +590,7 @@ export default function MedicDashboard() {
                       <MapPin className="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
                       <div className="min-w-0">
                         <div className="text-xs text-slate-400 mb-1">Адрес</div>
+                        <div className="font-medium">{order.city}</div>
                         <div className="font-medium">{order.district}</div>
                         <div className="text-sm text-slate-300">{order.address}</div>
                       </div>

@@ -5,6 +5,7 @@ import { User, Phone, MapPin, Award, Save, Loader, ArrowLeft } from 'lucide-reac
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import PhoneInput from '@/components/PhoneInput'; 
+import { getCities, getDistricts } from 'utils/cities';
 
 export default function MedicProfilePage() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function MedicProfilePage() {
     specialization: '',
     experience: '',
     education: '',
+    city: '',
     areas: [] as string[],
   });
 
@@ -57,6 +59,7 @@ export default function MedicProfilePage() {
           specialization: result.specialization || '',
           experience: result.experience || '',
           education: result.education || '',
+          city: result.city || 'Алматы',
           areas: result.areas || [],
         });
         
@@ -417,41 +420,75 @@ const handleDisconnectTelegram = async () => {
             </div>
           </div>
 
-          {/* Service Areas */}
-          <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
+          {/* Выбор города */}
+          <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6 mb-6">
             <h2 className="text-xl font-bold mb-6 flex items-center">
               <MapPin className="w-6 h-6 mr-2 text-cyan-400" />
-              Районы обслуживания
+              Город работы
             </h2>
 
-            <div className="grid grid-cols-2 gap-3">
-              {districts.map((district) => (
-                <button
-                  key={district}
-                  type="button"
-                  onClick={() => toggleDistrict(district)}
-                  className={`p-4 rounded-xl text-left transition-all ${
-                    formData.areas.includes(district)
-                      ? 'bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border-2 border-cyan-500 shadow-lg shadow-cyan-500/20'
-                      : 'bg-white/5 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="font-medium">{district}</div>
-                  {formData.areas.includes(district) && (
-                    <div className="text-xs text-cyan-400 mt-1">✓ Выбран</div>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-4 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
-              <div className="text-sm text-cyan-400">
-                💡 Выбрано районов: {formData.areas.length}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-3">
+                В каком городе вы работаете?
+              </label>
+              <select
+                value={formData.city}
+                onChange={(e) => {
+                  setFormData({ 
+                    ...formData, 
+                    city: e.target.value,
+                    areas: [] // Сброс районов при смене города
+                  });
+                }}
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors appearance-none"
+              >
+                <option value="" className="bg-slate-900">Выберите город</option>
+                {getCities().map(city => (
+                  <option key={city} value={city} className="bg-slate-900">
+                    {city}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-{/* Telegram уведомления */}
+          {/* Районы обслуживания (показывается только после выбора города) */}
+          {formData.city && (
+            <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
+              <h2 className="text-xl font-bold mb-6 flex items-center">
+                <MapPin className="w-6 h-6 mr-2 text-cyan-400" />
+                Районы обслуживания в городе {formData.city}
+              </h2>
+
+              <div className="grid grid-cols-2 gap-3">
+                {getDistricts(formData.city).map((district) => (
+                  <button
+                    key={district}
+                    type="button"
+                    onClick={() => toggleDistrict(district)}
+                    className={`p-4 rounded-xl text-left transition-all ${
+                      formData.areas.includes(district)
+                        ? 'bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border-2 border-cyan-500 shadow-lg shadow-cyan-500/20'
+                        : 'bg-white/5 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="font-medium">{district}</div>
+                    {formData.areas.includes(district) && (
+                      <div className="text-xs text-cyan-400 mt-1">✓ Выбран</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+                <div className="text-sm text-cyan-400">
+                  💡 Выбрано районов: {formData.areas.length}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Telegram уведомления */}
           <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
             <h2 className="text-xl font-bold mb-4 flex items-center">
               <span className="text-2xl mr-2">📱</span>
