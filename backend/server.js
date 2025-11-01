@@ -1750,35 +1750,40 @@ app.patch('/api/admin/complaints/:complaintId/status', authenticateToken, authen
 io.on('connection', (socket) => {
   console.log('👤 User connected:', socket.id);
 
-  socket.on('authenticate', async (token) => {
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.userId = decoded.userId;
-      socket.role = decoded.role;
-
-      socket.join(`user-${decoded.userId}`);
-
-      if (decoded.role === 'MEDIC') {
-        const medic = await prisma.medic.findUnique({
-          where: { userId: decoded.userId }
-        });
-
-        if (medic) {
-          medic.areas.forEach(area => {
-            socket.join(`medics-city-${area}`);
-          });
-          console.log(`✅ Medic joined rooms:`, medic.areas.map(a => `medics-city-${a}`));
+    socket.on('authenticate', async (token) => {
+      try {
+        if (!token) {
+          console.log('⚠️ No token provided');
+          return;
         }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        socket.userId = decoded.userId;
+        socket.role = decoded.role;
+
+        socket.join(`user-${decoded.userId}`);
+
+        if (decoded.role === 'MEDIC') {
+          const medic = await prisma.medic.findUnique({
+            where: { userId: decoded.userId }
+          });
+
+          if (medic && medic.areas) {
+            medic.areas.forEach(area => {
+              socket.join(`medics-city-${area}`);
+            });
+            console.log(`✅ Medic joined rooms:`, medic.areas.map(a => `medics-city-${a}`));
+          }
+        }
+
+        socket.emit('authenticated');
+        console.log('✅ User authenticated:', socket.userId, 'Role:', socket.role);
+        
+      } catch (error) {
+        console.error('❌ Authentication error:', error.message);
+
       }
-
-      socket.emit('authenticated');
-      console.log('✅ User authenticated:', socket.userId, 'Role:', socket.role);
-    } catch (error) {
-      console.error('Authentication error:', error);
-      socket.emit('authentication-error');
-    }
-  });
-
+    });
     socket.on('join-order', async (orderId) => {
       try {
         console.log('🔗 User joining order:', orderId);
