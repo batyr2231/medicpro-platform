@@ -89,7 +89,15 @@ export default function MedicProfilePage() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone,
+          specialization: formData.specialization,
+          experience: formData.experience,
+          education: formData.education,
+          city: formData.city,        // ← ДОБАВИТЬ!
+          areas: formData.areas        // ← УЖЕ ЕСТЬ (проверьте!)
+        }),
         }
       );
 
