@@ -1,15 +1,15 @@
-import TelegramBot from 'node-telegram-bot-api';
+import { Telegraf, Markup } from 'telegraf';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const WEBHOOK_URL = process.env.WEBHOOK_URL; // Ваш домен Render
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const DEV_MODE = process.env.NODE_ENV === 'development';
 
 let bot = null;
 
-// Инициализация бота с Webhook
+// Инициализация бота
 async function initBot() {
   if (!TELEGRAM_TOKEN) {
     console.warn('⚠️ TELEGRAM_BOT_TOKEN не установлен');
@@ -17,39 +17,35 @@ async function initBot() {
   }
 
   try {
-    // Создаём бота БЕЗ polling
-    bot = new TelegramBot(TELEGRAM_TOKEN, { polling: false });
+    bot = new Telegraf(TELEGRAM_TOKEN);
 
-    // Если продакшен - устанавливаем webhook
-    if (!DEV_MODE && WEBHOOK_URL) {
-      const webhookPath = `/telegram-webhook/${TELEGRAM_TOKEN}`;
-      const fullWebhookUrl = `${WEBHOOK_URL}${webhookPath}`;
-      
-      await bot.setWebHook(fullWebhookUrl);
-      console.log('✅ Telegram Webhook установлен:', fullWebhookUrl);
-    } else {
-      console.log('⚠️ DEV MODE: Webhook не установлен');
-    }
+    // Обработчик /start с кодом
+    bot.start(async (ctx) => {
+      const startPayload = ctx.startPayload;
+      const chatId = ctx.chat.id;
 
-    // Обработчики команд
-    bot.onText(/\/start (.+)/, async (msg, match) => {
-      const chatId = msg.chat.id;
-      const code = match[1];
+      if (!startPayload) {
+        await ctx.reply(
+          '👋 Привет! Я бот MedicPro для уведомлений.\n\n' +
+          'Для подключения получите код в приложении (Профиль → Telegram).'
+        );
+        return;
+      }
 
-      console.log(`📱 /start команда с кодом: ${code}`);
+      console.log(`📱 /start команда с кодом: ${startPayload}`);
 
       try {
         // Ищем медика по коду
         const verification = await prisma.verificationCode.findFirst({
           where: {
-            code: code,
+            code: startPayload,
             verified: false,
             expiresAt: { gt: new Date() }
           }
         });
 
         if (!verification) {
-          await bot.sendMessage(chatId, '❌ Код недействителен или истёк. Получите новый код в приложении.');
+          await ctx.reply('❌ Код недействителен или истёк. Получите новый код в приложении.');
           return;
         }
 
@@ -67,8 +63,7 @@ async function initBot() {
           data: { verified: true }
         });
 
-        await bot.sendMessage(
-          chatId,
+        await ctx.reply(
           '✅ Telegram успешно подключён!\n\n' +
           'Вы будете получать уведомления о:\n' +
           '• Новых заказах в вашем районе\n' +
@@ -80,20 +75,30 @@ async function initBot() {
 
       } catch (error) {
         console.error('❌ Ошибка подключения Telegram:', error);
-        await bot.sendMessage(chatId, '❌ Произошла ошибка. Попробуйте ещё раз.');
+        await ctx.reply('❌ Произошла ошибка. Попробуйте ещё раз.');
       }
     });
 
-    bot.on('message', async (msg) => {
-      if (msg.text && msg.text.startsWith('/start')) return;
-
-      const chatId = msg.chat.id;
-      await bot.sendMessage(
-        chatId,
+    // Обработчик всех остальных сообщений
+    bot.on('message', async (ctx) => {
+      await ctx.reply(
         '👋 Привет! Я бот MedicPro для уведомлений.\n\n' +
         'Для подключения получите код в приложении (Профиль → Telegram).'
       );
     });
+
+    // Если продакшен - используем webhook
+    if (!DEV_MODE && WEBHOOK_URL) {
+      const webhookPath = `/telegram-webhook/${TELEGRAM_TOKEN}`;
+      const fullWebhookUrl = `${WEBHOOK_URL}${webhookPath}`;
+      
+      await bot.telegram.setWebhook(fullWebhookUrl);
+      console.log('✅ Telegram Webhook установлен:', fullWebhookUrl);
+    } else {
+      // В dev режиме используем polling
+      console.log('⚠️ DEV MODE: Используется polling');
+      bot.launch();
+    }
 
     console.log('✅ Telegram Bot инициализирован');
     return bot;
@@ -104,14 +109,13 @@ async function initBot() {
   }
 }
 
-// Обработка webhook запросов (для Express)
+// Обработка webhook запросов
 function handleWebhook(req, res) {
   if (!bot) {
     return res.status(500).send('Bot not initialized');
   }
 
-  bot.processUpdate(req.body);
-  res.sendStatus(200);
+  bot.handleUpdate(req.body, res);
 }
 
 // Уведомление о новом заказе
@@ -138,13 +142,13 @@ async function sendOrderNotification(chatId, orderData) {
       `🏠 <b>Адрес:</b> ${address}\n\n` +
       `⏰ <i>Время ограничено! Первый медик получит заказ.</i>`;
 
-    await bot.sendMessage(chatId, message, {
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.url('✅ Открыть заказ', 'https://medicpro-platform.vercel.app/medic/dashboard')]
+    ]);
+
+    await bot.telegram.sendMessage(chatId, message, {
       parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [[
-          { text: '✅ Открыть заказ', url: `https://medicpro-platform.vercel.app/medic/dashboard` }
-        ]]
-      }
+      ...keyboard
     });
 
     console.log('✅ Telegram уведомление отправлено:', chatId);
@@ -181,13 +185,13 @@ async function sendChatNotification(chatId, data) {
       `💭 <i>"${shortMessage}"</i>\n\n` +
       `👉 Откройте приложение для ответа`;
 
-    await bot.sendMessage(chatId, text, {
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.url('💬 Открыть чат', `https://medicpro-platform.vercel.app/chat/${orderId}`)]
+    ]);
+
+    await bot.telegram.sendMessage(chatId, text, {
       parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [[
-          { text: '💬 Открыть чат', url: `https://medicpro-platform.vercel.app/chat/${orderId}` }
-        ]]
-      }
+      ...keyboard
     });
 
     console.log('✅ Telegram уведомление о сообщении отправлено:', chatId);
@@ -204,7 +208,7 @@ async function sendOrderAcceptedNotification(chatId, data) {
   if (!bot) return { success: false };
   
   try {
-    await bot.sendMessage(chatId, `✅ Ваш заказ принят медиком ${data.medicName}`);
+    await bot.telegram.sendMessage(chatId, `✅ Ваш заказ принят медиком ${data.medicName}`);
     return { success: true };
   } catch (error) {
     console.error('Send order accepted error:', error);
@@ -217,7 +221,7 @@ async function sendStatusUpdateNotification(chatId, data) {
   if (!bot) return { success: false };
   
   try {
-    await bot.sendMessage(chatId, `📋 Статус заказа изменён: ${data.status}`);
+    await bot.telegram.sendMessage(chatId, `📋 Статус заказа изменён: ${data.status}`);
     return { success: true };
   } catch (error) {
     console.error('Send status update error:', error);
