@@ -432,6 +432,7 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
       // Отправить уведомления
       for (const medic of medicsInArea) {
         await sendOrderNotification(medic.telegramChatId, {
+          city: city,
           orderId: order.id,
           district: order.district,
           serviceType: order.serviceType,
