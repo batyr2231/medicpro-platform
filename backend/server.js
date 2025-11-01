@@ -11,7 +11,7 @@ import bcrypt from 'bcryptjs';
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 import { sendVerificationCode, sendWhatsAppCode, generateCode, sendSMS } from './utils/sms.js';
-import { getCities, getDistricts } from './utils/cities.js';
+import { getCities, getDistricts, isValidCity, isValidDistrict } from './utils/cities.js';
 
 
 dotenv.config();
