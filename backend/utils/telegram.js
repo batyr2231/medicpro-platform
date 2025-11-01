@@ -127,6 +127,7 @@ async function sendOrderNotification(chatId, orderData) {
 
     const message = 
       `🏥 <b>Новый заказ в вашем районе!</b>\n\n` +
+      `📍 <b>Город:</b> ${city}\n` + 
       `📍 <b>Район:</b> ${district}\n` +
       `📋 <b>Услуга:</b> ${serviceType}\n` +
       `📅 <b>Время:</b> ${new Date(scheduledTime).toLocaleString('ru-RU')}\n` +
@@ -213,9 +214,53 @@ async function sendStatusUpdateNotification(chatId, orderData) {
   }
 }
 
+// Уведомление о новом сообщении в чате
+async function sendChatNotification(chatId, data) {
+  if (!bot) {
+    console.warn('⚠️ Telegram Bot не инициализирован');
+    return { success: false, error: 'Bot not initialized' };
+  }
+
+  try {
+    const { orderId, senderName, senderRole, message, serviceType } = data;
+
+    if (DEV_MODE) {
+      console.log('📱 [DEV] Telegram уведомление о сообщении:', { chatId, senderName, message });
+    }
+
+    const shortMessage = message.length > 150 
+      ? message.substring(0, 150) + '...' 
+      : message;
+
+    const text = 
+      `💬 <b>Новое сообщение</b>\n\n` +
+      `👤 <b>От:</b> ${senderName} (${senderRole})\n` +
+      `📋 <b>Заказ:</b> ${serviceType}\n\n` +
+      `💭 <i>"${shortMessage}"</i>\n\n` +
+      `👉 Откройте приложение для ответа`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.url('💬 Открыть чат', `https://medicpro-platform.vercel.app/chat/${orderId}`)],
+    ]);
+
+    await bot.telegram.sendMessage(chatId, text, {
+      parse_mode: 'HTML',
+      ...keyboard
+    });
+
+    console.log('✅ Telegram уведомление о сообщении отправлено:', chatId);
+    return { success: true };
+
+  } catch (error) {
+    console.error('❌ Ошибка отправки Telegram уведомления о сообщении:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 export {
   sendOrderNotification,
   sendOrderAcceptedNotification,
   sendStatusUpdateNotification,
+  sendChatNotification,
   bot
 };
