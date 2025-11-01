@@ -200,6 +200,7 @@ export default function OrderDetailPage() {
               <MapPin className="w-10 h-10 p-2 rounded-lg bg-cyan-500/20 text-cyan-400 flex-shrink-0" />
               <div>
                 <div className="text-sm text-slate-400 mb-1">Адрес</div>
+                <div className="font-medium">{order.city}</div>
                 <div className="font-medium">{order.district}</div>
                 <div className="text-slate-300">{order.address}</div>
               </div>
