@@ -34,15 +34,15 @@ export function useChat(orderId: string) {
     socket.on('connect', () => {
       console.log('✅ Connected to socket');
       
-      // ← АУТЕНТИФИКАЦИЯ SOCKET!
-      socket.emit('authenticate', user.id);
+      // Отправляем токен для аутентификации (безопаснее!)
+      const token = localStorage.getItem('token');
+      socket.emit('authenticate', token);
       
       // Подключаемся к комнате заказа
       socket.emit('join-order', orderId);
       console.log('🔗 Joined order room:', orderId);
     });
-
-    socket.on('disconnect', () => {
+        socket.on('disconnect', () => {
       console.log('❌ Disconnected from socket');
     });
 
