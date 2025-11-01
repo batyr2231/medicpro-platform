@@ -12,7 +12,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 import { sendVerificationCode, sendWhatsAppCode, generateCode, sendSMS } from './utils/sms.js';
 import { getCities, getDistricts, isValidCity, isValidDistrict } from './utils/cities.js';
-
+import { handleWebhook } from './utils/telegram.js';
 
 dotenv.config();
 
@@ -1936,6 +1936,10 @@ app.get('/', (req, res) => {
     message: 'MedicPro API Server',
     version: '1.0.0'
   });
+});
+
+app.post(`/telegram-webhook/${process.env.TELEGRAM_BOT_TOKEN}`, (req, res) => {
+  handleWebhook(req, res);
 });
 
 // Start server
