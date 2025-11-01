@@ -964,6 +964,52 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
   }
 });
 
+    // Получение истории сообщений (REST API)
+    app.get('/api/messages/:orderId', authenticateToken, async (req, res) => {
+      try {
+        const { orderId } = req.params;
+
+        console.log('📜 Loading messages for order:', orderId);
+
+        // Проверяем доступ к заказу
+        const order = await prisma.order.findUnique({
+          where: { id: orderId }
+        });
+
+        if (!order) {
+          return res.status(404).json({ error: 'Order not found' });
+        }
+
+        // Проверка что пользователь - участник заказа
+        if (order.clientId !== req.user.userId && 
+            order.medicId !== req.user.userId && 
+            req.user.role !== 'ADMIN') {
+          return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const messages = await prisma.message.findMany({
+          where: { orderId },
+          include: {
+            from: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        });
+
+        console.log(`✅ Found ${messages.length} messages`);
+        res.json(messages);
+        
+      } catch (error) {
+        console.error('❌ Get messages error:', error);
+        res.status(500).json({ error: 'Failed to get messages' });
+      }
+    });
+
 // ==================== REVIEWS ====================
 
 app.post('/api/reviews', authenticateToken, async (req, res) => {
@@ -1733,15 +1779,35 @@ io.on('connection', (socket) => {
     }
   });
 
-    socket.on('join-order', (orderId) => {
-      socket.join(`order-${orderId}`);
-      console.log(`✅ User ${socket.userId} joined order: ${orderId}`);
-    });
+    socket.on('join-order', async (orderId) => {
+      try {
+        console.log('🔗 User joining order:', orderId);
+        socket.join(`order-${orderId}`);
 
-    // Сохраняем userId в socket для проверки позже
-    socket.on('authenticate', (userId) => {
-      socket.userId = userId;
-      console.log('✅ Socket authenticated:', { socketId: socket.id, userId });
+        // Загружаем историю сообщений и отправляем пользователю
+        const messages = await prisma.message.findMany({
+          where: { orderId },
+          include: {
+            from: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        });
+
+        console.log(`📜 Sending ${messages.length} messages to user`);
+        
+        // Отправляем историю именно этому пользователю
+        socket.emit('message-history', messages);
+
+      } catch (error) {
+        console.error('❌ Join order error:', error);
+        socket.emit('join-error', { error: 'Failed to join order' });
+      }
     });
 
   socket.on('send-message', async ({ orderId, message, senderId, fileUrl, fileType }) => {
