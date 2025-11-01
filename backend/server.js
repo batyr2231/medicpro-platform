@@ -1744,116 +1744,119 @@ io.on('connection', (socket) => {
       console.log('✅ Socket authenticated:', { socketId: socket.id, userId });
     });
 
-socket.on('send-message', async ({ orderId, message, senderId }) => {
-  try {
-    console.log('📨 New message:', { orderId, senderId, message: message.substring(0, 50) });
+  socket.on('send-message', async ({ orderId, message, senderId, fileUrl, fileType }) => {
+    try {
+      console.log('📨 New message:', { orderId, senderId, message: message?.substring(0, 50), fileUrl });
 
-    // Сохраняем сообщение в БД
-    const savedMessage = await prisma.message.create({
-      data: {
-        orderId,
-        senderId,
-        message,
-      },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            name: true,
-            role: true,
+      // Сохраняем сообщение в БД
+      const savedMessage = await prisma.message.create({
+        data: {
+          orderId: orderId,
+          fromUserId: senderId,      // ← ИЗМЕНИТЬ! (было senderId)
+          text: message || '',        // ← ИЗМЕНИТЬ! (было message)
+          fileUrl: fileUrl || null,
+          fileType: fileType || null,
+        },
+        include: {
+          from: {                     // ← ИЗМЕНИТЬ! (было sender)
+            select: {
+              id: true,
+              name: true,
+              role: true,
+            },
           },
         },
-      },
-    });
-
-    console.log('✅ Message saved:', savedMessage.id);
-
-    // Отправляем сообщение в комнату заказа
-    io.to(`order-${orderId}`).emit('new-message', savedMessage);
-
-    // Проверяем кто сейчас в комнате чата
-    const roomClients = io.sockets.adapter.rooms.get(`order-${orderId}`);
-    const connectedUserIds = new Set();
-    
-    if (roomClients) {
-      for (const socketId of roomClients) {
-        const clientSocket = io.sockets.sockets.get(socketId);
-        if (clientSocket?.userId) {
-          connectedUserIds.add(clientSocket.userId);
-        }
-      }
-    }
-
-    console.log('👥 Users in chat room:', Array.from(connectedUserIds));
-
-    // УВЕДОМЛЕНИЯ (только если получатель НЕ в чате)
-    try {
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-          client: true,
-          medic: {
-            include: {
-              user: true
-            }
-          }
-        }
       });
 
-      if (!order) {
-        console.log('⚠️ Order not found for notifications');
-        return;
-      }
+      console.log('✅ Message saved:', savedMessage.id);
 
-      const sender = savedMessage.sender;
+      // Отправляем сообщение в комнату заказа
+      io.to(`order-${orderId}`).emit('new-message', savedMessage);
+
+      // Проверяем кто сейчас в комнате чата
+      const roomClients = io.sockets.adapter.rooms.get(`order-${orderId}`);
+      const connectedUserIds = new Set();
       
-      // Если отправитель - клиент → уведомляем медика
-      if (sender.role === 'CLIENT' && order.medic) {
-        // Проверяем что медик НЕ в чате
-        if (!connectedUserIds.has(order.medicId)) {
-          const medicProfile = await prisma.medic.findUnique({
-            where: { userId: order.medicId }
-          });
-
-          if (medicProfile?.telegramChatId) {
-            console.log('📱 Sending Telegram notification to medic (not in chat)');
-            
-            await sendChatNotification(medicProfile.telegramChatId, {
-              orderId: order.id,
-              senderName: sender.name,
-              senderRole: 'Клиент',
-              message: message,
-              serviceType: order.serviceType
-            });
+      if (roomClients) {
+        for (const socketId of roomClients) {
+          const clientSocket = io.sockets.sockets.get(socketId);
+          if (clientSocket?.userId) {
+            connectedUserIds.add(clientSocket.userId);
           }
-        } else {
-          console.log('⏭️ Medic is in chat, skipping notification');
         }
       }
 
-      // Если отправитель - медик → уведомляем клиента
-      if (sender.role === 'MEDIC' && order.client) {
-        // Проверяем что клиент НЕ в чате
-        if (!connectedUserIds.has(order.clientId)) {
-          console.log('📱 Sending SMS notification to client (not in chat)');
-          
-          const smsText = `💬 Новое сообщение от медика ${sender.name}\n\n"${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"\n\nОткройте приложение: https://medicpro-platform.vercel.app/chat/${orderId}`;
-          
-          await sendSMS(order.client.phone, smsText);
-        } else {
-          console.log('⏭️ Client is in chat, skipping notification');
+      console.log('👥 Users in chat room:', Array.from(connectedUserIds));
+
+      // УВЕДОМЛЕНИЯ
+      try {
+        const order = await prisma.order.findUnique({
+          where: { id: orderId },
+          include: {
+            client: true,
+            medic: {
+              include: {
+                user: true
+              }
+            }
+          }
+        });
+
+        if (!order) {
+          console.log('⚠️ Order not found for notifications');
+          return;
         }
+
+        const sender = savedMessage.from;  // ← ИЗМЕНИТЬ! (было savedMessage.sender)
+        
+        // Если отправитель - клиент → уведомляем медика
+        if (sender.role === 'CLIENT' && order.medic) {
+          // Проверяем что медик НЕ в чате
+          if (!connectedUserIds.has(order.medicId)) {
+            const medicProfile = await prisma.medic.findUnique({
+              where: { userId: order.medicId }
+            });
+
+            if (medicProfile?.telegramChatId) {
+              console.log('📱 Sending Telegram notification to medic (not in chat)');
+              
+              await sendChatNotification(medicProfile.telegramChatId, {
+                orderId: order.id,
+                senderName: sender.name,
+                senderRole: 'Клиент',
+                message: message || '[Файл]',
+                serviceType: order.serviceType
+              });
+            }
+          } else {
+            console.log('⏭️ Medic is in chat, skipping notification');
+          }
+        }
+
+        // Если отправитель - медик → уведомляем клиента
+        if (sender.role === 'MEDIC' && order.client) {
+          // Проверяем что клиент НЕ в чате
+          if (!connectedUserIds.has(order.clientId)) {
+            console.log('📱 Sending SMS notification to client (not in chat)');
+            
+            const messageText = message || '[Файл]';
+            const smsText = `💬 Новое сообщение от медика ${sender.name}\n\n"${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}"\n\nОткройте приложение: https://medicpro-platform.vercel.app/chat/${orderId}`;
+            
+            await sendSMS(order.client.phone, smsText);
+          } else {
+            console.log('⏭️ Client is in chat, skipping notification');
+          }
+        }
+
+      } catch (notificationError) {
+        console.error('❌ Error sending notifications:', notificationError);
       }
 
-    } catch (notificationError) {
-      console.error('❌ Error sending notifications:', notificationError);
+    } catch (error) {
+      console.error('❌ Send message error:', error);
+      socket.emit('message-error', { error: 'Failed to send message' });
     }
-
-  } catch (error) {
-    console.error('❌ Send message error:', error);
-    socket.emit('message-error', { error: 'Failed to send message' });
-  }
-});
+  });
 
   socket.on('disconnect', () => {
     console.log('👋 User disconnected:', socket.id);
