@@ -1082,6 +1082,7 @@ app.get('/api/medics/profile', authenticateToken, async (req, res) => {
       specialization: medic.specialty || '',
       experience: medic.experience?.toString() || '0',
       education: medic.description || '',
+      city: medic.city || 'Алматы',
       areas: medic.areas || [],
       status: medic.status,
       ratingAvg: medic.ratingAvg,
