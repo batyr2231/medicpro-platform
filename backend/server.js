@@ -12,7 +12,6 @@ import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 import { sendVerificationCode, sendWhatsAppCode, generateCode, sendSMS } from './utils/sms.js';
 import { getCities, getDistricts, isValidCity, isValidDistrict } from './utils/cities.js';
-import { handleWebhook } from './utils/telegram.js';
 import { initBot, handleWebhook, sendOrderNotification, sendOrderAcceptedNotification, sendStatusUpdateNotification, sendChatNotification } from './utils/telegram.js';
 
 dotenv.config();
@@ -1952,12 +1951,6 @@ app.post('/telegram-webhook/:token', (req, res) => {
 // Инициализация Telegram бота
 initBot().catch(err => {
   console.error('❌ Ошибка запуска Telegram бота:', err);
-});
-
-// Start server
-const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
 });
 
 // Start server
