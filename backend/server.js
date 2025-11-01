@@ -1794,11 +1794,7 @@ io.on('connection', (socket) => {
           where: { id: orderId },
           include: {
             client: true,
-            medic: {
-              include: {
-                user: true
-              }
-            }
+            medic: true  // ← medic это уже User, просто true!
           }
         });
 
