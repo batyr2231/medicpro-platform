@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast'; 
-import { ArrowLeft, MapPin, Clock, User, Phone, FileText, CheckCircle, Loader, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, User, Phone, FileText, CheckCircle, Loader, AlertCircle, MessageSquare } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation'; 
 import { useOrders } from '../../../hooks/useOrders'; 
 
@@ -29,7 +29,7 @@ export default function OrderDetailPage() {
   const loadOrder = async () => {
     try {
       // Предотвращение загрузки, если она уже идет и нет данных
-      if (loading && !order) return; 
+      if (loading) return;
 
       const result = await getOrderById(orderId);
       setOrder(result);
@@ -137,7 +137,7 @@ export default function OrderDetailPage() {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Status Card */}
-        <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-8 mb-6 shadow-xl">
+        <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-4 sm:p-8 mb-6 shadow-xl">
           <div className="text-center mb-6">
             <div className="text-6xl mb-4">{statusInfo.icon}</div>
             <h1 className={`text-3xl font-bold mb-2 ${statusInfo.color}`}>
@@ -151,7 +151,7 @@ export default function OrderDetailPage() {
             {steps.map((step, index) => (
               <React.Fragment key={step}>
                 <div className={`flex flex-col items-center ${index <= currentStepIndex ? 'opacity-100' : 'opacity-30'}`}>
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm sm:text-base transition-all ${
                     index <= currentStepIndex 
                       ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30' 
                       : 'bg-white/10 text-slate-500'
@@ -160,7 +160,7 @@ export default function OrderDetailPage() {
                   </div>
                 </div>
                 {index < steps.length - 1 && (
-                  <div className={`flex-1 h-1 mx-2 rounded transition-all ${
+                  <div className={`flex-1 h-1 mx-1 sm:mx-2 rounded transition-all ${
                     index < currentStepIndex ? 'bg-gradient-to-r from-cyan-500 to-blue-600' : 'bg-white/10'
                   }`}></div>
                 )}
@@ -272,7 +272,7 @@ export default function OrderDetailPage() {
               </div>
 
               {/* Кнопки связи */}
-              <div className="grid grid-cols-2 gap-3 mt-4">
+              <div className="grid grid-cols-3 gap-3 mt-4">
                 {/* Позвонить */}
                 <a
                   href={`tel:${order.medic.phone}`}
@@ -294,6 +294,14 @@ export default function OrderDetailPage() {
                   </svg>
                   <span className="text-sm font-medium">WhatsApp</span>
                 </a>
+
+                    <button
+                      onClick={() => router.push(`/client/chat/${order.id}`)}
+                      className="flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 transition-all"
+                    >
+                      <MessageSquare className="w-5 h-5" />
+                      <span className="text-sm font-medium">Чат</span>
+                    </button>
               </div>
             </div>
           </div>
