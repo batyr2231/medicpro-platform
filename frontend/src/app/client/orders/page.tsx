@@ -4,11 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { Package, Clock, MapPin, MessageSquare, ChevronRight, Loader, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useOrders } from '../../hooks/useOrders';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 export default function ClientOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const { getMyOrders, loading } = useOrders();
   const router = useRouter();
+  const { unreadCounts, markAsRead } = useUnreadMessages();
 
   useEffect(() => {
     loadOrders();

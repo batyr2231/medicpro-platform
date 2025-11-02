@@ -5,6 +5,7 @@ import { Heart, MapPin, Clock, User, Phone, FileText, CheckCircle, Navigation, A
 import { useOrders } from '../../hooks/useOrders';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { useUnreadMessages } from '@/app/hooks/useUnreadMessages';
 
 export default function MedicDashboard() {
   const [activeTab, setActiveTab] = useState('available');
@@ -14,6 +15,7 @@ export default function MedicDashboard() {
   const [realOrders, setRealOrders] = useState<any[]>([]);
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const { unreadCounts, markAsRead } = useUnreadMessages();
   const [profileProgress, setProfileProgress] = useState({
     hasSpecialization: false,
     hasExperience: false,
@@ -23,6 +25,7 @@ export default function MedicDashboard() {
     hasTelegram: false
   });
   const router = useRouter();
+  
 
   useEffect(() => {
     loadMedicInfo();
@@ -262,6 +265,7 @@ export default function MedicDashboard() {
                 </div>
               </div>
               
+              {/* Кнопка закрытия онбординга */}
               <button
                 onClick={() => {
                   localStorage.setItem('onboarding-dismissed', 'true');
@@ -691,16 +695,21 @@ export default function MedicDashboard() {
 
                   <div className="space-y-2">
                     <button
-                      onClick={() => router.push(`/chat/${order.id}`)}
-                      className="w-full py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 font-semibold transition-all flex items-center justify-center"
+                      onClick={() => {
+                        markAsRead(order.id);
+                        router.push(`/chat/${order.id}`);
+                      }}
+                      className="w-full py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 font-semibold transition-all flex items-center justify-center relative"
                     >
                       <MessageSquare className="w-5 h-5 mr-2" />
                       Открыть чат
-                        {order.unreadCount > 0 && (
-                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                            {order.unreadCount}
-                          </span>
-                        )}
+                      
+                      {/* Бейдж с непрочитанными */}
+                      {unreadCounts[order.id] > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-pulse">
+                          {unreadCounts[order.id]}
+                        </span>
+                      )}
                     </button>
 
                     {order.status === 'ACCEPTED' && (
