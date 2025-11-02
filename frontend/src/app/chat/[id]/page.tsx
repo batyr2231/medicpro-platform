@@ -11,7 +11,7 @@ import { useChat } from '../../hooks/useChat';
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
-  const orderId = params.id as string;
+  const orderId = params.orderId as string; 
   
   const [messageText, setMessageText] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string>('');
