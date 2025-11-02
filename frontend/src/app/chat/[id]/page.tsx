@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader, X} from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useChat } from '../../hooks/useChat';
-import { useUnreadMessages } from '@/app/hooks/useUnreadMessages';
+
 
 //import toast from 'react-hot-toast';
 
@@ -12,7 +12,7 @@ export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
   const orderId = params.id as string;
-  const { markAsRead } = useUnreadMessages();
+  
   const [messageText, setMessageText] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [orderInfo, setOrderInfo] = useState<any>(null);
@@ -31,11 +31,6 @@ export default function ChatPage() {
     }
     
     loadOrderInfo();
-  }, [orderId]);
-
-  useEffect(() => {
-    // Сбрасываем счётчик при открытии чата
-    markAsRead(orderId);
   }, [orderId]);
 
   useEffect(() => {
