@@ -1865,7 +1865,7 @@ io.on('connection', (socket) => {
           where: { id: orderId },
           include: {
             client: true,
-            medic: true  // ← medic это уже User, просто true!
+            medic: true
           }
         });
 
@@ -1874,9 +1874,9 @@ io.on('connection', (socket) => {
           return;
         }
 
-        const sender = savedMessage.from;  // ← ИЗМЕНИТЬ! (было savedMessage.sender)
+        const sender = savedMessage.from;
         
-        // Если отправитель - клиент → уведомляем медика
+        // Если отправитель - клиент → уведомляем медика через Telegram
         if (sender.role === 'CLIENT' && order.medic) {
           // Проверяем что медик НЕ в чате
           if (!connectedUserIds.has(order.medicId)) {
@@ -1900,16 +1900,19 @@ io.on('connection', (socket) => {
           }
         }
 
-        // Если отправитель - медик → уведомляем клиента
+        // Если отправитель - медик → НЕ отправляем SMS клиенту
+        // Toast уведомления будут через Socket.IO на Frontend
         if (sender.role === 'MEDIC' && order.client) {
-          // Проверяем что клиент НЕ в чате
           if (!connectedUserIds.has(order.clientId)) {
-            console.log('📱 Sending SMS notification to client (not in chat)');
+            console.log('📱 Client not in chat - will receive toast notification via socket');
             
-            const messageText = message || '[Файл]';
-            const smsText = `💬 Новое сообщение от медика ${sender.name}\n\n"${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}"\n\nОткройте приложение: https://medicpro-platform.vercel.app/chat/${orderId}`;
-            
-            await sendSMS(order.client.phone, smsText);
+            // Отправляем Socket.IO событие клиенту для toast
+            io.to(`user-${order.clientId}`).emit('new-chat-message', {
+              orderId: order.id,
+              senderName: sender.name,
+              message: message || '[Файл]',
+              serviceType: order.serviceType
+            });
           } else {
             console.log('⏭️ Client is in chat, skipping notification');
           }
