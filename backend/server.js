@@ -658,10 +658,16 @@ app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
       medicData = medic;
     }
 
+    // ← ДОБАВИТЬ ПРОВЕРКУ ОТЗЫВА!
+    const review = await prisma.review.findUnique({
+      where: { orderId }
+    });
+
     // Формируем ответ
     const response = {
       ...order,
-      medic: medicData
+      medic: medicData,
+      review: review ? true : false  // ← Добавляем флаг наличия отзыва
     };
 
     res.json(response);
@@ -670,7 +676,6 @@ app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch order' });
   }
 });
-
 
 
 // Принятие заказа медиком
