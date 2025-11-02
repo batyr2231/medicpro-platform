@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader, X} from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useChat } from '../../hooks/useChat';
-import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import { useUnreadMessages } from '@/app/hooks/useUnreadMessages';
 
 //import toast from 'react-hot-toast';
 

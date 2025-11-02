@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, Clock, MapPin, MessageSquare, ChevronRight, Loader, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useOrders } from '../../hooks/useOrders';
-import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import { useUnreadMessages } from '@/app/hooks/useUnreadMessages';
 
 export default function ClientOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -175,11 +175,19 @@ export default function ClientOrdersPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          markAsRead(order.id);  // ← Сбрасываем счётчик
                           router.push(`/chat/${order.id}`);
                         }}
-                        className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors"
+                        className="relative p-2 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors"
                       >
                         <MessageSquare className="w-5 h-5" />
+                        
+                        {/* Бейдж непрочитанных */}
+                        {unreadCounts[order.id] > 0 && (
+                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-pulse">
+                            {unreadCounts[order.id]}
+                          </span>
+                        )}
                       </button>
                     </div>
                   )}
