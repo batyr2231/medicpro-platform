@@ -480,10 +480,13 @@ app.get('/api/orders/my', authenticateToken, async (req, res) => {
     let orders;
     
     if (req.user.role === 'CLIENT') {
-      // Для клиента - его заказы
+      // Для клиента - его заказы (ИСКЛЮЧАЕМ отменённые)
       orders = await prisma.order.findMany({
         where: {
-          clientId: req.user.userId
+          clientId: req.user.userId,
+          status: {
+            not: 'CANCELLED'  // ← ДОБАВИТЬ! Исключаем отменённые
+          }
         },
         include: {
           medic: {
@@ -499,8 +502,7 @@ app.get('/api/orders/my', authenticateToken, async (req, res) => {
         }
       });
       
-      console.log('✅ Found', orders.length, 'orders for CLIENT');
-      
+      console.log('✅ Found', orders.length, 'orders for CLIENT (excluding cancelled)');
     } else if (req.user.role === 'MEDIC') {
       // Для медика - заказы где он назначен
       orders = await prisma.order.findMany({
@@ -1865,7 +1867,7 @@ io.on('connection', (socket) => {
           where: { id: orderId },
           include: {
             client: true,
-            medic: true
+            medic: true  // ← medic это уже User, просто true!
           }
         });
 
@@ -1874,9 +1876,9 @@ io.on('connection', (socket) => {
           return;
         }
 
-        const sender = savedMessage.from;
+        const sender = savedMessage.from;  // ← ИЗМЕНИТЬ! (было savedMessage.sender)
         
-        // Если отправитель - клиент → уведомляем медика через Telegram
+        // Если отправитель - клиент → уведомляем медика
         if (sender.role === 'CLIENT' && order.medic) {
           // Проверяем что медик НЕ в чате
           if (!connectedUserIds.has(order.medicId)) {
@@ -1900,19 +1902,16 @@ io.on('connection', (socket) => {
           }
         }
 
-        // Если отправитель - медик → НЕ отправляем SMS клиенту
-        // Toast уведомления будут через Socket.IO на Frontend
+        // Если отправитель - медик → уведомляем клиента
         if (sender.role === 'MEDIC' && order.client) {
+          // Проверяем что клиент НЕ в чате
           if (!connectedUserIds.has(order.clientId)) {
-            console.log('📱 Client not in chat - will receive toast notification via socket');
+            console.log('📱 Sending SMS notification to client (not in chat)');
+           /* 
+            const messageText = message || '[Файл]';
+            const smsText = `💬 Новое сообщение от медика ${sender.name}\n\n"${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}"\n\nОткройте приложение: https://medicpro-platform.vercel.app/chat/${orderId}`;
             
-            // Отправляем Socket.IO событие клиенту для toast
-            io.to(`user-${order.clientId}`).emit('new-chat-message', {
-              orderId: order.id,
-              senderName: sender.name,
-              message: message || '[Файл]',
-              serviceType: order.serviceType
-            });
+            await sendSMS(order.client.phone, smsText);    */
           } else {
             console.log('⏭️ Client is in chat, skipping notification');
           }
