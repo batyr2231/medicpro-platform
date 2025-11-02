@@ -257,15 +257,15 @@ const getOrderById = async (orderId: string) => {
   }
 };
 
-return { 
-  createOrder, 
-  getMyOrders, 
-  getAvailableOrders, 
-  acceptOrder, 
-  updateOrderStatus,
-  markPaymentReceived,
-  getOrderById,
-  loading, 
-  error 
-};
+  return { 
+    createOrder, 
+    getMyOrders, 
+    getAvailableOrders, 
+    acceptOrder, 
+    updateOrderStatus,
+    markPaymentReceived,
+    getOrderById,
+    loading, 
+    error 
+  };
 }

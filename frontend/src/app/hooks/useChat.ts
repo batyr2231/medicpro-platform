@@ -13,6 +13,13 @@ export function useChat(orderId: string) {
   const [currentUserId, setCurrentUserId] = useState<string>('');
 
   useEffect(() => {
+    // Проверка orderId
+    if (!orderId) {
+      setError('Order ID is required');
+      setLoading(false);
+      return;
+    }
+
     // Получаем текущего пользователя
     const userStr = localStorage.getItem('user');
     if (!userStr) {
@@ -34,7 +41,7 @@ export function useChat(orderId: string) {
     socket.on('connect', () => {
       console.log('✅ Connected to socket');
       
-      // Отправляем токен для аутентификации (безопаснее!)
+      // Отправляем токен для аутентификации
       const token = localStorage.getItem('token');
       socket.emit('authenticate', token);
       
@@ -42,7 +49,8 @@ export function useChat(orderId: string) {
       socket.emit('join-order', orderId);
       console.log('🔗 Joined order room:', orderId);
     });
-        socket.on('disconnect', () => {
+
+    socket.on('disconnect', () => {
       console.log('❌ Disconnected from socket');
     });
 
@@ -56,49 +64,33 @@ export function useChat(orderId: string) {
     // Новое сообщение
     socket.on('new-message', (message: any) => {
       console.log('💬 New message received:', message);
-      setMessages(prev => [...prev, message]);
+      setMessages(prev => {
+        // Проверяем что сообщение не дублируется
+        const exists = prev.find(m => m.id === message.id);
+        if (exists) return prev;
+        return [...prev, message];
+      });
     });
 
-    // Ошибка
+    // Ошибка подключения к комнате
+    socket.on('join-error', (err: any) => {
+      console.error('❌ Join error:', err);
+      setError(err.error);
+      setLoading(false);
+    });
+
+    // Ошибка отправки сообщения
     socket.on('message-error', (err: any) => {
       console.error('❌ Message error:', err);
       setError(err.error);
     });
 
-    // Загружаем историю сообщений через REST API (на всякий случай)
-    loadMessageHistory();
-
+    // Cleanup
     return () => {
       socket.emit('leave-order', orderId);
       socket.disconnect();
     };
   }, [orderId]);
-
-  const loadMessageHistory = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/messages/${orderId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to load messages');
-      }
-
-      const data = await response.json();
-      setMessages(data);
-      setLoading(false);
-    } catch (err: any) {
-      console.error('Load messages error:', err);
-      setError(err.message);
-      setLoading(false);
-    }
-  };
 
   const sendMessage = (text: string, fileUrl?: string, fileType?: string) => {
     if (!socketRef.current || (!text.trim() && !fileUrl)) return;
