@@ -49,63 +49,68 @@ const handleLogout = () => {
   }
 };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (rating === 0) {
-    toast.error('Пожалуйста, поставьте оценку');
-    return;
-  }
-
-  if (isComplaint && (!complaintCategory || !complaintDescription)) {
-    toast.error('Заполните все поля жалобы');
-    return;
-  }
-  
-
-  setSubmitting(true);
-
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/reviews`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          orderId,
-          rating,
-          comment,
-          isComplaint,
-          complaintCategory: isComplaint ? complaintCategory : null,
-          complaintDescription: isComplaint ? complaintDescription : null,
-        }),
-      }
-    );
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || 'Failed to submit review');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Валидация
+    if (rating === 0) {
+      toast.error('Пожалуйста, поставьте оценку');
+      return;
     }
 
-    toast.success('✅ Спасибо за отзыв!');
-    
-    // Задержка перед редиректом чтобы пользователь увидел toast
-    setTimeout(() => {
-      router.push('/client/orders');
-    }, 1000);
-    
-  } catch (err: any) {
-    console.error('Submit review error:', err);
-    toast.error('Ошибка при отправке отзыва: ' + err.message);
-  } finally {
-    setSubmitting(false);
-  }
-};
+    if (isComplaint && !complaintCategory) {
+      toast.error('Укажите категорию жалобы');
+      return;
+    }
+
+    if (isComplaint && (!complaintDescription || complaintDescription.trim().length < 10)) {
+      toast.error('Опишите жалобу подробнее (минимум 10 символов)');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/reviews`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            orderId: params.id,
+            rating,
+            comment,
+            isComplaint,
+            complaintCategory: isComplaint ? complaintCategory : null,
+            complaintDescription: isComplaint ? complaintDescription : null,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit review');
+      }
+
+      toast.success(isComplaint ? '✅ Жалоба отправлена!' : '✅ Спасибо за отзыв!');
+      
+      // ← ДОБАВИТЬ ЗАДЕРЖКУ И РЕДИРЕКТ!
+      setTimeout(() => {
+        router.push(`/client/orders/${params.id}`);
+      }, 1500);
+
+    } catch (err: any) {
+      console.error('Submit review error:', err);
+      toast.error('❌ ' + err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading || !order) {
     return (
