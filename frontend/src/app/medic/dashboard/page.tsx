@@ -135,6 +135,12 @@ export default function MedicDashboard() {
       setRealOrders(prev => prev.filter(o => o.id !== orderId));
       setMyOrders(prev => [...prev, result]);
       
+      // Переключаем на вкладку "Мои заказы"
+      setActiveTab('my');
+      
+      // Прокручиваем наверх
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
     } catch (err: any) {
       toast.error('Ошибка: ' + err.message);
     }
