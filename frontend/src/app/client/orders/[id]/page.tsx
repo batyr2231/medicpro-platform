@@ -6,7 +6,7 @@ import { ArrowLeft, MapPin, Clock, User, Phone, FileText, CheckCircle, Loader, A
 import { useParams, useRouter } from 'next/navigation'; 
 import { useOrders } from '../../../hooks/useOrders'; 
 
-// УДАЛЕНЫ ВСЕ МОКОВЫЕ ДАННЫЕ И ЗАГЛУШКИ
+
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -17,7 +17,7 @@ export default function OrderDetailPage() {
   const { getOrderById, loading } = useOrders();
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
-  // Обратите внимание: функция loadOrder вызывается повторно для имитации обновления в реальном времени
+
   useEffect(() => {
     loadOrder();
     
@@ -296,7 +296,7 @@ export default function OrderDetailPage() {
                 </a>
 
                     <button
-                      onClick={() => router.push(`/client/chat/${order.id}`)}
+                      onClick={() => router.push(`/chat/${order.id}`)} 
                       className="flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 transition-all"
                     >
                       <MessageSquare className="w-5 h-5" />
