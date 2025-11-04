@@ -71,7 +71,7 @@ export default function ClientOrdersPage() {
               </button>
               
               <button
-                onClick={() => router.push('/client/order')}
+                onClick={() => router.push('/orders/create')}
                 className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 transition-all"
               >
                 + Новый заказ
