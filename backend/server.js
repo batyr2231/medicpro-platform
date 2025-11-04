@@ -1762,9 +1762,9 @@ app.get('/api/medics', async (req, res) => {
   try {
     const { city, district, specialization, search } = req.query;
 
-    // Базовый запрос
+    // Базовый запрос - только APPROVED медики
     let whereClause = {
-      isApproved: true, // Только одобренные медики
+      status: 'APPROVED', // ← ИСПРАВЛЕНО! (было isApproved: true)
     };
 
     // Фильтр по городу
@@ -1772,14 +1772,18 @@ app.get('/api/medics', async (req, res) => {
       whereClause.city = city;
     }
 
-    // Фильтр по району
+    // Фильтр по району (если есть)
+    // ВАЖНО: В схеме нет поля district, есть areas (массив)
+    // Поэтому фильтр по district не работает, используем areas
     if (district) {
-      whereClause.district = district;
+      whereClause.areas = {
+        has: district
+      };
     }
 
     // Фильтр по специализации
     if (specialization) {
-      whereClause.specialization = specialization;
+      whereClause.specialty = specialization; // ← ИСПРАВЛЕНО! (было specialization)
     }
 
     const medics = await prisma.medic.findMany({
@@ -1821,7 +1825,7 @@ app.get('/api/medics', async (req, res) => {
       const searchLower = search.toLowerCase();
       filteredMedics = medics.filter(medic => 
         medic.user.name.toLowerCase().includes(searchLower) ||
-        medic.specialization?.toLowerCase().includes(searchLower)
+        medic.specialty?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -1838,12 +1842,12 @@ app.get('/api/medics', async (req, res) => {
         name: medic.user.name,
         phone: medic.user.phone,
         city: medic.city,
-        district: medic.district,
-        specialization: medic.specialization,
+        district: medic.areas && medic.areas.length > 0 ? medic.areas[0] : null, // Берём первый район
+        specialization: medic.specialty,
         experience: medic.experience,
-        bio: medic.bio,
-        services: medic.services,
-        education: medic.education,
+        bio: medic.description,
+        services: medic.specialty ? [medic.specialty] : [], // Можно расширить
+        education: null, // Если нет в схеме
         avgRating: parseFloat(avgRating),
         reviewCount: medic.reviews.length,
         memberSince: medic.user.createdAt,
@@ -1854,6 +1858,108 @@ app.get('/api/medics', async (req, res) => {
   } catch (error) {
     console.error('Fetch medics error:', error);
     res.status(500).json({ error: 'Failed to fetch medics' });
+  }
+});
+
+// Получить профиль медика по ID (для детальной страницы)
+app.get('/api/medics/:medicId', async (req, res) => {
+  try {
+    const { medicId } = req.params;
+
+    const medic = await prisma.medic.findUnique({
+      where: { id: medicId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            createdAt: true,
+          }
+        },
+        reviews: {
+          include: {
+            client: {
+              select: {
+                name: true,
+              }
+            },
+            order: {
+              select: {
+                serviceType: true,
+                createdAt: true,
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
+        orders: {
+          where: {
+            status: 'PAID'
+          },
+          select: {
+            id: true,
+          }
+        }
+      }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Medic not found' });
+    }
+
+    if (medic.status !== 'APPROVED') { // ← ИСПРАВЛЕНО!
+      return res.status(403).json({ error: 'Medic not approved' });
+    }
+
+    // Средний рейтинг
+    const ratings = medic.reviews.map(r => r.rating);
+    const avgRating = ratings.length > 0 
+      ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)
+      : 0;
+
+    // Распределение рейтингов
+    const ratingDistribution = {
+      5: medic.reviews.filter(r => r.rating === 5).length,
+      4: medic.reviews.filter(r => r.rating === 4).length,
+      3: medic.reviews.filter(r => r.rating === 3).length,
+      2: medic.reviews.filter(r => r.rating === 2).length,
+      1: medic.reviews.filter(r => r.rating === 1).length,
+    };
+
+    const result = {
+      id: medic.id,
+      userId: medic.userId,
+      name: medic.user.name,
+      phone: medic.user.phone,
+      city: medic.city,
+      district: medic.areas && medic.areas.length > 0 ? medic.areas[0] : null,
+      specialization: medic.specialty,
+      experience: medic.experience,
+      bio: medic.description,
+      services: medic.specialty ? [medic.specialty] : [],
+      education: null, // Если нет в схеме
+      avgRating: parseFloat(avgRating),
+      reviewCount: medic.reviews.length,
+      completedOrders: medic.orders.length,
+      memberSince: medic.user.createdAt,
+      reviews: medic.reviews.map(review => ({
+        id: review.id,
+        rating: review.rating,
+        comment: review.comment,
+        serviceType: review.order.serviceType,
+        clientName: review.client.name,
+        createdAt: review.createdAt,
+      })),
+      ratingDistribution,
+    };
+
+    res.json(result);
+  } catch (error) {
+    console.error('Fetch medic profile error:', error);
+    res.status(500).json({ error: 'Failed to fetch medic profile' });
   }
 });
 
