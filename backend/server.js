@@ -1762,28 +1762,22 @@ app.get('/api/medics', async (req, res) => {
   try {
     const { city, district, specialization, search } = req.query;
 
-    // Базовый запрос - только APPROVED медики
     let whereClause = {
-      status: 'APPROVED', // ← ИСПРАВЛЕНО! (было isApproved: true)
+      status: 'APPROVED',
     };
 
-    // Фильтр по городу
     if (city) {
       whereClause.city = city;
     }
 
-    // Фильтр по району (если есть)
-    // ВАЖНО: В схеме нет поля district, есть areas (массив)
-    // Поэтому фильтр по district не работает, используем areas
     if (district) {
       whereClause.areas = {
         has: district
       };
     }
 
-    // Фильтр по специализации
     if (specialization) {
-      whereClause.specialty = specialization; // ← ИСПРАВЛЕНО! (было specialization)
+      whereClause.specialty = specialization;
     }
 
     const medics = await prisma.medic.findMany({
@@ -1795,22 +1789,11 @@ app.get('/api/medics', async (req, res) => {
             name: true,
             phone: true,
             createdAt: true,
-          }
-        },
-        reviews: {
-          select: {
-            id: true,
-            rating: true,
-            comment: true,
-            createdAt: true,
-            client: {
+            medicReviews: {
               select: {
-                name: true,
+                rating: true,
               }
             }
-          },
-          orderBy: {
-            createdAt: 'desc'
           }
         }
       },
@@ -1819,19 +1802,9 @@ app.get('/api/medics', async (req, res) => {
       }
     });
 
-    // Поиск по имени
-    let filteredMedics = medics;
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filteredMedics = medics.filter(medic => 
-        medic.user.name.toLowerCase().includes(searchLower) ||
-        medic.specialty?.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Добавляем средний рейтинг и количество отзывов
-    const result = filteredMedics.map(medic => {
-      const ratings = medic.reviews.map(r => r.rating);
+    // Фильтр по поиску и маппинг результата
+    let result = medics.map((medic) => {
+      const ratings = medic.user.medicReviews.map(r => r.rating);
       const avgRating = ratings.length > 0 
         ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)
         : 0;
@@ -1842,17 +1815,25 @@ app.get('/api/medics', async (req, res) => {
         name: medic.user.name,
         phone: medic.user.phone,
         city: medic.city,
-        district: medic.areas && medic.areas.length > 0 ? medic.areas[0] : null, // Берём первый район
+        district: medic.areas && medic.areas.length > 0 ? medic.areas.join(', ') : null,
         specialization: medic.specialty,
         experience: medic.experience,
         bio: medic.description,
-        services: medic.specialty ? [medic.specialty] : [], // Можно расширить
-        education: null, // Если нет в схеме
+        services: medic.specialty ? [medic.specialty] : [],
         avgRating: parseFloat(avgRating),
-        reviewCount: medic.reviews.length,
+        reviewCount: ratings.length,
         memberSince: medic.user.createdAt,
       };
     });
+
+    // Поиск по имени/специализации
+    if (search) {
+      const searchLower = search.toLowerCase();
+      result = result.filter(medic => 
+        medic.name.toLowerCase().includes(searchLower) ||
+        medic.specialization?.toLowerCase().includes(searchLower)
+      );
+    }
 
     res.json(result);
   } catch (error) {
@@ -1861,7 +1842,7 @@ app.get('/api/medics', async (req, res) => {
   }
 });
 
-// Получить профиль медика по ID (для детальной страницы)
+// Получить профиль медика по ID
 app.get('/api/medics/:medicId', async (req, res) => {
   try {
     const { medicId } = req.params;
@@ -1875,32 +1856,35 @@ app.get('/api/medics/:medicId', async (req, res) => {
             name: true,
             phone: true,
             createdAt: true,
-          }
-        },
-        reviews: {
-          include: {
-            client: {
-              select: {
-                name: true,
+            medicReviews: {
+              where: {
+                isHidden: false // Только видимые отзывы
+              },
+              include: {
+                client: {
+                  select: {
+                    name: true,
+                  }
+                },
+                order: {
+                  select: {
+                    serviceType: true,
+                    createdAt: true,
+                  }
+                }
+              },
+              orderBy: {
+                createdAt: 'desc'
               }
             },
-            order: {
+            medicOrders: {
+              where: {
+                status: 'PAID'
+              },
               select: {
-                serviceType: true,
-                createdAt: true,
+                id: true,
               }
             }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        },
-        orders: {
-          where: {
-            status: 'PAID'
-          },
-          select: {
-            id: true,
           }
         }
       }
@@ -1910,23 +1894,22 @@ app.get('/api/medics/:medicId', async (req, res) => {
       return res.status(404).json({ error: 'Medic not found' });
     }
 
-    if (medic.status !== 'APPROVED') { // ← ИСПРАВЛЕНО!
+    if (medic.status !== 'APPROVED') {
       return res.status(403).json({ error: 'Medic not approved' });
     }
 
-    // Средний рейтинг
-    const ratings = medic.reviews.map(r => r.rating);
+    const reviews = medic.user.medicReviews;
+    const ratings = reviews.map(r => r.rating);
     const avgRating = ratings.length > 0 
       ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)
       : 0;
 
-    // Распределение рейтингов
     const ratingDistribution = {
-      5: medic.reviews.filter(r => r.rating === 5).length,
-      4: medic.reviews.filter(r => r.rating === 4).length,
-      3: medic.reviews.filter(r => r.rating === 3).length,
-      2: medic.reviews.filter(r => r.rating === 2).length,
-      1: medic.reviews.filter(r => r.rating === 1).length,
+      5: reviews.filter(r => r.rating === 5).length,
+      4: reviews.filter(r => r.rating === 4).length,
+      3: reviews.filter(r => r.rating === 3).length,
+      2: reviews.filter(r => r.rating === 2).length,
+      1: reviews.filter(r => r.rating === 1).length,
     };
 
     const result = {
@@ -1935,17 +1918,17 @@ app.get('/api/medics/:medicId', async (req, res) => {
       name: medic.user.name,
       phone: medic.user.phone,
       city: medic.city,
-      district: medic.areas && medic.areas.length > 0 ? medic.areas[0] : null,
+      district: medic.areas && medic.areas.length > 0 ? medic.areas.join(', ') : null,
       specialization: medic.specialty,
       experience: medic.experience,
       bio: medic.description,
       services: medic.specialty ? [medic.specialty] : [],
-      education: null, // Если нет в схеме
+      education: null,
       avgRating: parseFloat(avgRating),
-      reviewCount: medic.reviews.length,
-      completedOrders: medic.orders.length,
+      reviewCount: reviews.length,
+      completedOrders: medic.user.medicOrders.length,
       memberSince: medic.user.createdAt,
-      reviews: medic.reviews.map(review => ({
+      reviews: reviews.map(review => ({
         id: review.id,
         rating: review.rating,
         comment: review.comment,
