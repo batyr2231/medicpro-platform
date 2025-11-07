@@ -855,40 +855,36 @@ app.post('/api/orders/:orderId/payment-received', authenticateToken, async (req,
   }
 });
 
-// Отмена заказа клиентом
+// Отменить заказ (клиент может отменить только NEW заказы)
 app.post('/api/orders/:orderId/cancel', authenticateToken, async (req, res) => {
   try {
     const { orderId } = req.params;
+    const userId = req.user.userId;
 
     const order = await prisma.order.findUnique({
-      where: { id: orderId }
+      where: { id: orderId },
     });
 
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // Только клиент может отменить свой заказ
-    if (order.clientId !== req.user.userId) {
-      return res.status(403).json({ error: 'Access denied' });
+    // Проверка что это заказ клиента
+    if (order.clientId !== userId) {
+      return res.status(403).json({ error: 'Not authorized' });
     }
 
-    // Можно отменить только если статус NEW
+    // Можно отменить только NEW заказы
     if (order.status !== 'NEW') {
-      return res.status(400).json({ error: 'Заказ уже принят медиком и не может быть отменён' });
+      return res.status(400).json({ error: 'Cannot cancel order in this status' });
     }
 
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: {
-        status: 'CANCELLED'
-      }
+        status: 'CANCELLED',
+      },
     });
-
-    // Уведомляем медиков что заказ отменён
-    io.to(`medics-city-${order.district}`).emit('order-cancelled', { orderId });
-
-    console.log(`✅ Order ${orderId} cancelled by client`);
 
     res.json(updatedOrder);
   } catch (error) {
