@@ -2012,119 +2012,134 @@ io.on('connection', (socket) => {
       }
     });
 
-  socket.on('send-message', async ({ orderId, message, senderId, fileUrl, fileType }) => {
-    try {
-      console.log('📨 New message:', { orderId, senderId, message: message?.substring(0, 50), fileUrl });
-
-      // Сохраняем сообщение в БД
-      const savedMessage = await prisma.message.create({
-        data: {
-          orderId: orderId,
-          fromUserId: senderId,      // ← ИЗМЕНИТЬ! (было senderId)
-          text: message || '',        // ← ИЗМЕНИТЬ! (было message)
-          fileUrl: fileUrl || null,
-          fileType: fileType || null,
-        },
-        include: {
-          from: {                     // ← ИЗМЕНИТЬ! (было sender)
-            select: {
-              id: true,
-              name: true,
-              role: true,
-            },
-          },
-        },
-      });
-
-      console.log('✅ Message saved:', savedMessage.id);
-
-      // Отправляем сообщение в комнату заказа
-      io.to(`order-${orderId}`).emit('new-message', savedMessage);
-
-      // Проверяем кто сейчас в комнате чата
-      const roomClients = io.sockets.adapter.rooms.get(`order-${orderId}`);
-      const connectedUserIds = new Set();
-      
-      if (roomClients) {
-        for (const socketId of roomClients) {
-          const clientSocket = io.sockets.sockets.get(socketId);
-          if (clientSocket?.userId) {
-            connectedUserIds.add(clientSocket.userId);
-          }
-        }
-      }
-
-      console.log('👥 Users in chat room:', Array.from(connectedUserIds));
-
-      // УВЕДОМЛЕНИЯ
-      try {
-        const order = await prisma.order.findUnique({
-          where: { id: orderId },
-          include: {
-            client: true,
-            medic: true  // ← medic это уже User, просто true!
-          }
-        });
-
-        if (!order) {
-          console.log('⚠️ Order not found for notifications');
-          return;
-        }
-
-        const sender = savedMessage.from;  // ← ИЗМЕНИТЬ! (было savedMessage.sender)
-        
-        // Если отправитель - клиент → уведомляем медика
-        if (sender.role === 'CLIENT' && order.medic) {
-          // Проверяем что медик НЕ в чате
-          if (!connectedUserIds.has(order.medicId)) {
-            const medicProfile = await prisma.medic.findUnique({
-              where: { userId: order.medicId }
-            });
-
-            if (medicProfile?.telegramChatId) {
-              console.log('📱 Sending Telegram notification to medic (not in chat)');
-              
-              await sendChatNotification(medicProfile.telegramChatId, {
-                orderId: order.id,
-                senderName: sender.name,
-                senderRole: 'Клиент',
-                message: message || '[Файл]',
-                serviceType: order.serviceType
-              });
-            }
-          } else {
-            console.log('⏭️ Medic is in chat, skipping notification');
-          }
-        }
-
-        // Если отправитель - медик → уведомляем клиента
-        if (sender.role === 'MEDIC' && order.client) {
-          // Проверяем что клиент НЕ в чате
-          if (!connectedUserIds.has(order.clientId)) {
-            console.log('📱 Sending SMS notification to client (not in chat)');
-           /* 
-            const messageText = message || '[Файл]';
-            const smsText = `💬 Новое сообщение от медика ${sender.name}\n\n"${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}"\n\nОткройте приложение: https://medicpro-platform.vercel.app/chat/${orderId}`;
-            
-            await sendSMS(order.client.phone, smsText);    */
-          } else {
-            console.log('⏭️ Client is in chat, skipping notification');
-          }
-        }
-
-      } catch (notificationError) {
-        console.error('❌ Error sending notifications:', notificationError);
-      }
-
-    } catch (error) {
-      console.error('❌ Send message error:', error);
-      socket.emit('message-error', { error: 'Failed to send message' });
+// Отправка сообщения
+socket.on('send-message', async (data) => {
+  try {
+    if (!socket.userId) {
+      return socket.emit('message-error', { error: 'Not authenticated' });
     }
-  });
+
+    const { orderId, message, fileUrl, fileType, senderId } = data;
+
+    console.log('📨 New message:', { orderId, senderId: socket.userId, message, fileUrl });
+
+    // Получаем информацию о заказе
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        medic: {
+          select: {
+            id: true,
+            name: true,
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      return socket.emit('message-error', { error: 'Order not found' });
+    }
+
+    // Создаём сообщение
+    const newMessage = await prisma.message.create({
+      data: {
+        orderId,
+        fromUserId: socket.userId,
+        text: message || null,
+        fileUrl: fileUrl || null,
+        fileType: fileType || null,
+      },
+      include: {
+        from: {
+          select: {
+            id: true,
+            name: true,
+          }
+        }
+      }
+    });
+
+    console.log('✅ Message saved:', newMessage.id);
+
+    // Отправляем сообщение всем в комнате чата
+    io.to(`order:${orderId}`).emit('new-message', newMessage);
+
+    // Определяем получателя и отправителя
+    const recipientId = socket.userId === order.clientId ? order.medicId : order.clientId;
+    const senderName = socket.userId === order.clientId ? order.client.name : order.medic?.name;
+    
+    console.log('👥 Recipient:', recipientId, 'Sender:', senderName);
+
+    if (recipientId) {
+      // Проверяем, находится ли получатель в комнате чата
+      const roomSockets = await io.in(`order:${orderId}`).fetchSockets();
+      const userIdsInRoom = roomSockets.map(s => s.userId);
+      const recipientInRoom = userIdsInRoom.includes(recipientId);
+
+      console.log('👥 Users in chat room:', userIdsInRoom);
+      console.log('❓ Recipient in room?', recipientInRoom);
+
+      // Если получателя НЕТ в чате - отправляем уведомление
+      if (!recipientInRoom) {
+        const notification = {
+          orderId,
+          messageId: newMessage.id,
+          senderName,
+          text: message || '📎 Файл',
+          hasFile: !!fileUrl,
+          createdAt: newMessage.createdAt,
+        };
+
+        console.log('📬 Sending notification to user:', recipientId);
+        console.log('📦 Notification data:', notification);
+        
+        io.to(`user:${recipientId}`).emit('new-chat-message', notification);
+        
+        console.log('✅ Notification emitted to room:', `user:${recipientId}`);
+      } else {
+        console.log('ℹ️ Recipient is in chat, no notification needed');
+      }
+    }
+
+  } catch (error) {
+    console.error('Send message error:', error);
+    socket.emit('message-error', { error: 'Failed to send message' });
+  }
+});
 
   socket.on('disconnect', () => {
     console.log('👋 User disconnected:', socket.id);
   });
+});
+
+socket.on('authenticate', async (token) => {
+  try {
+    if (!token) {
+      console.log('⚠️ No token provided');
+      return;
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    socket.userId = decoded.userId;
+    
+    // Присоединяем к персональной комнате
+    socket.join(`user:${decoded.userId}`);
+    console.log(`✅ User authenticated: ${decoded.userId} Role: ${decoded.role}`);
+    console.log(`📍 User joined room: user:${decoded.userId}`);
+    
+    // Проверяем что пользователь действительно в комнате
+    const rooms = Array.from(socket.rooms);
+    console.log(`🏠 User rooms:`, rooms);
+    
+  } catch (error) {
+    console.error('Socket auth error:', error);
+  }
 });
 
 // Health check для Render
