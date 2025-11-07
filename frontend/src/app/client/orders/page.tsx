@@ -4,14 +4,86 @@ import React, { useState, useEffect } from 'react';
 import { Package, Clock, MapPin, MessageSquare, ChevronRight, Loader, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useOrders } from '../../hooks/useOrders';
+import { io, Socket } from 'socket.io-client'; // ← ДОБАВИТЬ
+import toast from 'react-hot-toast'; // ← ДОБАВИТЬ
 
 export default function ClientOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const { getMyOrders, loading } = useOrders();
   const router = useRouter();
+  const [socket, setSocket] = useState<Socket | null>(null); // ← ДОБАВИТЬ
 
   useEffect(() => {
     loadOrders();
+    
+    // ← ДОБАВИТЬ: Подключение к Socket.IO
+    console.log('🔌 Connecting to Socket.IO...');
+    const newSocket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000', {
+      transports: ['websocket', 'polling'],
+    });
+
+    newSocket.on('connect', () => {
+      console.log('✅ Socket connected:', newSocket.id);
+      const token = localStorage.getItem('token');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      console.log('👤 Authenticating user:', user.id);
+      newSocket.emit('authenticate', token);
+    });
+
+    newSocket.on('disconnect', () => {
+      console.log('❌ Socket disconnected');
+    });
+
+    // Слушаем смену статуса заказа
+    newSocket.on('order-status-changed', (data: any) => {
+      console.log('📢 Order status changed:', data);
+      
+      const statusText = getStatusText(data.newStatus);
+      toast.success(`📢 Заказ #${data.orderId.slice(0, 8)}: ${statusText}`, {
+        duration: 5000,
+        icon: '🔔',
+      });
+      
+      loadOrders();
+    });
+
+    // ← ДОБАВИТЬ: Слушаем новые сообщения в чате
+    newSocket.on('new-chat-message', (data: any) => {
+      console.log('💬 NEW CHAT MESSAGE RECEIVED:', data);
+      
+      const messageText = data.text && data.text.length > 30 
+        ? data.text.substring(0, 30) + '...' 
+        : (data.text || '📎 Файл');
+      
+      toast((t) => (
+        <div 
+          onClick={() => {
+            console.log('👆 Toast clicked, navigating to chat:', data.orderId);
+            toast.dismiss(t.id);
+            router.push(`/chat/${data.orderId}`);
+          }}
+          className="cursor-pointer p-2"
+        >
+          <div className="font-semibold text-white">💬 {data.senderName}</div>
+          <div className="text-sm text-slate-300 mt-1">{messageText}</div>
+          <div className="text-xs text-cyan-400 mt-2">👆 Нажмите чтобы открыть чат</div>
+        </div>
+      ), {
+        duration: 8000,
+        icon: '💬',
+        style: {
+          background: '#1e293b',
+          border: '1px solid #06b6d4',
+        },
+      });
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      console.log('🔌 Disconnecting socket...');
+      newSocket.disconnect();
+    };
   }, []);
 
   const loadOrders = async () => {
@@ -43,6 +115,19 @@ export default function ClientOrdersPage() {
     return info[status] || info.NEW;
   };
 
+  // ← ДОБАВИТЬ: Функция для текста статусов в уведомлениях
+  const getStatusText = (status: string) => {
+    const statuses: Record<string, string> = {
+      'ACCEPTED': 'Медик принял заказ',
+      'ON_THE_WAY': 'Медик в пути',
+      'STARTED': 'Визит начался',
+      'COMPLETED': 'Визит завершён',
+      'PAID': 'Оплачено',
+      'CANCELLED': 'Отменён',
+    };
+    return statuses[status] || status;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center">
@@ -62,7 +147,6 @@ export default function ClientOrdersPage() {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">Мои заказы</h1>
             <div className="flex items-center space-x-3">
-              {/* ← ДОБАВИТЬ ЭТУ КНОПКУ */}
               <button
                 onClick={() => router.push('/client/medics')}
                 className="px-4 py-2 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 transition-all"
