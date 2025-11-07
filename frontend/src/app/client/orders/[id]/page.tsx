@@ -337,22 +337,42 @@ export default function OrderDetailPage() {
         )}
 
         {/* Cancel Button */}
-        {order.status === 'NEW' && (
-          <button
-            onClick={async () => {
-              try {
-                // Имитация отмены заказа
-                toast.success('✅ Заказ отменён');
-                router.push('/client/orders');
-              } catch (error) {
-                toast.error('❌ Ошибка отмены заказа');
-              }
-            }}
-            className="w-full py-4 rounded-xl bg-red-500/20 border-2 border-red-500 hover:bg-red-500/30 font-semibold transition-all flex items-center justify-center text-lg text-red-400 shadow-xl shadow-red-500/30"
-          >
-            ❌ Отменить заказ
-          </button>
-        )} 
+{/* Cancel Button */}
+{order.status === 'NEW' && (
+  <button
+    onClick={async () => {
+      if (!confirm('Вы уверены, что хотите отменить заказ?')) return;
+      
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/cancel`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to cancel order');
+        }
+
+        toast.success('✅ Заказ отменён');
+        router.push('/client/orders');
+      } catch (error: any) {
+        console.error('Cancel error:', error);
+        toast.error('❌ Ошибка отмены: ' + error.message);
+      }
+    }}
+    className="w-full py-4 rounded-xl bg-red-500/20 border-2 border-red-500 hover:bg-red-500/30 font-semibold transition-all flex items-center justify-center text-lg text-red-400 shadow-xl shadow-red-500/30"
+  >
+    ❌ Отменить заказ
+  </button>
+)} 
       </div>
     </div>
   );
