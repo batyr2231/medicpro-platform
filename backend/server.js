@@ -2116,9 +2116,8 @@ socket.on('send-message', async (data) => {
   socket.on('disconnect', () => {
     console.log('👋 User disconnected:', socket.id);
   });
-});
 
-socket.on('authenticate', async (token) => {
+  socket.on('authenticate', async (token) => {
   try {
     if (!token) {
       console.log('⚠️ No token provided');
@@ -2141,6 +2140,29 @@ socket.on('authenticate', async (token) => {
     console.error('Socket auth error:', error);
   }
 });
+
+});
+
+
+function notifyOrderStatusChange(orderId, clientId, medicId, newStatus) {
+  const notification = {
+    orderId,
+    newStatus,
+    timestamp: new Date(),
+  };
+
+  if (clientId) {
+    io.to(`user:${clientId}`).emit('order-status-changed', notification);
+  }
+
+  if (medicId) {
+    io.to(`user:${medicId}`).emit('order-status-changed', notification);
+  }
+
+  console.log(`📢 Notification sent for order ${orderId}: ${newStatus}`);
+}
+
+
 
 // Health check для Render
 app.get('/health', (req, res) => {
