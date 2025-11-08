@@ -4,32 +4,18 @@ import React, { useState, useEffect } from 'react';
 import { Package, Clock, MapPin, MessageSquare, ChevronRight, Loader, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useOrders } from '../../hooks/useOrders';
-// ← УДАЛИТЬ эти импорты:
-// import { io, Socket } from 'socket.io-client';
-// import toast from 'react-hot-toast';
+
 
 export default function ClientOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const { getMyOrders, loading } = useOrders();
   const router = useRouter();
-  // ← УДАЛИТЬ эту строку:
-  // const [socket, setSocket] = useState<Socket | null>(null);
+  
 
   useEffect(() => {
     loadOrders();
     
-    // ← УДАЛИТЬ ВЕСЬ ЭТОТ БЛОК (строки ~20-85):
-    /*
-    console.log('🔌 Connecting to Socket.IO...');
-    const newSocket = io(...);
-    ...
-    return () => {
-      console.log('🔌 Disconnecting socket...');
-      newSocket.disconnect();
-    };
-    */
-  }, []); // ← ОСТАВИТЬ ТОЛЬКО ПУСТОЙ МАССИВ ЗАВИСИМОСТЕЙ
-
+  }, []); 
   const loadOrders = async () => {
     try {
       const result = await getMyOrders();
@@ -58,17 +44,6 @@ export default function ClientOrdersPage() {
     };
     return info[status] || info.NEW;
   };
-
-  // ← УДАЛИТЬ эту функцию:
-  /*
-  const getStatusText = (status: string) => {
-    const statuses: Record<string, string> = {
-      'ACCEPTED': 'Медик принял заказ',
-      ...
-    };
-    return statuses[status] || status;
-  };
-  */
 
   if (loading) {
     return (

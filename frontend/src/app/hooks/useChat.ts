@@ -13,8 +13,11 @@ export function useChat(orderId: string) {
   const [currentUserId, setCurrentUserId] = useState<string>('');
 
   useEffect(() => {
+    console.log('🔌 useChat: Starting...', { orderId }); // ← ДОБАВИТЬ
+
     // Проверка orderId
     if (!orderId) {
+      console.error('❌ useChat: No orderId!'); // ← ДОБАВИТЬ
       setError('Order ID is required');
       setLoading(false);
       return;
@@ -23,6 +26,7 @@ export function useChat(orderId: string) {
     // Получаем текущего пользователя
     const userStr = localStorage.getItem('user');
     if (!userStr) {
+      console.error('❌ useChat: No user!'); // ← ДОБАВИТЬ
       setError('User not found');
       setLoading(false);
       return;
@@ -30,8 +34,10 @@ export function useChat(orderId: string) {
 
     const user = JSON.parse(userStr);
     setCurrentUserId(user.id);
+    console.log('👤 useChat: Current user:', user.id); // ← ДОБАВИТЬ
 
     // Подключаемся к Socket.IO
+    console.log('🔌 useChat: Creating socket...'); // ← ДОБАВИТЬ
     socketRef.current = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
     });
@@ -39,61 +45,81 @@ export function useChat(orderId: string) {
     const socket = socketRef.current;
 
     socket.on('connect', () => {
-      console.log('✅ Connected to socket');
+      console.log('✅ useChat: Socket connected:', socket.id); // ← ИЗМЕНИТЬ
       
       // Отправляем токен для аутентификации
       const token = localStorage.getItem('token');
+      console.log('🔐 useChat: Authenticating...'); // ← ДОБАВИТЬ
       socket.emit('authenticate', token);
       
       // Подключаемся к комнате заказа
+      console.log('🔗 useChat: Joining order:', orderId); // ← ДОБАВИТЬ
       socket.emit('join-order', orderId);
-      console.log('🔗 Joined order room:', orderId);
     });
 
-    socket.on('disconnect', () => {
-      console.log('❌ Disconnected from socket');
+    socket.on('disconnect', (reason) => { // ← ДОБАВИТЬ reason
+      console.log('❌ useChat: Disconnected. Reason:', reason); // ← ИЗМЕНИТЬ
+    });
+
+    socket.on('connect_error', (error) => { // ← ДОБАВИТЬ
+      console.error('❌ useChat: Connection error:', error);
+      setError('Connection failed');
+      setLoading(false);
     });
 
     // Получение истории сообщений
     socket.on('message-history', (history: any[]) => {
-      console.log('📜 Message history received:', history.length);
+      console.log('📜 useChat: Message history received:', history.length); // ← ИЗМЕНИТЬ
       setMessages(history);
       setLoading(false);
     });
 
     // Новое сообщение
     socket.on('new-message', (message: any) => {
-      console.log('💬 New message received:', message);
+      console.log('💬 useChat: New message received:', message); // ← ИЗМЕНИТЬ
       setMessages(prev => {
-        // Проверяем что сообщение не дублируется
         const exists = prev.find(m => m.id === message.id);
-        if (exists) return prev;
+        if (exists) {
+          console.log('⚠️ useChat: Duplicate message, skipping'); // ← ДОБАВИТЬ
+          return prev;
+        }
         return [...prev, message];
       });
     });
 
     // Ошибка подключения к комнате
     socket.on('join-error', (err: any) => {
-      console.error('❌ Join error:', err);
+      console.error('❌ useChat: Join error:', err); // ← ИЗМЕНИТЬ
       setError(err.error);
       setLoading(false);
     });
 
     // Ошибка отправки сообщения
     socket.on('message-error', (err: any) => {
-      console.error('❌ Message error:', err);
+      console.error('❌ useChat: Message error:', err); // ← ИЗМЕНИТЬ
       setError(err.error);
     });
 
     // Cleanup
     return () => {
-      socket.emit('leave-order', orderId);
-      socket.disconnect();
+      console.log('🧹 useChat: Cleaning up...'); // ← ДОБАВИТЬ
+      if (socketRef.current) {
+        socketRef.current.emit('leave-order', orderId);
+        socketRef.current.disconnect();
+      }
     };
   }, [orderId]);
 
   const sendMessage = (text: string, fileUrl?: string, fileType?: string) => {
-    if (!socketRef.current || (!text.trim() && !fileUrl)) return;
+    if (!socketRef.current) {
+      console.error('❌ sendMessage: No socket!'); // ← ДОБАВИТЬ
+      return;
+    }
+    
+    if (!text.trim() && !fileUrl) {
+      console.error('❌ sendMessage: Empty message!'); // ← ДОБАВИТЬ
+      return;
+    }
 
     const messageData = {
       orderId,
@@ -103,7 +129,7 @@ export function useChat(orderId: string) {
       fileType,
     };
 
-    console.log('📤 Sending message:', messageData);
+    console.log('📤 useChat: Sending message:', messageData); // ← ИЗМЕНИТЬ
     socketRef.current.emit('send-message', messageData);
   };
 
