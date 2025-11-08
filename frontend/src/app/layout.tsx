@@ -1,46 +1,35 @@
-import type { Metadata } from "next";
-import "./globals.css";
+import './globals.css';
 import { Toaster } from 'react-hot-toast';
-
-export const metadata: Metadata = {
-  title: "MedicPro - Медицинская помощь на дом",
-  description: "Вызов врача и медсестры на дом в Алматы",
-};
+import NotificationListener from '@/components/NotificationListener';
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="ru">
-      <body className="antialiased">
+      <body>
         {children}
+        
+        {/* Toast Container */}
         <Toaster 
-          position="top-center"
+          position="top-right"
+          reverseOrder={false}
+          gutter={8}
           toastOptions={{
-            duration: 3000,
+            duration: 5000,
             style: {
               background: '#1e293b',
               color: '#fff',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '12px',
-              padding: '16px',
-            },
-            success: {
-              iconTheme: {
-                primary: '#10b981',
-                secondary: '#fff',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: '#ef4444',
-                secondary: '#fff',
-              },
+              border: '1px solid rgba(255, 255, 255, 0.1)',
             },
           }}
         />
+        
+        {/* Глобальный слушатель уведомлений */}
+        <NotificationListener />
       </body>
     </html>
   );
