@@ -14,7 +14,10 @@ export default function NotificationListener() {
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
     
-    if (!token || !userStr) return;
+    if (!token || !userStr) {
+      console.log('⚠️ No token or user, skipping notification listener');
+      return;
+    }
 
     const user = JSON.parse(userStr);
 
@@ -29,6 +32,10 @@ export default function NotificationListener() {
       newSocket.emit('authenticate', token);
     });
 
+    newSocket.on('authenticated', () => {
+      console.log('✅ Notification listener authenticated');
+    });
+
     // 🔔 УВЕДОМЛЕНИЕ О НОВОМ СООБЩЕНИИ
     newSocket.on('new-chat-message', (data: any) => {
       console.log('💬 NEW MESSAGE NOTIFICATION RECEIVED:', data);
@@ -36,15 +43,22 @@ export default function NotificationListener() {
       // Проверяем что НЕ находимся в этом чате
       const isInChat = pathname === `/chat/${data.orderId}`;
       
+      console.log('📍 Current path:', pathname);
+      console.log('📍 Order chat path:', `/chat/${data.orderId}`);
+      console.log('📍 Is in chat?', isInChat);
+      
       if (!isInChat) {
         const messagePreview = data.text && data.text.length > 40 
           ? data.text.substring(0, 40) + '...' 
           : (data.text || (data.hasFile ? '📎 Файл' : 'Новое сообщение'));
         
+        console.log('🎉 Showing toast notification');
+        
         toast(
           (t) => (
             <div 
               onClick={() => {
+                console.log('👆 Toast clicked, navigating to chat:', data.orderId);
                 toast.dismiss(t.id);
                 router.push(`/chat/${data.orderId}`);
               }}
@@ -53,7 +67,7 @@ export default function NotificationListener() {
             >
               <div className="flex items-start space-x-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-                  {data.senderName[0]}
+                  {data.senderName?.[0] || '?'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-white mb-1">
@@ -89,6 +103,8 @@ export default function NotificationListener() {
           audio.volume = 0.3;
           audio.play().catch(() => {});
         } catch (e) {}
+      } else {
+        console.log('ℹ️ User is in chat, no toast needed');
       }
     });
 
@@ -106,6 +122,10 @@ export default function NotificationListener() {
           icon: '🔔',
         }
       );
+    });
+
+    newSocket.on('disconnect', () => {
+      console.log('❌ Notification socket disconnected');
     });
 
     setSocket(newSocket);
