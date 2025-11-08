@@ -21,6 +21,11 @@ const httpServer = createServer(app);
 const prisma = new PrismaClient();
 
 
+const JWT_SECRET = process.env.JWT_SECRET || 'medicpro-super-secret-key-2024';
+// Start server
+const PORT = process.env.PORT || 5000;
+
+
 
 // Middleware
 app.use(helmet());
@@ -2012,135 +2017,46 @@ io.on('connection', (socket) => {
       }
     });
 
-// Отправка сообщения
-socket.on('send-message', async (data) => {
-  try {
-    if (!socket.userId) {
-      return socket.emit('message-error', { error: 'Not authenticated' });
-    }
+    socket.on('authenticate', async (token) => {
+      try {
+        if (!token) {
+          console.log('⚠️ No token provided');
+          return;
+        }
 
-    const { orderId, message, fileUrl, fileType, senderId } = data;
+        const decoded = jwt.verify(token, JWT_SECRET); // ← ТЕПЕРЬ РАБОТАЕТ!
+        socket.userId = decoded.userId;
+        socket.role = decoded.role;
 
-    console.log('📨 New message:', { orderId, senderId: socket.userId, message, fileUrl });
+        // Присоединяем к персональной комнате
+        socket.join(`user:${decoded.userId}`);
+        console.log(`✅ User authenticated: ${decoded.userId} Role: ${decoded.role}`);
+        console.log(`📍 User joined room: user:${decoded.userId}`);
 
-    // Получаем информацию о заказе
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: {
-        client: {
-          select: {
-            id: true,
-            name: true,
-          }
-        },
-        medic: {
-          select: {
-            id: true,
-            name: true,
+        // Если медик - присоединяем к комнатам районов
+        if (decoded.role === 'MEDIC') {
+          const medic = await prisma.medic.findUnique({
+            where: { userId: decoded.userId }
+          });
+
+          if (medic && medic.areas) {
+            medic.areas.forEach(area => {
+              socket.join(`medics-city-${area}`);
+            });
+            console.log(`✅ Medic joined rooms:`, medic.areas.map(a => `medics-city-${a}`));
           }
         }
+
+        socket.emit('authenticated');
+        
+      } catch (error) {
+        console.error('Socket auth error:', error);
       }
     });
-
-    if (!order) {
-      return socket.emit('message-error', { error: 'Order not found' });
-    }
-
-    // Создаём сообщение
-    const newMessage = await prisma.message.create({
-      data: {
-        orderId,
-        fromUserId: socket.userId,
-        text: message || null,
-        fileUrl: fileUrl || null,
-        fileType: fileType || null,
-      },
-      include: {
-        from: {
-          select: {
-            id: true,
-            name: true,
-          }
-        }
-      }
-    });
-
-    console.log('✅ Message saved:', newMessage.id);
-
-    // Отправляем сообщение всем в комнате чата
-    io.to(`order:${orderId}`).emit('new-message', newMessage);
-
-    // Определяем получателя и отправителя
-    const recipientId = socket.userId === order.clientId ? order.medicId : order.clientId;
-    const senderName = socket.userId === order.clientId ? order.client.name : order.medic?.name;
-    
-    console.log('👥 Recipient:', recipientId, 'Sender:', senderName);
-
-    if (recipientId) {
-      // Проверяем, находится ли получатель в комнате чата
-      const roomSockets = await io.in(`order:${orderId}`).fetchSockets();
-      const userIdsInRoom = roomSockets.map(s => s.userId);
-      const recipientInRoom = userIdsInRoom.includes(recipientId);
-
-      console.log('👥 Users in chat room:', userIdsInRoom);
-      console.log('❓ Recipient in room?', recipientInRoom);
-
-      // Если получателя НЕТ в чате - отправляем уведомление
-      if (!recipientInRoom) {
-        const notification = {
-          orderId,
-          messageId: newMessage.id,
-          senderName,
-          text: message || '📎 Файл',
-          hasFile: !!fileUrl,
-          createdAt: newMessage.createdAt,
-        };
-
-        console.log('📬 Sending notification to user:', recipientId);
-        console.log('📦 Notification data:', notification);
-        
-        io.to(`user:${recipientId}`).emit('new-chat-message', notification);
-        
-        console.log('✅ Notification emitted to room:', `user:${recipientId}`);
-      } else {
-        console.log('ℹ️ Recipient is in chat, no notification needed');
-      }
-    }
-
-  } catch (error) {
-    console.error('Send message error:', error);
-    socket.emit('message-error', { error: 'Failed to send message' });
-  }
-});
 
   socket.on('disconnect', () => {
     console.log('👋 User disconnected:', socket.id);
   });
-
-  socket.on('authenticate', async (token) => {
-  try {
-    if (!token) {
-      console.log('⚠️ No token provided');
-      return;
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET);
-    socket.userId = decoded.userId;
-    
-    // Присоединяем к персональной комнате
-    socket.join(`user:${decoded.userId}`);
-    console.log(`✅ User authenticated: ${decoded.userId} Role: ${decoded.role}`);
-    console.log(`📍 User joined room: user:${decoded.userId}`);
-    
-    // Проверяем что пользователь действительно в комнате
-    const rooms = Array.from(socket.rooms);
-    console.log(`🏠 User rooms:`, rooms);
-    
-  } catch (error) {
-    console.error('Socket auth error:', error);
-  }
-});
-
 });
 
 
@@ -2194,8 +2110,8 @@ initBot().catch(err => {
 
 
 
+
 // Start server
-const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, '0.0.0.0', () => {
+httpServer.listen(PORT, '0.0.0.0', () => { // ← PORT уже объявлен выше!
   console.log(`🚀 Server running on port ${PORT}`);
 });
