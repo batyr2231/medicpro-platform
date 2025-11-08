@@ -54,47 +54,46 @@ export default function NotificationListener() {
         
         console.log('🎉 Showing toast notification');
         
-        toast(
-          (t) => (
+        toast.custom(
+        (t) => (
             <div 
-              onClick={() => {
+            onClick={() => {
                 console.log('👆 Toast clicked, navigating to chat:', data.orderId);
                 toast.dismiss(t.id);
                 router.push(`/chat/${data.orderId}`);
-              }}
-              className="cursor-pointer"
-              style={{ width: '100%' }}
+            }}
+            className="cursor-pointer animate-enter"
+            style={{
+                background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
+                borderRadius: '12px',
+                padding: '16px',
+                maxWidth: '400px',
+                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
+            }}
             >
-              <div className="flex items-start space-x-3">
+            <div className="flex items-start space-x-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-                  {data.senderName?.[0] || '?'}
+                {data.senderName?.[0] || '?'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-white mb-1">
+                <div className="font-semibold text-white mb-1">
                     💬 {data.senderName}
-                  </div>
-                  <div className="text-sm text-slate-300 mb-2 break-words">
-                    {messagePreview}
-                  </div>
-                  <div className="text-xs text-cyan-400 font-medium">
-                    👆 Нажмите чтобы открыть чат
-                  </div>
                 </div>
-              </div>
+                <div className="text-sm text-slate-300 mb-2 break-words">
+                    {messagePreview}
+                </div>
+                <div className="text-xs text-cyan-400 font-medium">
+                    👆 Нажмите чтобы открыть чат
+                </div>
+                </div>
             </div>
-          ),
-          {
+            </div>
+        ),
+        {
             duration: 8000,
             position: 'top-right',
-            style: {
-              background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-              border: '1px solid rgba(6, 182, 212, 0.3)',
-              borderRadius: '12px',
-              padding: '16px',
-              maxWidth: '400px',
-              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
-            },
-          }
+        }
         );
 
         // Звук (опционально)
