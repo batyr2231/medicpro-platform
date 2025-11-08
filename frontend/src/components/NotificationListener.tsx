@@ -11,7 +11,6 @@ export default function NotificationListener() {
   const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
-    // Проверяем что пользователь залогинен
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
     
@@ -19,20 +18,20 @@ export default function NotificationListener() {
 
     const user = JSON.parse(userStr);
 
-    console.log('🔌 Connecting notification listener...');
+    console.log('🔔 Starting notification listener for user:', user.id);
     
     const newSocket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000', {
       transports: ['websocket', 'polling'],
     });
 
     newSocket.on('connect', () => {
-      console.log('✅ Notifications connected:', newSocket.id);
+      console.log('✅ Notification socket connected:', newSocket.id);
       newSocket.emit('authenticate', token);
     });
 
     // 🔔 УВЕДОМЛЕНИЕ О НОВОМ СООБЩЕНИИ
     newSocket.on('new-chat-message', (data: any) => {
-      console.log('💬 NEW MESSAGE NOTIFICATION:', data);
+      console.log('💬 NEW MESSAGE NOTIFICATION RECEIVED:', data);
       
       // Проверяем что НЕ находимся в этом чате
       const isInChat = pathname === `/chat/${data.orderId}`;
@@ -84,7 +83,7 @@ export default function NotificationListener() {
           }
         );
 
-        // Воспроизводим звук (опционально)
+        // Звук (опционально)
         try {
           const audio = new Audio('/notification.mp3');
           audio.volume = 0.3;
@@ -105,11 +104,6 @@ export default function NotificationListener() {
           duration: 5000,
           position: 'top-right',
           icon: '🔔',
-          style: {
-            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-            border: '1px solid rgba(34, 197, 94, 0.3)',
-            color: '#fff',
-          },
         }
       );
     });
@@ -117,7 +111,7 @@ export default function NotificationListener() {
     setSocket(newSocket);
 
     return () => {
-      console.log('🔌 Disconnecting notifications...');
+      console.log('🔌 Disconnecting notification listener...');
       newSocket.disconnect();
     };
   }, [pathname, router]);

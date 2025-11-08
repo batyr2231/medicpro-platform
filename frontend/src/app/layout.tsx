@@ -17,15 +17,6 @@ export default function RootLayout({
           position="top-right"
           reverseOrder={false}
           gutter={8}
-          toastOptions={{
-            duration: 5000,
-            style: {
-              background: '#1e293b',
-              color: '#fff',
-              borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-            },
-          }}
         />
         
         {/* Глобальный слушатель уведомлений */}
