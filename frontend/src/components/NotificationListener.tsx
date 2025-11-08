@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
-import toast from 'react-hot-toast';
 
 export default function NotificationListener() {
   const router = useRouter();
   const pathname = usePathname();
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [notification, setNotification] = useState<any>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -44,83 +44,49 @@ export default function NotificationListener() {
       const isInChat = pathname === `/chat/${data.orderId}`;
       
       console.log('📍 Current path:', pathname);
-      console.log('📍 Order chat path:', `/chat/${data.orderId}`);
       console.log('📍 Is in chat?', isInChat);
       
       if (!isInChat) {
-        const messagePreview = data.text && data.text.length > 40 
-          ? data.text.substring(0, 40) + '...' 
-          : (data.text || (data.hasFile ? '📎 Файл' : 'Новое сообщение'));
+        console.log('🎉 Showing custom notification');
         
-        console.log('🎉 Showing toast notification');
+        // Показываем кастомное уведомление
+        setNotification(data);
         
-        toast.custom(
-        (t) => (
-            <div 
-            onClick={() => {
-                console.log('👆 Toast clicked, navigating to chat:', data.orderId);
-                toast.dismiss(t.id);
-                router.push(`/chat/${data.orderId}`);
-            }}
-            className="cursor-pointer animate-enter"
-            style={{
-                background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-                border: '1px solid rgba(6, 182, 212, 0.3)',
-                borderRadius: '12px',
-                padding: '16px',
-                maxWidth: '400px',
-                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
-            }}
-            >
-            <div className="flex items-start space-x-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-                {data.senderName?.[0] || '?'}
-                </div>
-                <div className="flex-1 min-w-0">
-                <div className="font-semibold text-white mb-1">
-                    💬 {data.senderName}
-                </div>
-                <div className="text-sm text-slate-300 mb-2 break-words">
-                    {messagePreview}
-                </div>
-                <div className="text-xs text-cyan-400 font-medium">
-                    👆 Нажмите чтобы открыть чат
-                </div>
-                </div>
-            </div>
-            </div>
-        ),
-        {
-            duration: 8000,
-            position: 'top-right',
-        }
-        );
+        // Автоскрытие через 8 секунд
+        setTimeout(() => {
+          setNotification(null);
+        }, 8000);
 
-        // Звук (опционально)
+        // Звук
         try {
           const audio = new Audio('/notification.mp3');
           audio.volume = 0.3;
-          audio.play().catch(() => {});
-        } catch (e) {}
+          audio.play().catch((err) => {
+            console.log('⚠️ Audio play failed (user interaction required):', err.message);
+          });
+        } catch (e) {
+          console.log('⚠️ Audio error:', e);
+        }
       } else {
-        console.log('ℹ️ User is in chat, no toast needed');
+        console.log('ℹ️ User is in chat, no notification needed');
       }
     });
 
-    // 🔔 УВЕДОМЛЕНИЕ О СМЕНЕ СТАТУСА ЗАКАЗА
+    // 🔔 УВЕДОМЛЕНИЕ О СМЕНЕ СТАТУСА
     newSocket.on('order-status-changed', (data: any) => {
       console.log('📢 ORDER STATUS CHANGED:', data);
       
       const statusText = getStatusText(data.newStatus);
       
-      toast.success(
-        `📢 Заказ #${data.orderId.slice(0, 8)}\n${statusText}`,
-        {
-          duration: 5000,
-          position: 'top-right',
-          icon: '🔔',
-        }
-      );
+      setNotification({
+        type: 'status',
+        orderId: data.orderId,
+        text: statusText,
+      });
+      
+      setTimeout(() => {
+        setNotification(null);
+      }, 5000);
     });
 
     newSocket.on('disconnect', () => {
@@ -133,7 +99,7 @@ export default function NotificationListener() {
       console.log('🔌 Disconnecting notification listener...');
       newSocket.disconnect();
     };
-  }, [pathname, router]);
+  }, [pathname]);
 
   const getStatusText = (status: string) => {
     const statuses: Record<string, string> = {
@@ -147,5 +113,86 @@ export default function NotificationListener() {
     return statuses[status] || status;
   };
 
-  return null; // Компонент невидимый
+  const handleClose = () => {
+    setNotification(null);
+  };
+
+  const handleClick = () => {
+    if (notification?.orderId) {
+      console.log('👆 Notification clicked, navigating to chat:', notification.orderId);
+      router.push(`/chat/${notification.orderId}`);
+      setNotification(null);
+    }
+  };
+
+  if (!notification) return null;
+
+  const messagePreview = notification.text && notification.text.length > 40 
+    ? notification.text.substring(0, 40) + '...' 
+    : (notification.text || (notification.hasFile ? '📎 Файл' : 'Новое сообщение'));
+
+  return (
+    <div className="fixed top-4 right-4 z-[9999] animate-slide-in-right">
+      {notification.type === 'status' ? (
+        // Уведомление о статусе
+        <div
+          onClick={handleClose}
+          className="cursor-pointer bg-gradient-to-br from-green-600 to-emerald-700 border border-green-400/30 rounded-xl p-4 shadow-2xl max-w-sm"
+        >
+          <div className="flex items-start space-x-3">
+            <div className="text-2xl">🔔</div>
+            <div className="flex-1">
+              <div className="font-semibold text-white text-sm">
+                📢 Заказ #{notification.orderId.slice(0, 8)}
+              </div>
+              <div className="text-white/90 text-sm mt-1">
+                {notification.text}
+              </div>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClose();
+              }}
+              className="text-white/60 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      ) : (
+        // Уведомление о сообщении
+        <div
+          onClick={handleClick}
+          className="cursor-pointer bg-gradient-to-br from-slate-800 to-slate-900 border border-cyan-500/30 rounded-xl p-4 shadow-2xl max-w-sm hover:border-cyan-400/50 transition-all"
+        >
+          <div className="flex items-start space-x-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+              {notification.senderName?.[0] || '?'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-white text-sm mb-1">
+                💬 {notification.senderName}
+              </div>
+              <div className="text-slate-300 text-sm mb-2 break-words">
+                {messagePreview}
+              </div>
+              <div className="text-cyan-400 text-xs font-medium">
+                👆 Нажмите чтобы открыть чат
+              </div>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClose();
+              }}
+              className="text-slate-400 hover:text-white transition-colors text-lg leading-none"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
