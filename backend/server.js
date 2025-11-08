@@ -2019,125 +2019,134 @@ io.on('connection', (socket) => {
 
 
         // ← ДОБАВИТЬ: Обработчик отправки сообщений!
-  socket.on('send-message', async (data) => {
-    try {
-      if (!socket.userId) {
-        return socket.emit('message-error', { error: 'Not authenticated' });
-      }
-
-      const { orderId, message, fileUrl, fileType } = data;
-
-      console.log('📨 New message:', { orderId, senderId: socket.userId, message, fileUrl });
-
-      // Получаем информацию о заказе
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-          client: {
-            select: {
-              id: true,
-              name: true,
-            }
-          },
-          medic: {
-            select: {
-              id: true,
-              name: true,
-            }
-          }
+    socket.on('send-message', async (data) => {
+      try {
+        if (!socket.userId) {
+          return socket.emit('message-error', { error: 'Not authenticated' });
         }
-      });
 
-      if (!order) {
-        return socket.emit('message-error', { error: 'Order not found' });
-      }
+        const { orderId, message, fileUrl, fileType } = data;
 
-      // Создаём сообщение
-      const newMessage = await prisma.message.create({
-        data: {
-          orderId,
-          fromUserId: socket.userId,
-          text: message || null,
-          fileUrl: fileUrl || null,
-          fileType: fileType || null,
-        },
-        include: {
-          from: {
-            select: {
-              id: true,
-              name: true,
-            }
-          }
-        }
-      });
+        console.log('📨 New message:', { orderId, senderId: socket.userId, message, fileUrl });
 
-      console.log('✅ Message saved:', newMessage.id);
-
-      // Отправляем сообщение всем в комнате чата
-      io.to(`order-${orderId}`).emit('new-message', newMessage);
-
-      // Определяем получателя и отправителя
-      const recipientId = socket.userId === order.clientId ? order.medicId : order.clientId;
-      const senderName = socket.userId === order.clientId ? order.client.name : order.medic?.name;
-      
-      console.log('👥 Recipient:', recipientId, 'Sender:', senderName);
-
-      // Если получателя НЕТ в чате - отправляем уведомление
-      if (!recipientInRoom) {
-        const notification = {
-          orderId,
-          messageId: newMessage.id,
-          senderName,
-          text: message || '📎 Файл',
-          hasFile: !!fileUrl,
-          createdAt: newMessage.createdAt,
-        };
-
-        console.log('📬 Sending notification to user:', recipientId);
-        console.log('📦 Notification data:', notification);
-        
-        io.to(`user:${recipientId}`).emit('new-chat-message', notification);
-        
-        console.log('✅ Web notification emitted to room:', `user:${recipientId}`);
-        
-        // ← ДОБАВЛЕНО: Telegram уведомление
-        try {
-          // Находим получателя
-          const recipientUser = await prisma.user.findUnique({
-            where: { id: recipientId },
-            include: {
-              medic: {
-                select: {
-                  telegramChatId: true
-                }
+        // Получаем информацию о заказе
+        const order = await prisma.order.findUnique({
+          where: { id: orderId },
+          include: {
+            client: {
+              select: {
+                id: true,
+                name: true,
+              }
+            },
+            medic: {
+              select: {
+                id: true,
+                name: true,
               }
             }
-          });
-
-          // Если получатель - медик И у него есть Telegram
-          if (recipientUser?.medic?.telegramChatId) {
-            console.log('📱 Sending Telegram notification to medic:', recipientId);
-            await sendChatNotification(recipientUser.medic.telegramChatId, {
-              orderId,
-              senderName,
-              text: message || '📎 Файл'
-            });
-          } else {
-            console.log('ℹ️ Recipient has no Telegram connected');
           }
-        } catch (telegramError) {
-          console.error('❌ Telegram notification error:', telegramError);
-        }
-        
-      } else {
-        console.log('ℹ️ Recipient is in chat, no notification needed');
-      }
+        });
 
-    } catch (error) {
-      console.error('❌ Send message error:', error);
-      socket.emit('message-error', { error: 'Failed to send message' });
-    }
-  });
+        if (!order) {
+          return socket.emit('message-error', { error: 'Order not found' });
+        }
+
+        // Создаём сообщение
+        const newMessage = await prisma.message.create({
+          data: {
+            orderId,
+            fromUserId: socket.userId,
+            text: message || null,
+            fileUrl: fileUrl || null,
+            fileType: fileType || null,
+          },
+          include: {
+            from: {
+              select: {
+                id: true,
+                name: true,
+              }
+            }
+          }
+        });
+
+        console.log('✅ Message saved:', newMessage.id);
+
+        // Отправляем сообщение всем в комнате чата
+        io.to(`order-${orderId}`).emit('new-message', newMessage);
+
+        // Определяем получателя и отправителя
+        const recipientId = socket.userId === order.clientId ? order.medicId : order.clientId;
+        const senderName = socket.userId === order.clientId ? order.client.name : order.medic?.name;
+        
+        console.log('👥 Recipient:', recipientId, 'Sender:', senderName);
+
+        if (recipientId) {
+          // Проверяем, находится ли получатель в комнате чата
+          const roomSockets = await io.in(`order-${orderId}`).fetchSockets();
+          const userIdsInRoom = roomSockets.map(s => s.userId);
+          const recipientInRoom = userIdsInRoom.includes(recipientId);
+
+          console.log('👥 Users in chat room:', userIdsInRoom);
+          console.log('❓ Recipient in room?', recipientInRoom);
+
+          // Если получателя НЕТ в чате - отправляем уведомление
+          if (!recipientInRoom) {
+            const notification = {
+              orderId,
+              messageId: newMessage.id,
+              senderName,
+              text: message || '📎 Файл',
+              hasFile: !!fileUrl,
+              createdAt: newMessage.createdAt,
+            };
+
+            console.log('📬 Sending web notification to user:', recipientId);
+            
+            io.to(`user:${recipientId}`).emit('new-chat-message', notification);
+            
+            console.log('✅ Web notification emitted to room:', `user:${recipientId}`);
+            
+            // Telegram уведомление
+            try {
+              // Находим получателя
+              const recipientUser = await prisma.user.findUnique({
+                where: { id: recipientId },
+                include: {
+                  medic: {
+                    select: {
+                      telegramChatId: true
+                    }
+                  }
+                }
+              });
+
+              // Если получатель - медик И у него есть Telegram
+              if (recipientUser?.medic?.telegramChatId) {
+                console.log('📱 Sending Telegram notification to medic:', recipientId);
+                await sendChatNotification(recipientUser.medic.telegramChatId, {
+                  orderId,
+                  senderName,
+                  text: message || '📎 Файл'
+                });
+              } else {
+                console.log('ℹ️ Recipient has no Telegram connected');
+              }
+            } catch (telegramError) {
+              console.error('❌ Telegram notification error:', telegramError);
+            }
+            
+          } else {
+            console.log('ℹ️ Recipient is in chat, no notification needed');
+          }
+        }
+
+      } catch (error) {
+        console.error('❌ Send message error:', error);
+        socket.emit('message-error', { error: 'Failed to send message' });
+      }
+    });
 
   socket.on('disconnect', () => {
     console.log('👋 User disconnected:', socket.id);
