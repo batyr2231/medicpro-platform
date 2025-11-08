@@ -174,28 +174,27 @@ async function sendChatNotification(chatId, data) {
   }
 
   try {
-    const { orderId, senderName, senderRole, message, serviceType } = data;
+    const { orderId, senderName, text } = data; // ← ИЗМЕНИТЬ параметры
 
     if (DEV_MODE) {
-      console.log('📱 [DEV] Telegram уведомление о сообщении:', { chatId, senderName, message });
+      console.log('📱 [DEV] Telegram уведомление о сообщении:', { chatId, senderName, text });
     }
 
-    const shortMessage = message.length > 150 
-      ? message.substring(0, 150) + '...' 
-      : message;
+    const shortMessage = text && text.length > 150 
+      ? text.substring(0, 150) + '...' 
+      : (text || '📎 Файл');
 
-    const text = 
-      `💬 <b>Новое сообщение</b>\n\n` +
-      `👤 <b>От:</b> ${senderName} (${senderRole})\n` +
-      `📋 <b>Заказ:</b> ${serviceType}\n\n` +
-      `💭 <i>"${shortMessage}"</i>\n\n` +
+    const message = 
+      `💬 <b>Новое сообщение в чате</b>\n\n` +
+      `👤 <b>От:</b> ${senderName}\n` +
+      `📝 <b>Текст:</b> ${shortMessage}\n\n` +
       `👉 Откройте приложение для ответа`;
 
     const keyboard = Markup.inlineKeyboard([
       [Markup.button.url('💬 Открыть чат', `https://medicpro-platform.vercel.app/chat/${orderId}`)]
     ]);
 
-    await bot.telegram.sendMessage(chatId, text, {
+    await bot.telegram.sendMessage(chatId, message, {
       parse_mode: 'HTML',
       ...keyboard
     });

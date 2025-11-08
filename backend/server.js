@@ -2082,35 +2082,55 @@ io.on('connection', (socket) => {
       
       console.log('👥 Recipient:', recipientId, 'Sender:', senderName);
 
-      if (recipientId) {
-        // Проверяем, находится ли получатель в комнате чата
-        const roomSockets = await io.in(`order-${orderId}`).fetchSockets();
-        const userIdsInRoom = roomSockets.map(s => s.userId);
-        const recipientInRoom = userIdsInRoom.includes(recipientId);
+      // Если получателя НЕТ в чате - отправляем уведомление
+      if (!recipientInRoom) {
+        const notification = {
+          orderId,
+          messageId: newMessage.id,
+          senderName,
+          text: message || '📎 Файл',
+          hasFile: !!fileUrl,
+          createdAt: newMessage.createdAt,
+        };
 
-        console.log('👥 Users in chat room:', userIdsInRoom);
-        console.log('❓ Recipient in room?', recipientInRoom);
+        console.log('📬 Sending notification to user:', recipientId);
+        console.log('📦 Notification data:', notification);
+        
+        io.to(`user:${recipientId}`).emit('new-chat-message', notification);
+        
+        console.log('✅ Web notification emitted to room:', `user:${recipientId}`);
+        
+        // ← ДОБАВЛЕНО: Telegram уведомление
+        try {
+          // Находим получателя
+          const recipientUser = await prisma.user.findUnique({
+            where: { id: recipientId },
+            include: {
+              medic: {
+                select: {
+                  telegramChatId: true
+                }
+              }
+            }
+          });
 
-        // Если получателя НЕТ в чате - отправляем уведомление
-        if (!recipientInRoom) {
-          const notification = {
-            orderId,
-            messageId: newMessage.id,
-            senderName,
-            text: message || '📎 Файл',
-            hasFile: !!fileUrl,
-            createdAt: newMessage.createdAt,
-          };
-
-          console.log('📬 Sending notification to user:', recipientId);
-          console.log('📦 Notification data:', notification);
-          
-          io.to(`user:${recipientId}`).emit('new-chat-message', notification);
-          
-          console.log('✅ Notification emitted to room:', `user:${recipientId}`);
-        } else {
-          console.log('ℹ️ Recipient is in chat, no notification needed');
+          // Если получатель - медик И у него есть Telegram
+          if (recipientUser?.medic?.telegramChatId) {
+            console.log('📱 Sending Telegram notification to medic:', recipientId);
+            await sendChatNotification(recipientUser.medic.telegramChatId, {
+              orderId,
+              senderName,
+              text: message || '📎 Файл'
+            });
+          } else {
+            console.log('ℹ️ Recipient has no Telegram connected');
+          }
+        } catch (telegramError) {
+          console.error('❌ Telegram notification error:', telegramError);
         }
+        
+      } else {
+        console.log('ℹ️ Recipient is in chat, no notification needed');
       }
 
     } catch (error) {
