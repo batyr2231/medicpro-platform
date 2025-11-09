@@ -477,74 +477,85 @@ app.get('/api/cities/:city/districts', (req, res) => {
   res.json({ city, districts });
 });
 
+
 // Получение заказов клиента или медика
-app.get('/api/orders/my', authenticateToken, async (req, res) => {
-  try {
-    console.log('📋 Getting orders for user:', req.user.userId, 'Role:', req.user.role);
-    
-    let orders;
-    
-    if (req.user.role === 'CLIENT') {
-      // Для клиента - его заказы (ИСКЛЮЧАЕМ отменённые)
-      orders = await prisma.order.findMany({
-        where: {
-          clientId: req.user.userId,
-          status: {
-            not: 'CANCELLED'  // ← ДОБАВИТЬ! Исключаем отменённые
-          }
-        },
-        include: {
-          medic: {
-            select: {
-              id: true,
-              name: true,
-              phone: true
+  app.get('/api/orders/my', authenticateToken, async (req, res) => {
+    try {
+      console.log('📋 Getting orders for user:', req.user.userId, 'Role:', req.user.role);
+      
+      let orders;
+      
+      if (req.user.role === 'CLIENT') {
+        // Для клиента - его заказы с отзывами
+        const clientOrders = await prisma.order.findMany({
+          where: {
+            clientId: req.user.userId,
+            status: {
+              not: 'CANCELLED'
             }
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
-      
-      console.log('✅ Found', orders.length, 'orders for CLIENT (excluding cancelled)');
-    } else if (req.user.role === 'MEDIC') {
-      // Для медика - заказы где он назначен
-      orders = await prisma.order.findMany({
-        where: {
-          medicId: req.user.userId,
-          status: {
-            not: 'NEW'  // Исключаем новые заказы
-          }
-        },
-        include: {
-          client: {
-            select: {
-              id: true,
-              name: true,
-              phone: true
+          },
+          include: {
+            medic: {
+              select: {
+                id: true,
+                name: true,
+                phone: true
+              }
+            },
+            // ← ДОБАВИТЬ: включаем отзывы
+            review: {
+              select: {
+                id: true,
+                rating: true
+              }
             }
+          },
+          orderBy: {
+            createdAt: 'desc'
           }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
-      
-      console.log('✅ Found', orders.length, 'orders for MEDIC');
-      console.log('📊 Orders:', orders.map(o => ({ id: o.id, status: o.status })));
-      
-    } else {
-      orders = [];
+        });
+
+        // ← ПРЕОБРАЗУЕМ: добавляем флаг hasReview
+        orders = clientOrders.map(order => ({
+          ...order,
+          review: order.review ? true : false
+        }));
+        
+        console.log('✅ Found', orders.length, 'orders for CLIENT (excluding cancelled)');
+      } else if (req.user.role === 'MEDIC') {
+        // Для медика - заказы где он назначен
+        orders = await prisma.order.findMany({
+          where: {
+            medicId: req.user.userId,
+            status: {
+              not: 'NEW'
+            }
+          },
+          include: {
+            client: {
+              select: {
+                id: true,
+                name: true,
+                phone: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        });
+        
+        console.log('✅ Found', orders.length, 'orders for MEDIC');
+      } else {
+        orders = [];
+      }
+
+      res.json(orders);
+    } catch (error) {
+      console.error('❌ Fetch orders error:', error);
+      res.status(500).json({ error: 'Failed to fetch orders' });
     }
-
-    res.json(orders);
-  } catch (error) {
-    console.error('❌ Fetch orders error:', error);
-    res.status(500).json({ error: 'Failed to fetch orders' });
-  }
-});
-
+  });
 // Получение новых заказов для медика
 app.get('/api/orders/available', authenticateToken, async (req, res) => {
   try {
@@ -1987,7 +1998,7 @@ io.on('connection', (socket) => {
       console.error('❌ Authentication error:', error.message);
     }
   });
-  
+
     socket.on('join-order', async (orderId) => {
       try {
         console.log('🔗 User joining order:', orderId);
