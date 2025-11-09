@@ -183,7 +183,7 @@ const handleLogout = () => {
       }
 
       setTimeout(() => {
-        router.push(`/client/orders/${params.id}`);
+       router.push(`/client/orders`);
       }, 1500);
 
     } catch (err: any) {

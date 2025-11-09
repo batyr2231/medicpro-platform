@@ -22,19 +22,10 @@ export default function ClientOrdersPage() {
         const ordersWithReviews = await Promise.all(
           result.map(async (order: any) => {
             try {
-              const response = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                  },
-                }
-              );
-              const orderDetails = await response.json();
-              return {
-                ...order,
-                review: orderDetails.review || false,
-              };
+              const result = await getMyOrders();
+              // ← УБРАТЬ ВСЕ ДОПОЛНИТЕЛЬНЫЕ ЗАПРОСЫ!
+              // Просто используем данные из основного запроса
+              setOrders(result);
             } catch (err) {
               return order;
             }

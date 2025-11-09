@@ -36,41 +36,31 @@ export default function NotificationListener() {
       console.log('✅ Notification listener authenticated');
     });
 
+   
     // 🔔 УВЕДОМЛЕНИЕ О НОВОМ СООБЩЕНИИ
     newSocket.on('new-chat-message', (data: any) => {
-      console.log('💬 NEW MESSAGE NOTIFICATION RECEIVED:', data);
-      
-      // Проверяем что НЕ находимся в этом чате
-      const isInChat = pathname === `/chat/${data.orderId}`;
-      
-      console.log('📍 Current path:', pathname);
-      console.log('📍 Is in chat?', isInChat);
-      
-      if (!isInChat) {
-        console.log('🎉 Showing custom notification');
-        
-        // Показываем кастомное уведомление
-        setNotification(data);
-        
-        // Автоскрытие через 8 секунд
-        setTimeout(() => {
-          setNotification(null);
-        }, 8000);
-
-        
-        // Звук
-        try {
-        const audio = new Audio('/notification.mp3');
-        audio.volume = 0.3;
-        audio.play().catch((err) => {
-            console.log('⚠️ Audio play failed (user interaction required):', err.message);
-        });
-        } catch (e) {
-        console.log('⚠️ Audio error:', e);
-        }
-      } else {
-        console.log('ℹ️ User is in chat, no notification needed');
-      }
+    console.log('💬 NEW MESSAGE NOTIFICATION RECEIVED:', data);
+    
+    // ← ИСПРАВИТЬ: Проверяем что НЕ находимся НИ В КАКОМ чате
+    const isInAnyChat = pathname.startsWith('/chat/');
+    
+    console.log('📍 Current path:', pathname);
+    console.log('📍 Is in any chat?', isInAnyChat);
+    
+    if (isInAnyChat) {
+        console.log('ℹ️ User is in chat page, no notification needed');
+        return; // ← НЕ показываем уведомление если на странице чата
+    }
+    
+    console.log('🎉 Showing custom notification');
+    
+    // Показываем кастомное уведомление
+    setNotification(data);
+    
+    // Автоскрытие через 8 секунд
+    setTimeout(() => {
+        setNotification(null);
+    }, 8000);
     });
 
     // 🔔 УВЕДОМЛЕНИЕ О СМЕНЕ СТАТУСА
