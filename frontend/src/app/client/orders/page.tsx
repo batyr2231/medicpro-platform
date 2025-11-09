@@ -1,21 +1,19 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Package, Clock, MapPin, MessageSquare, ChevronRight, Loader, Star } from 'lucide-react';
+import { Package, Clock, MapPin, MessageSquare, ChevronRight, Loader, Star, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useOrders } from '../../hooks/useOrders';
-
 
 export default function ClientOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const { getMyOrders, loading } = useOrders();
   const router = useRouter();
-  
 
   useEffect(() => {
     loadOrders();
-    
-  }, []); 
+  }, []);
+
   const loadOrders = async () => {
     try {
       const result = await getMyOrders();
@@ -76,6 +74,15 @@ export default function ClientOrdersPage() {
                 className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 transition-all"
               >
                 + Новый заказ
+              </button>
+
+              {/* ← ДОБАВИТЬ: Кнопка выхода */}
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-all"
+                title="Выйти"
+              >
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -175,17 +182,27 @@ export default function ClientOrdersPage() {
                     </div>
                   )}
 
-                  {order.status === 'PAID' && !order.review && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/client/orders/${order.id}/review`);
-                      }}
-                      className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 font-semibold shadow-lg transition-all flex items-center justify-center"
-                    >
-                      <Star className="w-5 h-5 mr-2" />
-                      Оставить отзыв
-                    </button>
+                  {/* ← ИЗМЕНИТЬ: Показ отзыва или кнопки */}
+                  {order.status === 'PAID' && (
+                    order.review ? (
+                      // Если отзыв оставлен - показываем сообщение
+                      <div className="w-full py-3 px-4 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 font-medium text-center flex items-center justify-center space-x-2">
+                        <Star className="w-5 h-5 fill-green-400" />
+                        <span>Вы оставили отзыв</span>
+                      </div>
+                    ) : (
+                      // Если отзыва нет - кнопка
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/client/orders/${order.id}/review`);
+                        }}
+                        className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 font-semibold shadow-lg transition-all flex items-center justify-center"
+                      >
+                        <Star className="w-5 h-5 mr-2" />
+                        Оставить отзыв
+                      </button>
+                    )
                   )}
 
                   <div className="flex items-center justify-end mt-4 text-cyan-400 text-sm font-medium">
