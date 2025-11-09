@@ -51,21 +51,39 @@ const handleLogout = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Валидация
+
     if (rating === 0) {
-      toast.error('Пожалуйста, поставьте оценку');
+      toast.error('Пожалуйста, поставьте оценку', {
+        style: {
+          background: '#1e293b',
+          color: '#fff',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+        },
+      });
       return;
     }
 
-    if (isComplaint && !complaintCategory) {
-      toast.error('Укажите категорию жалобы');
-      return;
-    }
-
-    if (isComplaint && (!complaintDescription || complaintDescription.trim().length < 10)) {
-      toast.error('Опишите жалобу подробнее (минимум 10 символов)');
-      return;
+    if (isComplaint) {
+      if (!complaintCategory) {
+        toast.error('Выберите категорию жалобы', {
+          style: {
+            background: '#1e293b',
+            color: '#fff',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+          },
+        });
+        return;
+      }
+      if (!complaintDescription || complaintDescription.trim().length < 10) {
+        toast.error('Опишите жалобу подробнее (минимум 10 символов)', {
+          style: {
+            background: '#1e293b',
+            color: '#fff',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+          },
+        });
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -97,16 +115,86 @@ const handleLogout = () => {
         throw new Error(result.error || 'Failed to submit review');
       }
 
-      toast.success(isComplaint ? '✅ Жалоба отправлена!' : '✅ Спасибо за отзыв!');
-      
-      // ← ДОБАВИТЬ ЗАДЕРЖКУ И РЕДИРЕКТ!
+      // ← КРАСИВЫЙ TOAST!
+      if (isComplaint) {
+        toast.custom(
+          (t) => (
+            <div
+              className="bg-gradient-to-br from-slate-800 to-slate-900 border border-red-500/30 rounded-xl p-4 shadow-2xl max-w-md"
+            >
+              <div className="flex items-start space-x-3">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                  ⚠️
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-white mb-1">
+                    Жалоба отправлена
+                  </div>
+                  <div className="text-sm text-slate-300">
+                    Администрация рассмотрит её в течение 24 часов
+                  </div>
+                </div>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ),
+          {
+            duration: 4000,
+            position: 'top-right',
+          }
+        );
+      } else {
+        toast.custom(
+          (t) => (
+            <div
+              className="bg-gradient-to-br from-slate-800 to-slate-900 border border-green-500/30 rounded-xl p-4 shadow-2xl max-w-md"
+            >
+              <div className="flex items-start space-x-3">
+                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                  ⭐
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-white mb-1">
+                    Спасибо за отзыв!
+                  </div>
+                  <div className="text-sm text-slate-300">
+                    Ваше мнение поможет другим пользователям
+                  </div>
+                </div>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ),
+          {
+            duration: 4000,
+            position: 'top-right',
+          }
+        );
+      }
+
       setTimeout(() => {
         router.push(`/client/orders/${params.id}`);
       }, 1500);
 
     } catch (err: any) {
       console.error('Submit review error:', err);
-      toast.error('❌ ' + err.message);
+      toast.error('❌ ' + err.message, {
+        style: {
+          background: '#1e293b',
+          color: '#fff',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+        },
+      });
     } finally {
       setSubmitting(false);
     }

@@ -603,6 +603,20 @@ export default function MedicDashboard() {
                     </div>
                   </div>
 
+                  {order.price && (
+                    <div className="flex items-start space-x-3">
+                      <div className="w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        💰
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400 mb-1">Цена</div>
+                        <div className="font-semibold text-emerald-400 text-lg">
+                          {parseInt(order.price).toLocaleString('ru-RU')} тг
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {order.comment && (
                     <div className="mb-4 p-3 rounded-xl bg-white/5 border border-white/10">
                       <div className="flex items-start space-x-2">
@@ -611,20 +625,6 @@ export default function MedicDashboard() {
                           <div className="text-xs text-slate-400 mb-1">Комментарий</div>
                           <div className="text-sm text-slate-300">{order.comment}</div>
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {order.price && (
-                    <div className="mb-4 p-3 rounded-xl bg-green-500/10 border border-green-500/30">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <DollarSign className="w-5 h-5 text-green-400" />
-                          <span className="text-sm text-slate-400">Предполагаемая цена:</span>
-                        </div>
-                        <span className="text-xl font-bold text-green-400">
-                          {parseInt(order.price).toLocaleString('ru-RU')} тг
-                        </span>
                       </div>
                     </div>
                   )}

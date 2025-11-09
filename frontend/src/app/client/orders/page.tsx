@@ -39,7 +39,7 @@ export default function ClientOrdersPage() {
             }
           })
         );
-      setOrders(result);
+      setOrders(ordersWithReviews);
     } catch (err) {
       console.error('Failed to load orders:', err);
     }
@@ -180,7 +180,17 @@ export default function ClientOrdersPage() {
                       </span>
                     </div>
                   </div>
-
+                  {/* ← ДОБАВИТЬ: Цена */}
+                  {order.price && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <div className="w-6 h-6 rounded bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                        💰
+                      </div>
+                      <span className="text-emerald-400 font-semibold">
+                        {parseInt(order.price).toLocaleString('ru-RU')} тг
+                      </span>
+                    </div>
+                  )}
                   {order.medic && (
                     <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 mb-4">
                       <div className="flex items-center space-x-3">
