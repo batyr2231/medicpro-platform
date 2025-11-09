@@ -5,6 +5,7 @@ import { Heart, MapPin, Clock, User, Phone, FileText, CheckCircle, Navigation, A
 import { useOrders } from '../../hooks/useOrders';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import OrderSkeleton from '@/components/OrderSkeleton';
 
 export default function MedicDashboard() {
   const [activeTab, setActiveTab] = useState('available');
@@ -541,12 +542,13 @@ export default function MedicDashboard() {
         {/* Available Orders */}
         {activeTab === 'available' && (
           <div className="space-y-4 animate-slide-in">
-            {ordersLoading ? (
-              <div className="text-center py-12">
-                <Loader className="inline-block w-8 h-8 text-cyan-500 animate-spin" />
-                <div className="mt-4 text-slate-400">Загрузка заказов...</div>
-              </div>
-            ) : realOrders.length === 0 ? (
+          {ordersLoading ? (
+            <div className="space-y-4">
+              <OrderSkeleton />
+              <OrderSkeleton />
+              <OrderSkeleton />
+            </div>
+          ) : realOrders.length === 0 ? (
               <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-12 text-center">
                 <AlertCircle className="w-16 h-16 text-slate-400 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Нет доступных заказов</h3>
@@ -694,6 +696,22 @@ export default function MedicDashboard() {
                       </div>
                     </div>
                   </div>
+
+                  {order.price && (
+                    <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                            💰
+                          </div>
+                          <span className="text-sm text-slate-400">Цена:</span>
+                        </div>
+                        <span className="text-xl font-bold text-emerald-400">
+                          {parseInt(order.price).toLocaleString('ru-RU')} тг
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <button

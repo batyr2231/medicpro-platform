@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, Clock, MapPin, MessageSquare, ChevronRight, Loader, Star, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useOrders } from '../../hooks/useOrders';
+import OrderSkeleton from '@/components/OrderSkeleton';
 
 export default function ClientOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -65,12 +66,49 @@ export default function ClientOrdersPage() {
     return info[status] || info.NEW;
   };
 
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <Loader className="w-12 h-12 text-cyan-500 animate-spin mx-auto mb-4" />
-          <div className="text-white">Загрузка заказов...</div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
+        {/* Header (тот же самый) */}
+        <header className="border-b border-white/10 backdrop-blur-xl bg-slate-900/50 sticky top-0 z-50">
+          <div className="max-w-4xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <h1 className="text-2xl font-bold">Мои заказы</h1>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => router.push('/client/medics')}
+                  className="px-4 py-2 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 transition-all"
+                >
+                  🩺 Каталог медиков
+                </button>
+                
+                <button
+                  onClick={() => router.push('/orders/create')}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 transition-all"
+                >
+                  + Новый заказ
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="p-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-all"
+                  title="Выйти"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Skeleton Loading */}
+        <div className="max-w-5xl mx-auto px-4 py-8">
+          <div className="space-y-4">
+            <OrderSkeleton />
+            <OrderSkeleton />
+            <OrderSkeleton />
+          </div>
         </div>
       </div>
     );
@@ -179,7 +217,6 @@ export default function ClientOrdersPage() {
                         {new Date(order.scheduledTime).toLocaleString('ru-RU')}
                       </span>
                     </div>
-                  </div>
                   {/* ← ДОБАВИТЬ: Цена */}
                   {order.price && (
                     <div className="flex items-center space-x-2 text-sm">
@@ -191,6 +228,8 @@ export default function ClientOrdersPage() {
                       </span>
                     </div>
                   )}
+                  </div>
+
                   {order.medic && (
                     <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 mb-4">
                       <div className="flex items-center space-x-3">
