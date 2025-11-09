@@ -22,10 +22,8 @@ export default function ClientOrdersPage() {
         const ordersWithReviews = await Promise.all(
           result.map(async (order: any) => {
             try {
-              const result = await getMyOrders();
-              // ← УБРАТЬ ВСЕ ДОПОЛНИТЕЛЬНЫЕ ЗАПРОСЫ!
-              // Просто используем данные из основного запроса
-              setOrders(result);
+              const result = await getMyOrders();  // ← ОШИБКА! Рекурсивный вызов
+              setOrders(result);  // ← ОШИБКА! setOrders внутри map
             } catch (err) {
               return order;
             }
