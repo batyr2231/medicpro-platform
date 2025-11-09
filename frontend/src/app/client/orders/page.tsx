@@ -18,20 +18,10 @@ export default function ClientOrdersPage() {
   const loadOrders = async () => {
     try {
       const result = await getMyOrders();
-        const token = localStorage.getItem('token');
-        const ordersWithReviews = await Promise.all(
-          result.map(async (order: any) => {
-            try {
-              const result = await getMyOrders();  // ← ОШИБКА! Рекурсивный вызов
-              setOrders(result);  // ← ОШИБКА! setOrders внутри map
-            } catch (err) {
-              return order;
-            }
-          })
-        );
-      setOrders(ordersWithReviews);
+      setOrders(result || []);
     } catch (err) {
       console.error('Failed to load orders:', err);
+      setOrders([]);
     }
   };
 
@@ -55,11 +45,9 @@ export default function ClientOrdersPage() {
     return info[status] || info.NEW;
   };
 
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
-        {/* Header (тот же самый) */}
         <header className="border-b border-white/10 backdrop-blur-xl bg-slate-900/50 sticky top-0 z-50">
           <div className="max-w-4xl mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
@@ -91,7 +79,6 @@ export default function ClientOrdersPage() {
           </div>
         </header>
 
-        {/* Skeleton Loading */}
         <div className="max-w-5xl mx-auto px-4 py-8">
           <div className="space-y-4">
             <OrderSkeleton />
@@ -105,7 +92,6 @@ export default function ClientOrdersPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
-      {/* Header */}
       <header className="border-b border-white/10 backdrop-blur-xl bg-slate-900/50 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -125,7 +111,6 @@ export default function ClientOrdersPage() {
                 + Новый заказ
               </button>
 
-              {/* ← ДОБАВИТЬ: Кнопка выхода */}
               <button
                 onClick={handleLogout}
                 className="p-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-all"
@@ -206,17 +191,17 @@ export default function ClientOrdersPage() {
                         {new Date(order.scheduledTime).toLocaleString('ru-RU')}
                       </span>
                     </div>
-                  {/* ← ДОБАВИТЬ: Цена */}
-                  {order.price && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <div className="w-6 h-6 rounded bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                        💰
+
+                    {order.price && (
+                      <div className="flex items-center space-x-2 text-sm">
+                        <div className="w-6 h-6 rounded bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                          💰
+                        </div>
+                        <span className="text-emerald-400 font-semibold">
+                          {parseInt(order.price).toLocaleString('ru-RU')} тг
+                        </span>
                       </div>
-                      <span className="text-emerald-400 font-semibold">
-                        {parseInt(order.price).toLocaleString('ru-RU')} тг
-                      </span>
-                    </div>
-                  )}
+                    )}
                   </div>
 
                   {order.medic && (
@@ -242,16 +227,13 @@ export default function ClientOrdersPage() {
                     </div>
                   )}
 
-                  {/* ← ИЗМЕНИТЬ: Показ отзыва или кнопки */}
                   {order.status === 'PAID' && (
                     order.review ? (
-                      // Если отзыв оставлен - показываем сообщение
                       <div className="w-full py-3 px-4 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 font-medium text-center flex items-center justify-center space-x-2">
                         <Star className="w-5 h-5 fill-green-400" />
                         <span>Вы оставили отзыв</span>
                       </div>
                     ) : (
-                      // Если отзыва нет - кнопка
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
