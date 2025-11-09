@@ -30,7 +30,10 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: [
+    'http://localhost:3000',
+    'https://medicpro-platform.vercel.app'  // ← ДОБАВИТЬ!
+  ],
   credentials: true
 }));
 app.use(express.json());
@@ -39,7 +42,10 @@ app.use(express.urlencoded({ extended: true }));
 // Socket.IO setup
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+      origin: [
+      'http://localhost:3000',
+      'https://medicpro-platform.vercel.app'  // ← ДОБАВИТЬ!
+    ],
     credentials: true
   }
 });
@@ -502,7 +508,6 @@ app.get('/api/cities/:city/districts', (req, res) => {
                 phone: true
               }
             },
-            // ← ДОБАВИТЬ: включаем отзывы
             review: {
               select: {
                 id: true,
@@ -515,15 +520,15 @@ app.get('/api/cities/:city/districts', (req, res) => {
           }
         });
 
-        // ← ПРРЕОБРАЗУЕМ в boolean
+        // Преобразуем в boolean
         orders = clientOrders.map(order => ({
           ...order,
-          review: !!order.review // true если отзыв есть, false если нет
+          review: !!order.review  // true если отзыв есть, false если нет
         }));
         
-        console.log('✅ Found', orders.length, 'orders for CLIENT (excluding cancelled)');
+        console.log('✅ Found', orders.length, 'orders for CLIENT');
       } else if (req.user.role === 'MEDIC') {
-        // Для медика - заказы где он назначен
+        // Для медика
         orders = await prisma.order.findMany({
           where: {
             medicId: req.user.userId,
