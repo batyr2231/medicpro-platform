@@ -1,4 +1,5 @@
 import './globals.css';
+import { Toaster } from 'react-hot-toast';
 import NotificationListener from '@/components/NotificationListener';
 
 export default function RootLayout({
@@ -11,7 +12,14 @@ export default function RootLayout({
       <body>
         {children}
         
-        {/* Глобальный слушатель уведомлений - БЕЗ Toaster! */}
+        {/* Toast Container */}
+        <Toaster 
+          position="top-right"
+          reverseOrder={false}
+          gutter={8}
+        />
+        
+        {/* Глобальный слушатель уведомлений */}
         <NotificationListener />
       </body>
     </html>

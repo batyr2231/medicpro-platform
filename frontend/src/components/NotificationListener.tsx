@@ -57,15 +57,16 @@ export default function NotificationListener() {
           setNotification(null);
         }, 8000);
 
+        
         // Звук
         try {
-          const audio = new Audio('/notification.mp3');
-          audio.volume = 0.3;
-          audio.play().catch((err) => {
+        const audio = new Audio('/notification.mp3');
+        audio.volume = 0.3;
+        audio.play().catch((err) => {
             console.log('⚠️ Audio play failed (user interaction required):', err.message);
-          });
+        });
         } catch (e) {
-          console.log('⚠️ Audio error:', e);
+        console.log('⚠️ Audio error:', e);
         }
       } else {
         console.log('ℹ️ User is in chat, no notification needed');
