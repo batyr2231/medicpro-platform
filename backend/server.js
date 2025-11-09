@@ -515,10 +515,10 @@ app.get('/api/cities/:city/districts', (req, res) => {
           }
         });
 
-        // ← ПРЕОБРАЗУЕМ: добавляем флаг hasReview
+        // ← ПРРЕОБРАЗУЕМ в boolean
         orders = clientOrders.map(order => ({
           ...order,
-          review: order.review ? true : false
+          review: !!order.review // true если отзыв есть, false если нет
         }));
         
         console.log('✅ Found', orders.length, 'orders for CLIENT (excluding cancelled)');
