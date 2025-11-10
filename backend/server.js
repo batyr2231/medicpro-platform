@@ -12,7 +12,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 import { sendVerificationCode, sendWhatsAppCode, generateCode, sendSMS } from './utils/sms.js';
 import { getCities, getDistricts, isValidCity, isValidDistrict } from './utils/cities.js';
-import { initBot, handleWebhook, sendOrderNotification, sendOrderAcceptedNotification, sendStatusUpdateNotification, sendChatNotification } from './utils/telegram.js';
+import { initBot, handleWebhook, sendOrderNotification, sendOrderAcceptedNotification, sendStatusUpdateNotification, sendChatNotification, sendTelegramMessage  } from './utils/telegram.js';
 
 dotenv.config();
 
@@ -1310,20 +1310,19 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: 'Файл не загружен' });
       }
 
-      const { documentType } = req.body; // 'LICENSE', 'CERTIFICATE', 'DIPLOMA', 'IDENTITY'
+      // ← ИЗМЕНИТЬ: Только 3 типа документов
+      const { documentType } = req.body; // 'LICENSE', 'CERTIFICATE', 'IDENTITY'
       
-      const validTypes = ['LICENSE', 'CERTIFICATE', 'DIPLOMA', 'IDENTITY'];
+      const validTypes = ['LICENSE', 'CERTIFICATE', 'IDENTITY'];
       if (!validTypes.includes(documentType)) {
         return res.status(400).json({ error: 'Неверный тип документа' });
       }
 
       console.log(`[UPLOAD] Uploading ${documentType} for user ${req.user.userId}`);
 
-      // Конвертируем buffer в base64 для Cloudinary
       const b64 = Buffer.from(req.file.buffer).toString('base64');
       const dataURI = `data:${req.file.mimetype};base64,${b64}`;
 
-      // Загружаем в Cloudinary
       const result = await cloudinary.uploader.upload(dataURI, {
         folder: 'medicpro/documents',
         resource_type: 'image',
@@ -1335,7 +1334,6 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
 
       console.log(`[UPLOAD] Cloudinary upload successful: ${result.secure_url}`);
 
-      // Получаем медика
       const medic = await prisma.medic.findUnique({
         where: { userId: req.user.userId }
       });
@@ -1369,31 +1367,41 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
         });
       }
 
-      // Обрабатываем остальные документы
+      // Обрабатываем остальные документы (CERTIFICATE, LICENSE)
       let documents = [];
       if (medic.documents && Array.isArray(medic.documents)) {
         documents = medic.documents;
       }
 
-      // Удаляем старый документ этого типа (если есть)
-      documents = documents.filter(doc => doc.type !== documentType);
+      // ← ИЗМЕНИТЬ: Для CERTIFICATE разрешаем несколько файлов
+      if (documentType === 'CERTIFICATE') {
+        // Добавляем новый сертификат к существующим
+        documents.push({
+          type: documentType,
+          url: result.secure_url,
+          publicId: result.public_id,
+          uploadedAt: new Date().toISOString(),
+          fileName: req.file.originalname,
+          format: result.format
+        });
+      } else {
+        // Для LICENSE - заменяем старый файл
+        documents = documents.filter(doc => doc.type !== documentType);
+        documents.push({
+          type: documentType,
+          url: result.secure_url,
+          publicId: result.public_id,
+          uploadedAt: new Date().toISOString(),
+          fileName: req.file.originalname,
+          format: result.format
+        });
+      }
 
-      // Добавляем новый документ
-      documents.push({
-        type: documentType,
-        url: result.secure_url,
-        publicId: result.public_id,
-        uploadedAt: new Date().toISOString(),
-        fileName: req.file.originalname,
-        format: result.format
-      });
-
-      // Обновляем медика
       await prisma.medic.update({
         where: { id: medic.id },
         data: { 
           documents: documents,
-          status: 'PENDING' // Требует модерации
+          status: 'PENDING'
         }
       });
 
@@ -1514,6 +1522,7 @@ app.use('/api/admin/*', (req, res, next) => {
   console.log(`[ADMIN REQUEST] ${req.method} ${req.path}`);
   next();
 });
+
 // ==================== ADMIN ENDPOINTS ====================
 
 // Получение всех медиков
