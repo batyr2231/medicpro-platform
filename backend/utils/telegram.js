@@ -234,6 +234,7 @@ async function sendStatusUpdateNotification(chatId, data) {
   }
 }
 
+
 export {
   initBot,
   handleWebhook,
@@ -242,3 +243,14 @@ export {
   sendStatusUpdateNotification,
   sendChatNotification
 };
+
+
+export async function sendTelegramMessage(chatId, text) {
+  try {
+    await bot.telegram.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+    console.log(`✅ Telegram message sent to ${chatId}`);
+  } catch (error) {
+    console.error(`❌ Failed to send Telegram message:`, error);
+    throw error;
+  }
+}
