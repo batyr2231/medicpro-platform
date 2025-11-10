@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { User, Phone, MapPin, Award, Save, Loader, ArrowLeft } from 'lucide-react';
+import { User, Phone, MapPin, Award, Save, Loader, ArrowLeft, Upload, X, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import PhoneInput from '@/components/PhoneInput'; 
@@ -10,11 +10,15 @@ import { getCities, getDistricts } from 'utils/cities';
 export default function MedicProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  
   const [telegramChatId, setTelegramChatId] = useState('');
   const [telegramConnected, setTelegramConnected] = useState(false);
   const [showTelegramInput, setShowTelegramInput] = useState(false);
-  const [telegramDeepLink, setTelegramDeepLink] = useState(''); // ← ДОБАВИТЬ
+  const [telegramDeepLink, setTelegramDeepLink] = useState('');
   const [checkingConnection, setCheckingConnection] = useState(false);
+  
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -27,25 +31,16 @@ export default function MedicProfilePage() {
     residenceAddress: '',
   });
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedDocType, setSelectedDocType] = useState<'LICENSE' | 'CERTIFICATE' | 'IDENTITY' | 'DIPLOMA' | null>(null);
-  const [uploading, setUploading] = useState(false);
-
-  const isProfileComplete = 
-  formData.name && 
-  formData.phone && 
-  formData.specialization && 
-  formData.experience && parseInt(formData.experience) > 0 &&
-  formData.city && 
-  formData.areas.length > 0;
-
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [medicStatus, setMedicStatus] = useState<string>('PENDING'); 
-
-  const districts = [
-    'Алмалинский', 'Ауэзовский', 'Бостандыкский', 'Жетысуский',
-    'Медеуский', 'Наурызбайский', 'Турксибский', 'Алатауский'
-  ];
+  const [medicStatus, setMedicStatus] = useState<string>('PENDING');
+  
+  // Документы
+  const [identityDoc, setIdentityDoc] = useState<any>(null);
+  const [certificates, setCertificates] = useState<any[]>([]);
+  const [license, setLicense] = useState<any>(null);
+  
+  const [uploadingIdentity, setUploadingIdentity] = useState(false);
+  const [uploadingCertificate, setUploadingCertificate] = useState(false);
+  const [uploadingLicense, setUploadingLicense] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -74,7 +69,6 @@ export default function MedicProfilePage() {
           education: result.education || '',
           city: result.city || 'Алматы',
           areas: result.areas || [],
-          // ← ДОБАВИТЬ:
           birthDate: result.birthDate ? new Date(result.birthDate).toISOString().split('T')[0] : '',
           residenceAddress: result.residenceAddress || '',
         });
@@ -85,9 +79,15 @@ export default function MedicProfilePage() {
           setTelegramConnected(true);
         }
 
-        // ← ДОБАВИТЬ: Загружаем документы
+        // Загружаем документы
+        setIdentityDoc(result.identityDocument || null);
+        
         const docs = result.documents || [];
-        setDocuments(docs);
+        const certs = docs.filter((d: any) => d.type === 'CERTIFICATE');
+        const lic = docs.find((d: any) => d.type === 'LICENSE');
+        
+        setCertificates(certs);
+        setLicense(lic || null);
       }
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -97,7 +97,55 @@ export default function MedicProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+
+    // Валидация
+    if (!formData.name.trim()) {
+      toast.error('Введите ФИО');
+      return;
+    }
+
+    if (!formData.specialization.trim()) {
+      toast.error('Выберите специализацию');
+      return;
+    }
+
+    if (!formData.experience || parseInt(formData.experience) === 0) {
+      toast.error('Укажите опыт работы');
+      return;
+    }
+
+    if (!formData.city) {
+      toast.error('Выберите город');
+      return;
+    }
+
+    if (formData.areas.length === 0) {
+      toast.error('Выберите хотя бы один район');
+      return;
+    }
+
+    if (!formData.birthDate) {
+      toast.error('Укажите дату рождения');
+      return;
+    }
+
+    if (!formData.residenceAddress.trim()) {
+      toast.error('Укажите адрес проживания');
+      return;
+    }
+
+    // Проверка документов
+    if (!identityDoc) {
+      toast.error('Загрузите удостоверение личности (обязательно)');
+      return;
+    }
+
+    if (certificates.length === 0) {
+      toast.error('Загрузите хотя бы один сертификат/диплом (обязательно)');
+      return;
+    }
+
+    setSaving(true);
 
     try {
       const token = localStorage.getItem('token');
@@ -117,7 +165,6 @@ export default function MedicProfilePage() {
             education: formData.education,
             city: formData.city,
             areas: formData.areas,
-            // ← ДОБАВИТЬ:
             birthDate: formData.birthDate,
             residenceAddress: formData.residenceAddress,
           }),
@@ -130,18 +177,14 @@ export default function MedicProfilePage() {
         throw new Error(result.error || 'Failed to update profile');
       }
 
-      toast.success('✅ Профиль успешно обновлён!');
-      
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      user.name = formData.name;
-      user.phone = formData.phone;
-      localStorage.setItem('user', JSON.stringify(user));
+      // Показываем модальное окно
+      setShowSuccessModal(true);
       
     } catch (err: any) {
       console.error('Update profile error:', err);
       toast.error('Ошибка обновления профиля: ' + err.message);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -157,154 +200,12 @@ export default function MedicProfilePage() {
     setFormData({ ...formData, areas: newAreas });
   };
 
-const handleConnectTelegram = async () => {
-  try {
-    setLoading(true);
-    const token = localStorage.getItem('token');
-    
-    // Генерируем код для подключения
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/medics/generate-telegram-code`,
-      {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      }
-    );
-
-    const result = await response.json();
-
-    if (response.ok) {
-      setTelegramDeepLink(result.deepLink);
-      setShowTelegramInput(true);
-      
-      toast.success('✅ Ссылка готова! Откройте Telegram');
-      
-      // Начинаем проверять подключение каждые 3 секунды
-      startCheckingConnection();
-    } else {
-      toast.error('❌ ' + result.error);
-    }
-  } catch (error) {
-    console.error('Connect Telegram error:', error);
-    toast.error('❌ Ошибка генерации ссылки');
-  } finally {
-    setLoading(false);
-  }
-};
-
-// Функция проверки подключения
-const startCheckingConnection = () => {
-  setCheckingConnection(true);
-  
-  const interval = setInterval(async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/medics/profile`,
-        {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }
-      );
-      
-      const result = await response.json();
-      
-      if (result.telegramChatId) {
-        setTelegramConnected(true);
-        setShowTelegramInput(false);
-        setCheckingConnection(false);
-        clearInterval(interval);
-        toast.success('🎉 Telegram успешно подключён!');
-      }
-    } catch (error) {
-      console.error('Check connection error:', error);
-    }
-  }, 3000);
-  
-  // Останавливаем проверку через 2 минуты
-  setTimeout(() => {
-    clearInterval(interval);
-    setCheckingConnection(false);
-  }, 120000);
-};
-
-const handleDisconnectTelegram = async () => {
-  if (!confirm('Отключить Telegram уведомления?')) return;
-
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/disconnect-telegram`,
-      {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      }
-    );
-
-    if (response.ok) {
-      setTelegramConnected(false);
-      toast.success('✅ Telegram отключён');
-    }
-  } catch (error) {
-    console.error('Disconnect Telegram error:', error);
-    toast.error('❌ Ошибка');
-  }
-};
-
-  const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>, type: 'LICENSE' | 'CERTIFICATE') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Проверка типа файла
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Только JPG, PNG или WEBP файлы');
-      return;
-    }
-
-    // Проверка размера (10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Файл должен быть меньше 10MB');
-      return;
-    }
-
-    setUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('document', file);
-      formData.append('documentType', type);
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/medics/upload-document`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error);
-
-      toast.success('✅ Фото документа загружено!');
-      setTimeout(() => window.location.reload(), 1500);
-
-    } catch (err: any) {
-      toast.error(err.message || 'Ошибка загрузки');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleFileSelect = (
-    e: React.ChangeEvent<HTMLInputElement>, 
-    type: 'LICENSE' | 'CERTIFICATE' | 'IDENTITY' | 'DIPLOMA'
-  ) => {
-    const file = e.target.files?.[0];
+  // Загрузка удостоверения
+  const handleUploadIdentity = async (file: File) => {
     if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('Файл слишком большой! Максимум 10MB');
+      toast.error('Файл слишком большой (максимум 10MB)');
       return;
     }
 
@@ -313,59 +214,240 @@ const handleDisconnectTelegram = async () => {
       return;
     }
 
-    setSelectedFile(file);
-    setSelectedDocType(type);
+    setUploadingIdentity(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('documentType', 'IDENTITY');
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/upload-document`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Ошибка загрузки');
+      }
+
+      toast.success('✅ Удостоверение загружено!');
+      loadProfile();
+
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      toast.error('❌ Ошибка загрузки: ' + err.message);
+    } finally {
+      setUploadingIdentity(false);
+    }
   };
 
-    const handleUpload = async (
-      type: 'LICENSE' | 'CERTIFICATE' | 'IDENTITY' | 'DIPLOMA'
-    ) => {
-      if (!selectedFile) return;
+  // Загрузка сертификата/диплома (множественная)
+  const handleUploadCertificate = async (file: File) => {
+    if (!file) return;
 
-      setUploading(true);
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Файл слишком большой (максимум 10MB)');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Можно загружать только изображения');
+      return;
+    }
+
+    setUploadingCertificate(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('documentType', 'CERTIFICATE');
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/upload-document`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Ошибка загрузки');
+      }
+
+      toast.success('✅ Сертификат/Диплом загружен!');
+      loadProfile();
+
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      toast.error('❌ Ошибка загрузки: ' + err.message);
+    } finally {
+      setUploadingCertificate(false);
+    }
+  };
+
+  // Загрузка лицензии (одна, заменяется)
+  const handleUploadLicense = async (file: File) => {
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Файл слишком большой (максимум 10MB)');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Можно загружать только изображения');
+      return;
+    }
+
+    setUploadingLicense(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('documentType', 'LICENSE');
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/upload-document`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Ошибка загрузки');
+      }
+
+      toast.success('✅ Лицензия загружена!');
+      loadProfile();
+
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      toast.error('❌ Ошибка загрузки: ' + err.message);
+    } finally {
+      setUploadingLicense(false);
+    }
+  };
+
+  const handleConnectTelegram = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/medics/generate-telegram-code`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setTelegramDeepLink(result.deepLink);
+        setShowTelegramInput(true);
+        
+        toast.success('✅ Ссылка готова! Откройте Telegram');
+        
+        startCheckingConnection();
+      } else {
+        toast.error('❌ ' + result.error);
+      }
+    } catch (error) {
+      console.error('Connect Telegram error:', error);
+      toast.error('❌ Ошибка генерации ссылки');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startCheckingConnection = () => {
+    setCheckingConnection(true);
+    
+    const interval = setInterval(async () => {
       try {
-        const formData = new FormData();
-        formData.append('document', selectedFile);
-        formData.append('documentType', type);
-
         const token = localStorage.getItem('token');
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/upload-document`,
+          `${process.env.NEXT_PUBLIC_API_URL}/api/medics/profile`,
           {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            body: formData,
+            headers: { 'Authorization': `Bearer ${token}` }
           }
         );
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || 'Ошибка загрузки');
-        }
-
-        const docNames: Record<string, string> = {
-          LICENSE: 'Лицензия',
-          CERTIFICATE: 'Сертификат',
-          IDENTITY: 'Удостоверение',
-          DIPLOMA: 'Диплом'
-        };
-
-        toast.success(`✅ ${docNames[type]} загружен!`);
-        setSelectedFile(null);
-        setSelectedDocType(null);
         
-        loadProfile();
-
-      } catch (err: any) {
-        console.error('Upload error:', err);
-        toast.error('❌ Ошибка загрузки: ' + err.message);
-      } finally {
-        setUploading(false);
+        const result = await response.json();
+        
+        if (result.telegramChatId) {
+          setTelegramConnected(true);
+          setShowTelegramInput(false);
+          setCheckingConnection(false);
+          clearInterval(interval);
+          toast.success('🎉 Telegram успешно подключён!');
+        }
+      } catch (error) {
+        console.error('Check connection error:', error);
       }
-    };
+    }, 3000);
+    
+    setTimeout(() => {
+      clearInterval(interval);
+      setCheckingConnection(false);
+    }, 120000);
+  };
+
+  const handleDisconnectTelegram = async () => {
+    if (!confirm('Отключить Telegram уведомления?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/disconnect-telegram`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+
+      if (response.ok) {
+        setTelegramConnected(false);
+        toast.success('✅ Telegram отключён');
+      }
+    } catch (error) {
+      console.error('Disconnect Telegram error:', error);
+      toast.error('❌ Ошибка');
+    }
+  };
+
+  const isProfileComplete = 
+    formData.name && 
+    formData.phone && 
+    formData.specialization && 
+    formData.experience && parseInt(formData.experience) > 0 &&
+    formData.city && 
+    formData.areas.length > 0 &&
+    formData.birthDate &&
+    formData.residenceAddress;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
@@ -386,50 +468,28 @@ const handleDisconnectTelegram = async () => {
         </div>
       </header>
 
-      {/* Добавить ЗДЕСЬ бейдж верификации */}
+      {/* Статус профиля */}
       <div className="max-w-4xl mx-auto px-4 pt-4">
         {medicStatus === 'APPROVED' && (
-          <div className="mb-4 p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
-                <svg className="w-7 h-7 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div>
-                <div className="font-bold text-green-400 text-lg">✅ Профиль верифицирован</div>
-                <div className="text-sm text-slate-400">Ваши документы проверены администрацией</div>
-              </div>
+          <div className="mb-4 p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center space-x-3">
+            <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+              <CheckCircle className="w-7 h-7 text-green-400" />
+            </div>
+            <div>
+              <div className="font-bold text-green-400 text-lg">✅ Профиль верифицирован</div>
+              <div className="text-sm text-slate-400">Ваши документы проверены администрацией</div>
             </div>
           </div>
         )}
 
         {medicStatus === 'PENDING' && (
-          <div className="mb-4 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                <Loader className="w-7 h-7 text-yellow-400 animate-spin" />
-              </div>
-              <div>
-                <div className="font-bold text-yellow-400 text-lg">⏳ На модерации</div>
-                <div className="text-sm text-slate-400">Ваш профиль проверяется администрацией</div>
-              </div>
+          <div className="mb-4 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center space-x-3">
+            <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center">
+              <Loader className="w-7 h-7 text-yellow-400 animate-spin" />
             </div>
-          </div>
-        )}
-
-        {medicStatus === 'REJECTED' && (
-          <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
-                <svg className="w-7 h-7 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div>
-                <div className="font-bold text-red-400 text-lg">❌ Профиль отклонён</div>
-                <div className="text-sm text-slate-400">Свяжитесь с поддержкой для уточнения причины</div>
-              </div>
+            <div>
+              <div className="font-bold text-yellow-400 text-lg">⏳ На модерации</div>
+              <div className="text-sm text-slate-400">Ваш профиль проверяется администрацией</div>
             </div>
           </div>
         )}
@@ -446,7 +506,7 @@ const handleDisconnectTelegram = async () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  ФИО
+                  ФИО *
                 </label>
                 <input
                   type="text"
@@ -469,34 +529,36 @@ const handleDisconnectTelegram = async () => {
                   className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Дата рождения *
+                </label>
+                <input
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => handleChange('birthDate', e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Фактический адрес проживания *
+                </label>
+                <input
+                  type="text"
+                  value={formData.residenceAddress}
+                  onChange={(e) => handleChange('residenceAddress', e.target.value)}
+                  placeholder="г. Алматы, ул. Абая 123, кв. 45"
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors"
+                  required
+                />
+              </div>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Дата рождения *
-            </label>
-            <input
-              type="date"
-              value={formData.birthDate}
-              onChange={(e) => handleChange('birthDate', e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors"
-              required
-            />
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Фактический адрес проживания *
-            </label>
-            <input
-              type="text"
-              value={formData.residenceAddress}
-              onChange={(e) => handleChange('residenceAddress', e.target.value)}
-              placeholder="г. Алматы, ул. Абая 123, кв. 45"
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors"
-              required
-            />
-          </div>
           {/* Professional Info */}
           <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
             <h2 className="text-xl font-bold mb-6 flex items-center">
@@ -507,7 +569,7 @@ const handleDisconnectTelegram = async () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Специализация
+                  Специализация *
                 </label>
                 <input
                   type="text"
@@ -515,19 +577,22 @@ const handleDisconnectTelegram = async () => {
                   onChange={(e) => handleChange('specialization', e.target.value)}
                   placeholder="Например: Терапевт, Медсестра"
                   className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors"
+                  required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Опыт работы (лет)
+                  Опыт работы (лет) *
                 </label>
                 <input
-                  type="text"
+                  type="number"
+                  min="0"
                   value={formData.experience}
                   onChange={(e) => handleChange('experience', e.target.value)}
                   placeholder="Например: 5"
                   className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors"
+                  required
                 />
               </div>
 
@@ -546,8 +611,8 @@ const handleDisconnectTelegram = async () => {
             </div>
           </div>
 
-          {/* Выбор города */}
-          <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6 mb-6">
+          {/* Город */}
+          <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
             <h2 className="text-xl font-bold mb-6 flex items-center">
               <MapPin className="w-6 h-6 mr-2 text-cyan-400" />
               Город работы
@@ -555,7 +620,7 @@ const handleDisconnectTelegram = async () => {
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-3">
-                В каком городе вы работаете?
+                В каком городе вы работаете? *
               </label>
               <select
                 value={formData.city}
@@ -563,14 +628,15 @@ const handleDisconnectTelegram = async () => {
                   setFormData({ 
                     ...formData, 
                     city: e.target.value,
-                    areas: [] // Сброс районов при смене города
+                    areas: []
                   });
                 }}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors appearance-none"
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors"
+                required
               >
-                <option value="" className="bg-slate-900">Выберите город</option>
+                <option value="">Выберите город</option>
                 {getCities().map(city => (
-                  <option key={city} value={city} className="bg-slate-900">
+                  <option key={city} value={city}>
                     {city}
                   </option>
                 ))}
@@ -578,12 +644,12 @@ const handleDisconnectTelegram = async () => {
             </div>
           </div>
 
-          {/* Районы обслуживания (показывается только после выбора города) */}
+          {/* Районы */}
           {formData.city && (
             <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
               <h2 className="text-xl font-bold mb-6 flex items-center">
                 <MapPin className="w-6 h-6 mr-2 text-cyan-400" />
-                Районы обслуживания в городе {formData.city}
+                Районы обслуживания *
               </h2>
 
               <div className="grid grid-cols-2 gap-3">
@@ -594,8 +660,8 @@ const handleDisconnectTelegram = async () => {
                     onClick={() => toggleDistrict(district)}
                     className={`p-4 rounded-xl text-left transition-all ${
                       formData.areas.includes(district)
-                        ? 'bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border-2 border-cyan-500 shadow-lg shadow-cyan-500/20'
-                        : 'bg-white/5 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                        ? 'bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border-2 border-cyan-500'
+                        : 'bg-white/5 border-2 border-white/10 hover:border-white/20'
                     }`}
                   >
                     <div className="font-medium">{district}</div>
@@ -614,7 +680,166 @@ const handleDisconnectTelegram = async () => {
             </div>
           )}
 
-          {/* Telegram уведомления */}
+          {/* Документы */}
+          {isProfileComplete && (
+            <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
+              <h2 className="text-xl font-bold mb-6">Документы для верификации</h2>
+              
+              {/* Удостоверение личности */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-300 mb-3">
+                  Удостоверение личности <span className="text-red-400">*</span>
+                </label>
+                {identityDoc ? (
+                  <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="w-5 h-5 text-green-400" />
+                      <span className="text-sm text-green-400">Загружено</span>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="block">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUploadIdentity(file);
+                      }}
+                      disabled={uploadingIdentity}
+                      className="hidden"
+                    />
+                    <div className="flex items-center justify-center p-8 rounded-xl border-2 border-dashed border-white/20 hover:border-cyan-500/50 cursor-pointer transition-all">
+                      {uploadingIdentity ? (
+                        <>
+                          <Loader className="w-5 h-5 mr-2 animate-spin text-cyan-400" />
+                          <span className="text-sm">Загрузка...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5 mr-2 text-slate-400" />
+                          <span className="text-sm">Нажмите для загрузки</span>
+                        </>
+                      )}
+                    </div>
+                  </label>
+                )}
+              </div>
+
+              {/* Сертификаты/Дипломы (множественная загрузка) */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-300 mb-3">
+                  Сертификаты / Дипломы <span className="text-red-400">*</span>
+                  <span className="text-xs text-slate-400 ml-2">(можно загрузить несколько)</span>
+                </label>
+                
+                {/* Показываем загруженные сертификаты */}
+                {certificates.length > 0 && (
+                  <div className="mb-3 space-y-2">
+                    {certificates.map((cert, index) => (
+                      <div key={index} className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <CheckCircle className="w-5 h-5 text-green-400" />
+                          <span className="text-sm text-green-400">Сертификат {index + 1}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Кнопка загрузки еще одного */}
+                <label className="block">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleUploadCertificate(file);
+                    }}
+                    disabled={uploadingCertificate}
+                    className="hidden"
+                  />
+                  <div className="flex items-center justify-center p-8 rounded-xl border-2 border-dashed border-white/20 hover:border-cyan-500/50 cursor-pointer transition-all">
+                    {uploadingCertificate ? (
+                      <>
+                        <Loader className="w-5 h-5 mr-2 animate-spin text-cyan-400" />
+                        <span className="text-sm">Загрузка...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-5 h-5 mr-2 text-slate-400" />
+                        <span className ="text-sm">
+                          {certificates.length > 0 ? 'Загрузить ещё один' : 'Нажмите для загрузки'}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </label>
+              </div>
+
+              {/* Медицинская лицензия (необязательно) */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-300 mb-3">
+                  Медицинская лицензия
+                  <span className="text-xs text-slate-400 ml-2">(необязательно)</span>
+                </label>
+                {license ? (
+                  <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="w-5 h-5 text-green-400" />
+                      <span className="text-sm text-green-400">Лицензия загружена</span>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="block">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUploadLicense(file);
+                      }}
+                      disabled={uploadingLicense}
+                      className="hidden"
+                    />
+                    <div className="flex items-center justify-center p-8 rounded-xl border-2 border-dashed border-white/20 hover:border-cyan-500/50 cursor-pointer transition-all">
+                      {uploadingLicense ? (
+                        <>
+                          <Loader className="w-5 h-5 mr-2 animate-spin text-cyan-400" />
+                          <span className="text-sm">Загрузка...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5 mr-2 text-slate-400" />
+                          <span className="text-sm">Нажмите для загрузки</span>
+                        </>
+                      )}
+                    </div>
+                  </label>
+                )}
+              </div>
+
+              {/* Информация */}
+              <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+                <div className="flex items-start space-x-3">
+                  <div className="text-2xl">📋</div>
+                  <div className="text-sm text-cyan-300">
+                    <p className="font-medium mb-2">Что нужно загрузить:</p>
+                    <ul className="list-disc list-inside space-y-1 text-cyan-400/80">
+                      <li>Удостоверение личности (обязательно)</li>
+                      <li>Сертификаты и/или дипломы (обязательно, можно несколько)</li>
+                      <li>Медицинская лицензия (по желанию)</li>
+                    </ul>
+                    <p className="mt-2 text-xs text-cyan-400/60">
+                      Документы будут проверены администратором в течение 24 часов
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Telegram */}
           <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
             <h2 className="text-xl font-bold mb-4 flex items-center">
               <span className="text-2xl mr-2">📱</span>
@@ -623,29 +848,18 @@ const handleDisconnectTelegram = async () => {
 
             {telegramConnected ? (
               <div className="space-y-4">
-                {/* Красивый бейдж "Подключено" */}
                 <div className="p-4 rounded-xl bg-green-500/10 border-2 border-green-500/30">
                   <div className="flex items-start space-x-3">
                     <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-7 h-7 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
+                      <CheckCircle className="w-7 h-7 text-green-400" />
                     </div>
                     <div className="flex-1">
                       <div className="font-bold text-green-400 text-lg mb-1">
                         ✅ Telegram уведомления активны
                       </div>
                       <p className="text-sm text-slate-300 mb-3">
-                        Вы будете получать мгновенные уведомления о новых заказах в вашем районе прямо в Telegram
+                        Вы будете получать мгновенные уведомления о новых заказах
                       </p>
-                      <div className="flex items-center space-x-2 text-xs text-slate-400">
-                        <span className="inline-flex items-center px-2 py-1 rounded-md bg-green-500/20 text-green-400">
-                          <span className="w-2 h-2 rounded-full bg-green-400 mr-1.5 animate-pulse"></span>
-                          Активно
-                        </span>
-                        <span>•</span>
-                        <span>Получение заказов включено</span>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -682,13 +896,12 @@ const handleDisconnectTelegram = async () => {
                         <strong>📋 Инструкция:</strong>
                       </p>
                       <ol className="text-sm text-slate-400 space-y-2 list-decimal list-inside">
-                        <li>Нажмите кнопку <strong>"Открыть Telegram"</strong> ниже</li>
+                        <li>Нажмите кнопку <strong>"Открыть Telegram"</strong></li>
                         <li>В Telegram нажмите <strong>"START"</strong></li>
                         <li>Готово! Подключение произойдёт автоматически</li>
                       </ol>
                     </div>
 
-                    {/* Кнопка открытия Telegram */}
                     <a
                       href={telegramDeepLink}
                       target="_blank"
@@ -698,7 +911,6 @@ const handleDisconnectTelegram = async () => {
                       🚀 Открыть Telegram
                     </a>
 
-                    {/* Статус проверки */}
                     {checkingConnection && (
                       <div className="flex items-center justify-center space-x-2 text-blue-400 bg-blue-500/10 rounded-xl p-3">
                         <Loader className="w-5 h-5 animate-spin" />
@@ -706,7 +918,6 @@ const handleDisconnectTelegram = async () => {
                       </div>
                     )}
 
-                    {/* Кнопка отмены */}
                     <button
                       type="button"
                       onClick={() => {
@@ -723,315 +934,13 @@ const handleDisconnectTelegram = async () => {
             )}
           </div>
 
-          {/* Блок валидации профиля */}
-          {!isProfileComplete && (
-            <div className="rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-600/20 border-2 border-orange-500/30 p-6 backdrop-blur-xl animate-pulse-slow mb-6">
-              <div className="flex items-start space-x-3 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400 to-red-600 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-white mb-2">Завершите заполнение профиля</h3>
-                  <p className="text-slate-300 text-sm mb-4">
-                    Заполните все обязательные поля для загрузки документов и отправки профиля на модерацию
-                  </p>
-                  
-                  {/* Чеклист недостающих полей */}
-                  <div className="space-y-2">
-                    {!formData.name && (
-                      <div className="flex items-center space-x-2 text-sm text-orange-300">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                        <span>Укажите ваше имя</span>
-                      </div>
-                    )}
-                    {!formData.phone && (
-                      <div className="flex items-center space-x-2 text-sm text-orange-300">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                        <span>Укажите номер телефона</span>
-                      </div>
-                    )}
-                    {!formData.specialization && (
-                      <div className="flex items-center space-x-2 text-sm text-orange-300">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                        <span>Выберите специализацию</span>
-                      </div>
-                    )}
-                    {(!formData.experience || parseInt(formData.experience) === 0) && (
-                      <div className="flex items-center space-x-2 text-sm text-orange-300">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                        <span>Укажите опыт работы (лет)</span>
-                      </div>
-                    )}
-                    {!formData.city && (
-                      <div className="flex items-center space-x-2 text-sm text-orange-300">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                        <span>Выберите город работы</span>
-                      </div>
-                    )}
-                    {formData.areas.length === 0 && (
-                      <div className="flex items-center space-x-2 text-sm text-orange-300">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                        <span>Выберите районы обслуживания</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          {/* Блок загрузки документов - показывается только если профиль заполнен */}
-          {isProfileComplete && (
-            <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold">Документы для верификации</h2>
-                    <p className="text-sm text-slate-400">Загрузите лицензию и сертификаты</p>
-                  </div>
-                </div>
-                
-                {medicStatus === 'APPROVED' && (
-                  <div className="px-4 py-2 rounded-full bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-medium">
-                    ✓ Одобрено
-                  </div>
-                )}
-                {medicStatus === 'PENDING' && (
-                  <div className="px-4 py-2 rounded-full bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm font-medium">
-                    ⏳ На модерации
-                  </div>
-                )}
-                {medicStatus === 'REJECTED' && (
-                  <div className="px-4 py-2 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-medium">
-                    ✗ Отклонено
-                  </div>
-                )}
-              </div>
-
-              {/* Загрузка удостоверения личности */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-300 mb-3">
-                  Удостоверение личности <span className="text-red-400">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileSelect(e, 'IDENTITY')}
-                    className="hidden"
-                    id="identity-upload"
-                  />
-                  <label
-                    htmlFor="identity-upload"
-                    className="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-white/20 rounded-xl hover:border-cyan-500/50 hover:bg-white/5 transition-all cursor-pointer"
-                  >
-                    <div className="text-center">
-                      <svg className="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <p className="text-sm text-slate-300 mb-1">Нажмите для загрузки</p>
-                      <p className="text-xs text-slate-500">PNG, JPG (макс. 10MB)</p>
-                    </div>
-                  </label>
-                </div>
-                {selectedFile && selectedDocType === 'IDENTITY' && (
-                  <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-sm text-blue-300">{selectedFile.name}</span>
-                    </div>
-                    <button
-                      onClick={() => handleUpload('IDENTITY')}
-                      disabled={uploading}
-                      className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-sm font-medium transition-all"
-                    >
-                      {uploading ? 'Загрузка...' : 'Загрузить'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Загрузка лицензии */}               
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-300 mb-3">
-                  Медицинская лицензия <span className="text-red-400">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileSelect(e, 'LICENSE')}
-                    className="hidden"
-                    id="license-upload"
-                  />
-                  <label
-                    htmlFor="license-upload"
-                    className="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-white/20 rounded-xl hover:border-cyan-500/50 hover:bg-white/5 transition-all cursor-pointer"
-                  >
-                    <div className="text-center">
-                      <svg className="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <p className="text-sm text-slate-300 mb-1">Нажмите для загрузки</p>
-                      <p className="text-xs text-slate-500">PNG, JPG, JPEG (макс. 10MB)</p>
-                    </div>
-                  </label>
-                </div>
-                {selectedFile && selectedDocType === 'LICENSE' && (
-                  <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-sm text-blue-300">{selectedFile.name}</span>
-                    </div>
-                    <button
-                      onClick={() => handleUpload('LICENSE')}
-                      disabled={uploading}
-                      className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-sm font-medium transition-all"
-                    >
-                      {uploading ? 'Загрузка...' : 'Загрузить'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Загрузка сертификатов */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-3">
-                  Сертификаты (опционально)
-                </label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileSelect(e, 'CERTIFICATE')}
-                    className="hidden"
-                    id="certificate-upload"
-                  />
-                  <label
-                    htmlFor="certificate-upload"
-                    className="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-white/20 rounded-xl hover:border-cyan-500/50 hover:bg-white/5 transition-all cursor-pointer"
-                  >
-                    <div className="text-center">
-                      <svg className="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <p className="text-sm text-slate-300 mb-1">Нажмите для загрузки</p>
-                      <p className="text-xs text-slate-500">PNG, JPG, JPEG (макс. 10MB)</p>
-                    </div>
-                  </label>
-                </div>
-                {selectedFile && selectedDocType === 'CERTIFICATE' && (
-                  <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-sm text-blue-300">{selectedFile.name}</span>
-                    </div>
-                    <button
-                      onClick={() => handleUpload('CERTIFICATE')}
-                      disabled={uploading}
-                      className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-sm font-medium transition-all"
-                    >
-                      {uploading ? 'Загрузка...' : 'Загрузить'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* ← ДОБАВИТЬ: Загрузка диплома */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-300 mb-3">
-                  Диплом <span className="text-red-400">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileSelect(e, 'DIPLOMA')}
-                    className="hidden"
-                    id="diploma-upload"
-                  />
-                  <label
-                    htmlFor="diploma-upload"
-                    className="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-white/20 rounded-xl hover:border-cyan-500/50 hover:bg-white/5 transition-all cursor-pointer"
-                  >
-                    <div className="text-center">
-                      <svg className="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <p className="text-sm text-slate-300 mb-1">Нажмите для загрузки</p>
-                      <p className="text-xs text-slate-500">PNG, JPG (макс. 10MB)</p>
-                    </div>
-                  </label>
-                </div>
-                {selectedFile && selectedDocType === 'DIPLOMA' && (
-                  <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-sm text-blue-300">{selectedFile.name}</span>
-                    </div>
-                    <button
-                      onClick={() => handleUpload('DIPLOMA')}
-                      disabled={uploading}
-                      className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-sm font-medium transition-all"
-                    >
-                      {uploading ? 'Загрузка...' : 'Загрузить'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Информационное сообщение */}
-              <div className="mt-6 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
-                <div className="flex items-start space-x-3">
-                  <svg className="w-5 h-5 text-cyan-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  <div className="text-sm text-cyan-300">
-                    <p className="font-medium mb-1">📋 Что нужно загрузить:</p>
-                    <ul className="list-disc list-inside space-y-1 text-cyan-400/80">
-                      <li>Удостоверение личности (обязательно)</li>
-                      <li>Медицинская лицензия (по желанию)</li>
-                      <li>Сертификаты (по желанию)</li>
-                      <li>Диплом (обязательно)</li>
-                    </ul>
-                    <p className="mt-2 text-xs text-cyan-400/60">
-                      Документы будут проверены администратором в течение 24 часов
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
           {/* Кнопка сохранения */}
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 font-semibold shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center"
+            disabled={saving}
+            className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 font-semibold shadow-lg transition-all flex items-center justify-center"
           >
-            {loading ? (
+            {saving ? (
               <>
                 <Loader className="w-5 h-5 mr-2 animate-spin" />
                 Сохранение...
@@ -1039,12 +948,41 @@ const handleDisconnectTelegram = async () => {
             ) : (
               <>
                 <Save className="w-5 h-5 mr-2" />
-                Сохранить изменения
+                Сохранить профиль
               </>
             )}
-          </button>  
+          </button>
         </form>
       </div>
+
+      {/* Модальное окно успеха */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-green-500/30 p-8 max-w-md w-full shadow-2xl">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-10 h-10 text-green-400" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">
+                Профиль сохранён!
+              </h3>
+              <p className="text-slate-300 mb-6">
+                Благодарим за заполнение профиля. Ваша заявка отправлена на модерацию. 
+                Ожидайте подтверждения в течение 24 часов.
+              </p>
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  router.push('/medic/dashboard');
+                }}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all"
+              >
+                Понятно
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
