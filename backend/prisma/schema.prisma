@@ -86,6 +86,12 @@ model Medic {
   experience     Int
   description    String?
   documents      Json?
+
+ // Новые поля
+  birthDate       DateTime?
+  residenceAddress String?
+  identityDocument Json?     // { type: 'ID_CARD', url: '...', uploadedAt: '...' }
+
   city           String      @default("Алматы")
   areas          String[]
   schedule       Json?
