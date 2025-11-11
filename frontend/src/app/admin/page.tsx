@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, Package, AlertTriangle, TrendingUp, CheckCircle, XCircle, Eye, Loader, ArrowLeft } from 'lucide-react';
+import { Shield, Users, Package, AlertTriangle, TrendingUp, CheckCircle, XCircle, Eye, Loader, ArrowLeft, X, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
@@ -13,6 +13,11 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [complaintFilter, setComplaintFilter] = useState('ALL');
+  
+  // Модальное окно для документов
+  const [showDocsModal, setShowDocsModal] = useState(false);
+  const [selectedMedicDocs, setSelectedMedicDocs] = useState<any>(null);
+  const [loadingDocs, setLoadingDocs] = useState(false);
   
   const router = useRouter();
 
@@ -85,15 +90,11 @@ export default function AdminDashboard() {
     try {
       const token = localStorage.getItem('token');
       
-      // Формируем URL
       let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints`;
       
-      // Добавляем фильтр
       if (complaintFilter && complaintFilter !== 'ALL') {
         url += `?status=${complaintFilter}`;
       }
-      
-      console.log(`[COMPLAINTS] Загрузка с фильтром: ${complaintFilter}, URL: ${url}`);
       
       const response = await fetch(url, {
         headers: {
@@ -104,13 +105,9 @@ export default function AdminDashboard() {
       const result = await response.json();
       
       if (response.ok) {
-        console.log(`[COMPLAINTS] Загружено: ${result.length} жалоб`);
         setComplaints(result);
-      } else {
-        throw new Error(result.error);
       }
-    } catch (err: any) {
-      console.error('[COMPLAINTS] Ошибка загрузки:', err);
+    } catch (err) {
       toast.error('Ошибка загрузки жалоб');
     } finally {
       setLoading(false);
@@ -194,7 +191,11 @@ export default function AdminDashboard() {
     return badges[status] || badges.PENDING;
   };
 
-  const viewDocuments = async (medicId: number | string) => {
+  // Открыть модальное окно с документами
+  const viewDocuments = async (medicId: number | string, medicName: string) => {
+    setLoadingDocs(true);
+    setShowDocsModal(true);
+    
     try {
       const token = localStorage.getItem('token');
       
@@ -224,20 +225,39 @@ export default function AdminDashboard() {
 
       const data = await res.json();
       
-      if (!data.documents || !Array.isArray(data.documents) || data.documents.length === 0) {
-        toast.error('Документы не загружены');
-        return;
+      // Получаем также identityDocument
+      const medicRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+      
+      if (medicRes.ok) {
+        const allMedics = await medicRes.json();
+        const medic = allMedics.find((m: any) => m.id === medicId);
+        
+        setSelectedMedicDocs({
+          medicId,
+          medicName,
+          identityDocument: medic?.identityDocument || null,
+          documents: data.documents || [],
+        });
+      } else {
+        setSelectedMedicDocs({
+          medicId,
+          medicName,
+          identityDocument: null,
+          documents: data.documents || [],
+        });
       }
-
-      data.documents.forEach((doc: { url: string; type: string }) => {
-        window.open(doc.url, '_blank');
-      });
-
-      toast.success(`Открыто документов: ${data.documents.length}`);
 
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || 'Ошибка загрузки документов');
+      setShowDocsModal(false);
+    } finally {
+      setLoadingDocs(false);
     }
   };
 
@@ -268,7 +288,7 @@ export default function AdminDashboard() {
     }
   };
 
-const getComplaintStatusBadge = (status: string) => {
+  const getComplaintStatusBadge = (status: string) => {
     const badges: Record<string, string> = {
       NEW: 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400',
       IN_PROGRESS: 'bg-blue-500/20 border-blue-500/30 text-blue-400',
@@ -292,8 +312,6 @@ const getComplaintStatusBadge = (status: string) => {
     try {
       const token = localStorage.getItem('token');
       
-      console.log(`[COMPLAINTS] Обновление статуса ${complaintId} → ${status}`);
-      
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/complaints/${complaintId}/status`,
         {
@@ -312,17 +330,23 @@ const getComplaintStatusBadge = (status: string) => {
         throw new Error(data.error || 'Ошибка обновления статуса');
       }
 
-      console.log(`[COMPLAINTS] Статус успешно обновлён`);
-      
       toast.success('✅ Статус обновлён');
-      
-      // Перезагружаем жалобы с текущим фильтром
       await loadComplaints();
 
     } catch (err: any) {
-      console.error('[COMPLAINTS] Ошибка обновления:', err);
       toast.error(err.message || 'Ошибка обновления');
     }
+  };
+
+  // Группировка документов по типам
+  const getGroupedDocuments = () => {
+    if (!selectedMedicDocs) return { identity: null, certificates: [], license: null };
+    
+    const identity = selectedMedicDocs.identityDocument;
+    const certificates = selectedMedicDocs.documents.filter((d: any) => d.type === 'CERTIFICATE');
+    const license = selectedMedicDocs.documents.find((d: any) => d.type === 'LICENSE');
+    
+    return { identity, certificates, license };
   };
 
   return (
@@ -461,25 +485,14 @@ const getComplaintStatusBadge = (status: string) => {
                           </div>
                         </div>
 
-                        {/* Кнопки документов */}
-                        <div className="mb-3 flex gap-2">
-                          <button
-                            onClick={() => viewDocuments(medic.id)}
-                            className="flex-1 py-2 rounded-xl bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 hover:from-blue-500/30 hover:to-cyan-500/30 font-medium text-sm transition-all flex items-center justify-center"
-                          >
-                            <Eye className="w-4 h-4 mr-2" />
-                            📄 Просмотреть
-                          </button>
-                          
-                          <button
-                            onClick={() => clearDocuments(medic.id)}
-                            className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30 hover:from-red-500/30 hover:to-pink-500/30 font-medium text-sm transition-all flex items-center justify-center"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
+                        {/* Кнопка просмотра документов */}
+                        <button
+                          onClick={() => viewDocuments(medic.id, medic.name)}
+                          className="w-full mb-3 py-3 rounded-xl bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 hover:from-blue-500/30 hover:to-cyan-500/30 font-medium transition-all flex items-center justify-center"
+                        >
+                          <Eye className="w-5 h-5 mr-2" />
+                          📄 Просмотреть документы
+                        </button>
 
                         {medic.status === 'PENDING' && (
                           <div className="flex space-x-3">
@@ -612,7 +625,6 @@ const getComplaintStatusBadge = (status: string) => {
                       key={complaint.id}
                       className="rounded-2xl bg-gradient-to-br from-red-500/10 to-pink-500/5 backdrop-blur-xl border border-red-500/30 p-6"
                     >
-                      {/* Заголовок */}
                       <div className="flex items-start justify-between mb-4">
                         <div>
                           <div className="font-semibold text-lg text-red-400">{complaint.complaintCategory}</div>
@@ -623,12 +635,10 @@ const getComplaintStatusBadge = (status: string) => {
                         </span>
                       </div>
 
-                      {/* Описание */}
                       <div className="mb-4">
                         <p className="text-sm text-slate-300">{complaint.complaintDescription}</p>
                       </div>
 
-                      {/* Информация */}
                       <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                         <div>
                           <div className="text-xs text-slate-400">Клиент</div>
@@ -642,7 +652,6 @@ const getComplaintStatusBadge = (status: string) => {
                         </div>
                       </div>
 
-                      {/* Действия */}
                       {complaint.complaintStatus === 'NEW' && (
                         <div className="flex gap-2">
                           <button
@@ -676,14 +685,13 @@ const getComplaintStatusBadge = (status: string) => {
                           </button>
                           <button
                             onClick={() => updateComplaintStatus(complaint.id, 'REJECTED')}
-                            className="px-4 py-2 rounded-xl bg-gray-500/20 border border-gray-500/30 hover:bg-gray-500/30 transition-all text-sm"
+                            className="px-4 py-2 rounded-xl bg-gray-500/20 border-gray-500/30 hover:bg-gray-500/30 transition-all text-sm"
                           >
                             Отклонить
                           </button>
                         </div>
                       )}
 
-                      {/* Дата */}
                       <div className="text-xs text-slate-500 mt-4">
                         {new Date(complaint.createdAt).toLocaleString('ru-RU')}
                       </div>
@@ -724,6 +732,153 @@ const getComplaintStatusBadge = (status: string) => {
           </>
         )}
       </div>
+
+      {/* Модальное окно с документами */}
+      {showDocsModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-white/20 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold">Документы медика</h2>
+                <p className="text-sm text-slate-400">{selectedMedicDocs?.medicName}</p>
+              </div>
+              <button
+                onClick={() => setShowDocsModal(false)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {loadingDocs ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader className="w-12 h-12 animate-spin text-cyan-400" />
+                </div>
+              ) : (
+                <>
+                  {(() => {
+                    const { identity, certificates, license } = getGroupedDocuments();
+                    const hasDocuments = identity || certificates.length > 0 || license;
+
+                    if (!hasDocuments) {
+                      return (
+                        <div className="text-center py-20">
+                          <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                          <p className="text-slate-400">Документы не загружены</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-6">
+                        {/* Удостоверение личности */}
+                        {identity && (
+                          <div>
+                            <h3 className="text-lg font-bold mb-3 flex items-center">
+                              <span className="mr-2">🪪</span>
+                              Удостоверение личности
+                            </h3>
+                            <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                              <a
+                                href={identity.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block"
+                              >
+                                <img
+                                  src={identity.url}
+                                  alt="Удостоверение"
+                                  className="w-full rounded-lg hover:opacity-80 transition"
+                                />
+                              </a>
+                              <div className="mt-2 text-xs text-slate-400">
+                                Загружено: {new Date(identity.uploadedAt).toLocaleString('ru-RU')}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Сертификаты/Дипломы */}
+                        {certificates.length > 0 && (
+                          <div>
+                            <h3 className="text-lg font-bold mb-3 flex items-center">
+                              <span className="mr-2">📜</span>
+                              Сертификаты / Дипломы ({certificates.length})
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {certificates.map((cert: any, index: number) => (
+                                <div key={index} className="rounded-xl bg-white/5 border border-white/10 p-4">
+                                  <a
+                                    href={cert.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block"
+                                  >
+                                    <img
+                                      src={cert.url}
+                                      alt={`Сертификат ${index + 1}`}
+                                      className="w-full rounded-lg hover:opacity-80 transition"
+                                    />
+                                  </a>
+                                  <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                                    <span>Сертификат {index + 1}</span>
+                                    <span>{new Date(cert.uploadedAt).toLocaleDateString('ru-RU')}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Лицензия */}
+                        {license && (
+                          <div>
+                            <h3 className="text-lg font-bold mb-3 flex items-center">
+                              <span className="mr-2">⚕️</span>
+                              Медицинская лицензия
+                              <span className="ml-2 text-xs text-slate-400">(необязательно)</span>
+                            </h3>
+                            <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                              <a
+                                href={license.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block"
+                              >
+                                <img
+                                  src={license.url}
+                                  alt="Лицензия"
+                                  className="w-full rounded-lg hover:opacity-80 transition"
+                                />
+                              </a>
+                              <div className="mt-2 text-xs text-slate-400">
+                                Загружено: {new Date(license.uploadedAt).toLocaleString('ru-RU')}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 p-6">
+              <button
+                onClick={() => setShowDocsModal(false)}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
