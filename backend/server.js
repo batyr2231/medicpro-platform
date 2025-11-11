@@ -1130,6 +1130,53 @@ app.post('/api/reviews', authenticateToken, async (req, res) => {
 
 // ==================== MEDIC PROFILE ====================
 
+// ==================== MEDIC PROFILE ====================
+
+// Получение профиля медика
+app.get('/api/medics/profile', authenticateToken, async (req, res) => {
+  try {
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Medic profile not found' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId }
+    });
+
+    const profile = {
+      id: medic.id,
+      userId: medic.userId,
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      specialization: medic.specialty || '',
+      experience: medic.experience?.toString() || '0',
+      education: medic.description || '',
+      city: medic.city || 'Алматы',
+      areas: medic.areas || [],
+      birthDate: medic.birthDate || null,
+      residenceAddress: medic.residenceAddress || '',
+      identityDocument: medic.identityDocument || null,
+      documents: medic.documents || [],
+      status: medic.status,
+      ratingAvg: medic.ratingAvg,
+      reviewsCount: medic.reviewsCount,
+      telegramChatId: medic.telegramChatId,
+      createdAt: medic.createdAt,
+    };
+
+    console.log('✅ Medic profile loaded:', profile.id);
+    res.json(profile);
+  } catch (error) {
+    console.error('Get medic profile error:', error);
+    res.status(500).json({ error: 'Failed to get profile' });
+  }
+});
+
 // Обновление профиля медика
 app.put('/api/medics/profile', authenticateToken, async (req, res) => {
   try {
@@ -1215,209 +1262,142 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// Обновление профиля медика
-app.put('/api/medics/profile', authenticateToken, async (req, res) => {
+// Upload документов медика
+app.post('/api/medics/upload-document', authenticateToken, upload.single('document'), async (req, res) => {
   try {
-    const { name, phone, specialization, experience, education, city, areas } = req.body;
-
-    console.log('📝 Updating medic profile:', { name, phone, specialization, experience, education, city, areas });
-
-    // Валидация города
-    if (city && !isValidCity(city)) {
-      return res.status(400).json({ error: 'Invalid city' });
+    if (req.user.role !== 'MEDIC') {
+      return res.status(403).json({ error: 'Только для медиков' });
     }
 
-    // Валидация районов для выбранного города
-    if (city && areas && areas.length > 0) {
-      for (const area of areas) {
-        if (!isValidDistrict(city, area)) {
-          return res.status(400).json({ error: `Invalid district ${area} for city ${city}` });
-        }
-      }
+    if (!req.file) {
+      return res.status(400).json({ error: 'Файл не загружен' });
     }
 
-    if (name || phone) {
-      await prisma.user.update({
-        where: { id: req.user.userId },
-        data: {
-          ...(name && { name }),
-          ...(phone && { phone }),
-        }
-      });
-    }
-
-    const updateData = {};
+    const { documentType } = req.body;
     
-    if (specialization) {
-      updateData.specialty = specialization;
-    }
-    
-    if (experience) {
-      const expInt = parseInt(experience) || 0;
-      updateData.experience = expInt;
-    }
-    
-    if (education) {
-      updateData.description = education;
-    }
-    
-    if (city) {
-      updateData.city = city;
-      console.log('✅ City updated:', city);
-    }
-    
-    if (areas && Array.isArray(areas)) {
-      updateData.areas = areas;
-      console.log('✅ Areas updated:', areas);
+    const validTypes = ['LICENSE', 'CERTIFICATE', 'IDENTITY'];
+    if (!validTypes.includes(documentType)) {
+      return res.status(400).json({ error: 'Неверный тип документа' });
     }
 
-    const medic = await prisma.medic.update({
-      where: { userId: req.user.userId },
-      data: updateData
+    console.log(`[UPLOAD] Uploading ${documentType} for user ${req.user.userId}`);
+
+    const b64 = Buffer.from(req.file.buffer).toString('base64');
+    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+
+    const result = await cloudinary.uploader.upload(dataURI, {
+      folder: 'medicpro/documents',
+      resource_type: 'image',
+      public_id: `${req.user.userId}_${documentType}_${Date.now()}`,
+      transformation: [
+        { quality: 'auto', fetch_format: 'auto' }
+      ]
     });
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.userId }
+    console.log(`[UPLOAD] Cloudinary upload successful: ${result.secure_url}`);
+
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
     });
 
-    console.log('✅ Medic profile updated successfully');
+    if (!medic) {
+      return res.status(404).json({ error: 'Профиль медика не найден' });
+    }
 
-    res.json({
-      id: medic.id,
-      name: user.name,
-      phone: user.phone,
-      specialization: medic.specialty,
-      experience: medic.experience.toString(),
-      education: medic.description,
-      city: medic.city,
-      areas: medic.areas,
-    });
-  } catch (error) {
-    console.error('❌ Update medic profile error:', error);
-    res.status(500).json({ error: 'Failed to update profile: ' + error.message });
-  }
-});
-
-
-  // Upload документов медика
-  app.post('/api/medics/upload-document', authenticateToken, upload.single('document'), async (req, res) => {
-    try {
-      if (req.user.role !== 'MEDIC') {
-        return res.status(403).json({ error: 'Только для медиков' });
-      }
-
-      if (!req.file) {
-        return res.status(400).json({ error: 'Файл не загружен' });
-      }
-
-      // ← ИЗМЕНИТЬ: Только 3 типа документов
-      const { documentType } = req.body; // 'LICENSE', 'CERTIFICATE', 'IDENTITY'
-      
-      const validTypes = ['LICENSE', 'CERTIFICATE', 'IDENTITY'];
-      if (!validTypes.includes(documentType)) {
-        return res.status(400).json({ error: 'Неверный тип документа' });
-      }
-
-      console.log(`[UPLOAD] Uploading ${documentType} for user ${req.user.userId}`);
-
-      const b64 = Buffer.from(req.file.buffer).toString('base64');
-      const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-
-      const result = await cloudinary.uploader.upload(dataURI, {
-        folder: 'medicpro/documents',
-        resource_type: 'image',
-        public_id: `${req.user.userId}_${documentType}_${Date.now()}`,
-        transformation: [
-          { quality: 'auto', fetch_format: 'auto' }
-        ]
-      });
-
-      console.log(`[UPLOAD] Cloudinary upload successful: ${result.secure_url}`);
-
-      const medic = await prisma.medic.findUnique({
-        where: { userId: req.user.userId }
-      });
-
-      if (!medic) {
-        return res.status(404).json({ error: 'Профиль медика не найден' });
-      }
-
-      // Обрабатываем удостоверение личности отдельно
-      if (documentType === 'IDENTITY') {
-        await prisma.medic.update({
-          where: { id: medic.id },
-          data: { 
-            identityDocument: {
-              type: documentType,
-              url: result.secure_url,
-              publicId: result.public_id,
-              uploadedAt: new Date().toISOString(),
-              fileName: req.file.originalname,
-              format: result.format
-            }
-          }
-        });
-
-        console.log(`[IDENTITY UPLOAD] Удостоверение загружено для медика ID ${medic.id}`);
-
-        return res.json({ 
-          success: true, 
-          message: 'Удостоверение загружено',
-          url: result.secure_url
-        });
-      }
-
-      // Обрабатываем остальные документы (CERTIFICATE, LICENSE)
-      let documents = [];
-      if (medic.documents && Array.isArray(medic.documents)) {
-        documents = medic.documents;
-      }
-
-      // ← ИЗМЕНИТЬ: Для CERTIFICATE разрешаем несколько файлов
-      if (documentType === 'CERTIFICATE') {
-        // Добавляем новый сертификат к существующим
-        documents.push({
-          type: documentType,
-          url: result.secure_url,
-          publicId: result.public_id,
-          uploadedAt: new Date().toISOString(),
-          fileName: req.file.originalname,
-          format: result.format
-        });
-      } else {
-        // Для LICENSE - заменяем старый файл
-        documents = documents.filter(doc => doc.type !== documentType);
-        documents.push({
-          type: documentType,
-          url: result.secure_url,
-          publicId: result.public_id,
-          uploadedAt: new Date().toISOString(),
-          fileName: req.file.originalname,
-          format: result.format
-        });
-      }
-
+    // Обрабатываем удостоверение личности отдельно
+    if (documentType === 'IDENTITY') {
       await prisma.medic.update({
         where: { id: medic.id },
         data: { 
-          documents: documents,
-          status: 'PENDING'
+          identityDocument: {
+            type: documentType,
+            url: result.secure_url,
+            publicId: result.public_id,
+            uploadedAt: new Date().toISOString(),
+            fileName: req.file.originalname,
+            format: result.format
+          }
         }
       });
 
-      console.log(`[DOCUMENT UPLOAD] ${documentType} загружен медиком ID ${medic.id}`);
+      console.log(`[IDENTITY UPLOAD] Удостоверение загружено для медика ID ${medic.id}`);
 
-      res.json({ 
+      return res.json({ 
         success: true, 
-        message: 'Документ загружен',
+        message: 'Удостоверение загружено',
         url: result.secure_url
       });
-
-    } catch (error) {
-      console.error('Upload document error:', error);
-      res.status(500).json({ error: 'Ошибка загрузки документа: ' + error.message });
     }
-  });
+
+    // Обрабатываем остальные документы (CERTIFICATE, LICENSE)
+    let documents = [];
+    
+    // ← ИСПРАВЛЕНИЕ: Правильно парсим JSON из Prisma
+    if (medic.documents) {
+      if (typeof medic.documents === 'string') {
+        try {
+          documents = JSON.parse(medic.documents);
+        } catch (e) {
+          console.warn('Failed to parse documents JSON, using empty array');
+          documents = [];
+        }
+      } else if (Array.isArray(medic.documents)) {
+        documents = medic.documents;
+      } else {
+        documents = [];
+      }
+    }
+
+    console.log(`[UPLOAD] Current documents count: ${documents.length}`);
+
+    // Для CERTIFICATE - добавляем к существующим
+    if (documentType === 'CERTIFICATE') {
+      documents.push({
+        type: documentType,
+        url: result.secure_url,
+        publicId: result.public_id,
+        uploadedAt: new Date().toISOString(),
+        fileName: req.file.originalname,
+        format: result.format
+      });
+      console.log(`[CERTIFICATE] Added certificate, total: ${documents.length}`);
+    } else {
+      // Для LICENSE - заменяем старый
+      documents = documents.filter(doc => doc.type !== documentType);
+      documents.push({
+        type: documentType,
+        url: result.secure_url,
+        publicId: result.public_id,
+        uploadedAt: new Date().toISOString(),
+        fileName: req.file.originalname,
+        format: result.format
+      });
+      console.log(`[LICENSE] Replaced license`);
+    }
+
+    // ← КРИТИЧНО: Сохраняем как JSON, а не как строку!
+    await prisma.medic.update({
+      where: { id: medic.id },
+      data: { 
+        documents: documents, // Prisma автоматически сериализует в JSON
+        status: 'PENDING'
+      }
+    });
+
+    console.log(`[DOCUMENT UPLOAD] ${documentType} загружен медиком ID ${medic.id}, всего документов: ${documents.length}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Документ загружен',
+      url: result.secure_url,
+      totalDocuments: documents.length
+    });
+
+  } catch (error) {
+    console.error('Upload document error:', error);
+    res.status(500).json({ error: 'Ошибка загрузки документа: ' + error.message });
+  }
+});
 
 
 
