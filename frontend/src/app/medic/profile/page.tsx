@@ -992,15 +992,6 @@ export default function MedicProfilePage() {
           {/* Кнопка сохранения */}
           <button
             type="submit"
-            disabled={saving || !agreedToTerms}
-            className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg transition-all flex items-center justify-center"
-          >
-            {/* ... */}
-          </button>
-
-          {/* Кнопка сохранения */}
-          <button
-            type="submit"
             disabled={saving}
             className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 font-semibold shadow-lg transition-all flex items-center justify-center"
           >
