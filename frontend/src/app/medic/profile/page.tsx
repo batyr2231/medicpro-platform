@@ -31,6 +31,8 @@ export default function MedicProfilePage() {
     residenceAddress: '',
   });
 
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+
   const [medicStatus, setMedicStatus] = useState<string>('PENDING');
   
   // Документы
@@ -73,6 +75,8 @@ export default function MedicProfilePage() {
           residenceAddress: result.residenceAddress || '',
         });
         
+        setAgreedToTerms(result.agreedToTerms || false);
+
         setMedicStatus(result.status || 'PENDING');
         
         if (result.telegramChatId) {
@@ -98,6 +102,12 @@ export default function MedicProfilePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+
+    // ← ДОБАВИТЬ:
+    if (!agreedToTerms) {
+      toast.error('Необходимо согласиться с договором-офертой');
+      return;
+    }
     // Валидация
     if (!formData.name.trim()) {
       toast.error('Введите ФИО');
@@ -167,6 +177,7 @@ export default function MedicProfilePage() {
             areas: formData.areas,
             birthDate: formData.birthDate,
             residenceAddress: formData.residenceAddress,
+            agreedToTerms: agreedToTerms,
           }),
         }
       );
@@ -933,6 +944,59 @@ export default function MedicProfilePage() {
               </div>
             )}
           </div>
+
+          {/* Договор-оферта */}
+          <div className="rounded-2xl bg-gradient-to-br from-orange-500/10 to-red-500/10 backdrop-blur-xl border-2 border-orange-500/30 p-6">
+            <h2 className="text-xl font-bold mb-4 flex items-center">
+              <span className="text-2xl mr-2">📋</span>
+              Договор-оферта
+            </h2>
+            
+            <div className="space-y-4">
+              <p className="text-slate-300 text-sm">
+                Для работы на платформе необходимо ознакомиться и согласиться с условиями договора-оферты.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => router.push('/medic/terms')}
+                className="w-full py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-cyan-400 font-medium"
+              >
+                📄 Читать договор-оферту
+              </button>
+
+              <label className="flex items-start space-x-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="mt-1 w-5 h-5 rounded border-2 border-white/20 bg-white/5 checked:bg-cyan-500 checked:border-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 transition-all cursor-pointer"
+                />
+                <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+                  Я прочитал(а) и согласен(на) с условиями <strong className="text-white">Договора-оферты</strong>, 
+                  в том числе с выплатой комиссии <strong className="text-yellow-400">50%</strong> от суммы заказа
+                </span>
+              </label>
+
+              {!agreedToTerms && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center space-x-2">
+                  <svg className="w-5 h-5 text-red-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm text-red-400">Необходимо согласие для продолжения</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Кнопка сохранения */}
+          <button
+            type="submit"
+            disabled={saving || !agreedToTerms}
+            className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg transition-all flex items-center justify-center"
+          >
+            {/* ... */}
+          </button>
 
           {/* Кнопка сохранения */}
           <button
