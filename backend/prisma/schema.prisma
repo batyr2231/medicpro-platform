@@ -99,6 +99,10 @@ model Medic {
   ratingAvg      Float       @default(0)
   reviewsCount   Int         @default(0)
   telegramChatId String?
+
+  agreedToTerms   Boolean   @default(false)
+  agreedToTermsAt DateTime?
+
   pushToken      String?
   isAvailable    Boolean     @default(true)
   createdAt      DateTime    @default(now())

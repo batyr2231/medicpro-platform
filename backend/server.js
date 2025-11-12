@@ -1166,6 +1166,7 @@ app.get('/api/medics/profile', authenticateToken, async (req, res) => {
       ratingAvg: medic.ratingAvg,
       reviewsCount: medic.reviewsCount,
       telegramChatId: medic.telegramChatId,
+      agreedToTerms: medic.agreedToTerms || false,
       createdAt: medic.createdAt,
     };
 
@@ -1189,24 +1190,21 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
       city, 
       areas,
       birthDate,
-      residenceAddress
+      residenceAddress,
+      agreedToTerms // ← ДОБАВИТЬ
     } = req.body;
 
-    console.log('📝 Updating medic profile:', { 
-      name, phone, specialization, experience, education, 
-      city, areas, birthDate, residenceAddress 
-    });
+    console.log('📝 Updating medic profile');
 
-    // Валидация города
+    // Валидация
     if (city && !isValidCity(city)) {
       return res.status(400).json({ error: 'Invalid city' });
     }
 
-    // Валидация районов
     if (city && areas && areas.length > 0) {
       for (const area of areas) {
         if (!isValidDistrict(city, area)) {
-          return res.status(400).json({ error: `Invalid district ${area} for city ${city}` });
+          return res.status(400).json({ error: `Invalid district ${area}` });
         }
       }
     }
@@ -1232,6 +1230,12 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
     if (areas && Array.isArray(areas)) updateData.areas = areas;
     if (birthDate) updateData.birthDate = new Date(birthDate);
     if (residenceAddress) updateData.residenceAddress = residenceAddress;
+    
+    // ← ДОБАВИТЬ:
+    if (agreedToTerms === true) {
+      updateData.agreedToTerms = true;
+      updateData.agreedToTermsAt = new Date();
+    }
 
     const medic = await prisma.medic.update({
       where: { userId: req.user.userId },
@@ -1255,6 +1259,7 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
       areas: medic.areas,
       birthDate: medic.birthDate,
       residenceAddress: medic.residenceAddress,
+      agreedToTerms: medic.agreedToTerms, // ← ДОБАВИТЬ
     });
   } catch (error) {
     console.error('❌ Update medic profile error:', error);
