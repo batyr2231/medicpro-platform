@@ -6,13 +6,13 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import PhoneInput from '@/components/PhoneInput'; 
 import { getCities, getDistricts } from 'utils/cities';
-import MedicProfileSkeleton from '@/components/MedicProfileSkeleton';
+
 
 export default function MedicProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(true);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   const [telegramChatId, setTelegramChatId] = useState('');
   const [telegramConnected, setTelegramConnected] = useState(false);
@@ -97,9 +97,7 @@ export default function MedicProfilePage() {
     } catch (err) {
       console.error('Failed to load profile:', err);
       toast.error('Не удалось загрузить профиль');
-    } finally {
-    setLoading(false); // ← ДОБАВИТЬ
-  }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -463,30 +461,6 @@ export default function MedicProfilePage() {
     formData.birthDate &&
     formData.residenceAddress;
 
-    if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
-        <header className="border-b border-white/10 backdrop-blur-xl bg-slate-900/50 sticky top-0 z-50">
-          <div className="max-w-4xl mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <button 
-                onClick={() => router.push('/medic/dashboard')}
-                className="flex items-center space-x-2 text-slate-300 hover:text-white transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span>Назад</span>
-              </button>
-              <h1 className="text-xl font-bold">Мой профиль</h1>
-              <div className="w-20"></div>
-            </div>
-          </div>
-        </header>
-        <MedicProfileSkeleton />
-      </div>
-    );
-  }
-
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
       {/* Header */}
@@ -669,18 +643,12 @@ export default function MedicProfilePage() {
                     areas: []
                   });
                 }}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors appearance-none cursor-pointer"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 1rem center',
-                  backgroundSize: '1.5em 1.5em',
-                }}
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors"
                 required
               >
-                <option value="" className="bg-slate-900 text-white">Выберите город</option>
+                <option value="">Выберите город</option>
                 {getCities().map(city => (
-                  <option key={city} value={city} className="bg-slate-900 text-white py-2">
+                  <option key={city} value={city}>
                     {city}
                   </option>
                 ))}
