@@ -643,12 +643,18 @@ export default function MedicProfilePage() {
                     areas: []
                   });
                 }}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors"
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors appearance-none cursor-pointer"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 1rem center',
+                  backgroundSize: '1.5em 1.5em',
+                }}
                 required
               >
-                <option value="">Выберите город</option>
+                <option value="" className="bg-slate-900 text-white">Выберите город</option>
                 {getCities().map(city => (
-                  <option key={city} value={city}>
+                  <option key={city} value={city} className="bg-slate-900 text-white py-2">
                     {city}
                   </option>
                 ))}
