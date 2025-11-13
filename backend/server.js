@@ -1502,6 +1502,66 @@ app.post('/api/medics/disconnect-telegram', authenticateToken, async (req, res) 
 });
 // ================================================
 
+// Автологин медика по Telegram chatId
+app.post('/api/medics/auto-login', async (req, res) => {
+  try {
+    const { chatId } = req.body;
+
+    if (!chatId) {
+      return res.status(400).json({ error: 'chatId is required' });
+    }
+
+    console.log(`🔐 Auto-login attempt for chatId: ${chatId}`);
+
+    // Ищем медика по telegramChatId
+    const medic = await prisma.medic.findFirst({
+      where: { telegramChatId: chatId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            phone: true,
+            name: true,
+            role: true,
+          }
+        }
+      }
+    });
+
+    if (!medic) {
+      console.log(`❌ Medic not found for chatId: ${chatId}`);
+      return res.status(404).json({ error: 'Medic not found' });
+    }
+
+    // Генерируем JWT токен
+    const token = jwt.sign(
+      { 
+        userId: medic.user.id, 
+        role: medic.user.role 
+      },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '30d' }
+    );
+
+    console.log(`✅ Auto-login successful for medic: ${medic.user.name}`);
+
+    res.json({
+      token,
+      user: {
+        id: medic.user.id,
+        phone: medic.user.phone,
+        name: medic.user.name,
+        role: medic.user.role,
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Auto-login error:', error);
+    res.status(500).json({ error: 'Auto-login failed: ' + error.message });
+  }
+});
+
+
 // Middleware для логирования всех admin запросов
 app.use('/api/admin/*', (req, res, next) => {
   console.log(`[ADMIN REQUEST] ${req.method} ${req.path}`);

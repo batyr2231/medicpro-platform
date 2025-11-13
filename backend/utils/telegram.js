@@ -148,8 +148,11 @@ async function sendOrderNotification(chatId, orderData) {
       `🏠 <b>Адрес:</b> ${address}\n\n` +
       `⏰ <i>Время ограничено! Первый медик получит заказ.</i>`;
 
+    // ← ИЗМЕНИТЬ: добавляем chatId в URL для автологина
+    const autoLoginUrl = `https://medicpro-platform.vercel.app/medic/auto-login?chatId=${chatId}&redirect=/medic/dashboard`;
+
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.url('✅ Открыть заказ', 'https://medicpro-platform.vercel.app/medic/dashboard')]
+      [Markup.button.url('✅ Открыть заказ', autoLoginUrl)]
     ]);
 
     await bot.telegram.sendMessage(chatId, message, {
@@ -162,6 +165,51 @@ async function sendOrderNotification(chatId, orderData) {
 
   } catch (error) {
     console.error('❌ Ошибка отправки Telegram уведомления:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Уведомление о сообщении в чате
+async function sendChatNotification(chatId, data) {
+  if (!bot) {
+    console.warn('⚠️ Telegram Bot не инициализирован');
+    return { success: false, error: 'Bot not initialized' };
+  }
+
+  try {
+    const { orderId, senderName, text } = data;
+
+    if (DEV_MODE) {
+      console.log('📱 [DEV] Telegram уведомление о сообщении:', { chatId, senderName, text });
+    }
+
+    const shortMessage = text && text.length > 150 
+      ? text.substring(0, 150) + '...' 
+      : (text || '📎 Файл');
+
+    const message = 
+      `💬 <b>Новое сообщение в чате</b>\n\n` +
+      `👤 <b>От:</b> ${senderName}\n` +
+      `📝 <b>Текст:</b> ${shortMessage}\n\n` +
+      `👉 Откройте приложение для ответа`;
+
+    // ← ИЗМЕНИТЬ: добавляем chatId для автологина
+    const autoLoginUrl = `https://medicpro-platform.vercel.app/medic/auto-login?chatId=${chatId}&redirect=/chat/${orderId}`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.url('💬 Открыть чат', autoLoginUrl)]
+    ]);
+
+    await bot.telegram.sendMessage(chatId, message, {
+      parse_mode: 'HTML',
+      ...keyboard
+    });
+
+    console.log('✅ Telegram уведомление о сообщении отправлено:', chatId);
+    return { success: true };
+
+  } catch (error) {
+    console.error('❌ Ошибка отправки Telegram уведомления о сообщении:', error);
     return { success: false, error: error.message };
   }
 }
