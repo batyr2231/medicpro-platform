@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader, CheckCircle, XCircle } from 'lucide-react';
 
-export default function MedicAutoLoginPage() {
+// Компонент с логикой автологина
+function AutoLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -72,40 +73,54 @@ export default function MedicAutoLoginPage() {
   };
 
   return (
+    <div className="text-center">
+      {status === 'loading' && (
+        <>
+          <div className="w-16 h-16 rounded-full bg-cyan-500/20 flex items-center justify-center mx-auto mb-4">
+            <Loader className="w-10 h-10 text-cyan-400 animate-spin" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Авторизация</h2>
+          <p className="text-slate-300">{message}</p>
+        </>
+      )}
+
+      {status === 'success' && (
+        <>
+          <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-10 h-10 text-green-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Успешно!</h2>
+          <p className="text-slate-300">{message}</p>
+        </>
+      )}
+
+      {status === 'error' && (
+        <>
+          <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+            <XCircle className="w-10 h-10 text-red-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Ошибка</h2>
+          <p className="text-slate-300 mb-4">{message}</p>
+          <p className="text-sm text-slate-400">Перенаправление на страницу входа...</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Основной компонент с Suspense
+export default function MedicAutoLoginPage() {
+  return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center p-4">
       <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-8 max-w-md w-full shadow-2xl">
-        <div className="text-center">
-          {status === 'loading' && (
-            <>
-              <div className="w-16 h-16 rounded-full bg-cyan-500/20 flex items-center justify-center mx-auto mb-4">
-                <Loader className="w-10 h-10 text-cyan-400 animate-spin" />
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Авторизация</h2>
-              <p className="text-slate-300">{message}</p>
-            </>
-          )}
-
-          {status === 'success' && (
-            <>
-              <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-10 h-10 text-green-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Успешно!</h2>
-              <p className="text-slate-300">{message}</p>
-            </>
-          )}
-
-          {status === 'error' && (
-            <>
-              <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
-                <XCircle className="w-10 h-10 text-red-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Ошибка</h2>
-              <p className="text-slate-300 mb-4">{message}</p>
-              <p className="text-sm text-slate-400">Перенаправление на страницу входа...</p>
-            </>
-          )}
-        </div>
+        <Suspense fallback={
+          <div className="text-center">
+            <Loader className="w-12 h-12 text-cyan-500 animate-spin mx-auto mb-4" />
+            <p className="text-slate-300">Загрузка...</p>
+          </div>
+        }>
+          <AutoLoginContent />
+        </Suspense>
       </div>
     </div>
   );
