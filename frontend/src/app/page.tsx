@@ -1,30 +1,36 @@
 "use client";
 
-import React, { useEffect } from 'react';
-import { Heart, Clock, Shield, Star, ChevronRight, Menu, X, User, Stethoscope } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Heart, Clock, Shield, Star, ChevronRight, Menu, X, User, Stethoscope, Loader } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function MedicPlatformLanding() {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [topMedic, setTopMedic] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  /*
-  // Проверяем авторизацию
+  // Загружаем топ медика
   useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      const userData = JSON.parse(user);
-      // Если уже залогинен, редиректим на соответствующую страницу
-      if (userData.role === 'CLIENT') {
-        router.push('/orders/create');
-      } else if (userData.role === 'MEDIC') {
-        router.push('/medic/dashboard');
-      } else if (userData.role === 'ADMIN') {
-        router.push('/admin');
+    loadTopMedic();
+  }, []);
+
+  const loadTopMedic = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics?limit=1`
+      );
+      const data = await response.json();
+      if (data && data.length > 0) {
+        setTopMedic(data[0]);
       }
+    } catch (err) {
+      console.error('Failed to load top medic:', err);
+    } finally {
+      setLoading(false);
     }
-  }, [router]);
-*/
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white overflow-hidden relative">
       {/* Animated Background */}
@@ -154,41 +160,62 @@ export default function MedicPlatformLanding() {
             </div>
           </div>
 
-          {/* Right Content - Floating Card */}
+          {/* Right Content - Real Medic Card */}
           <div className="relative hidden lg:block animate-slide-in" style={{animationDelay: '0.2s'}}>
-            <div className="rounded-3xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-8 shadow-2xl hover:scale-105 transition-transform duration-500">
-              <div className="flex items-center space-x-4 mb-6">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-2xl">
-                  👨‍⚕️
-                </div>
-                <div>
-                  <div className="font-semibold text-lg">Доктор Айболит</div>
-                  <div className="text-sm text-slate-400">Терапевт • ⭐ 4.9</div>
+            {loading ? (
+              <div className="rounded-3xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-8 shadow-2xl">
+                <div className="flex items-center justify-center h-64">
+                  <Loader className="w-12 h-12 text-cyan-500 animate-spin" />
                 </div>
               </div>
+            ) : topMedic ? (
+              <div className="rounded-3xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-8 shadow-2xl hover:scale-105 transition-transform duration-500">
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-2xl font-bold">
+                    {topMedic.name[0]}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-lg">{topMedic.name}</div>
+                    <div className="text-sm text-slate-400">
+                      {topMedic.specialization} • ⭐ {topMedic.avgRating || '5.0'}
+                    </div>
+                  </div>
+                </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
-                  <span className="text-slate-300">Опыт</span>
-                  <span className="font-semibold">12 лет</span>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+                    <span className="text-slate-300">Опыт</span>
+                    <span className="font-semibold">{topMedic.experience} лет</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+                    <span className="text-slate-300">Отзывов</span>
+                    <span className="font-semibold">{topMedic.reviewCount || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+                    <span className="text-slate-300">Город</span>
+                    <span className="font-semibold">{topMedic.city}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+                    <span className="text-slate-300">Доступность</span>
+                    <span className="text-green-400 font-semibold flex items-center">
+                      <span className="w-2 h-2 rounded-full bg-green-400 mr-2 animate-pulse"></span>
+                      Онлайн
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
-                  <span className="text-slate-300">Визитов</span>
-                  <span className="font-semibold">1,200+</span>
-                </div>
-                <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
-                  <span className="text-slate-300">Доступность</span>
-                  <span className="text-green-400 font-semibold flex items-center">
-                    <span className="w-2 h-2 rounded-full bg-green-400 mr-2 animate-pulse"></span>
-                    Онлайн
-                  </span>
-                </div>
+
+                <button 
+                  onClick={() => router.push('/auth')}
+                  className="w-full mt-6 py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-semibold shadow-lg transition-all"
+                >
+                  Вызвать сейчас
+                </button>
               </div>
-
-              <button className="w-full mt-6 py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-semibold shadow-lg transition-all">
-                Вызвать сейчас
-              </button>
-            </div>
+            ) : (
+              <div className="rounded-3xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-8 shadow-2xl text-center">
+                <p className="text-slate-400">Загружаем медиков...</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
