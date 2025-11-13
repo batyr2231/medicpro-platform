@@ -68,6 +68,7 @@ model User {
 
   // Relations
   medic         Medic?
+  client        Client?         // ← ДОБАВИТЬ СВЯЗЬ!
   clientOrders  Order[]        @relation("ClientOrders")
   medicOrders   Order[]        @relation("MedicOrders")
   messages      Message[]
@@ -87,10 +88,10 @@ model Medic {
   description    String?
   documents      Json?
 
- // Новые поля
+  // Новые поля
   birthDate       DateTime?
   residenceAddress String?
-  identityDocument Json?     // { type: 'ID_CARD', url: '...', uploadedAt: '...' }
+  identityDocument Json?
 
   city           String      @default("Алматы")
   areas          String[]
@@ -175,9 +176,9 @@ model Review {
   isComplaint          Boolean         @default(false)
   complaintCategory    String?
   complaintDescription String?
-  complaintStatus      ComplaintStatus @default(NEW)  // ← Проверь
-  complaintResolvedAt  DateTime?                      // ← Проверь
-  complaintResolvedBy  String?                        // ← Проверь
+  complaintStatus      ComplaintStatus @default(NEW)
+  complaintResolvedAt  DateTime?
+  complaintResolvedBy  String?
   isHidden             Boolean         @default(false)
   isEdited             Boolean         @default(false)
   createdAt            DateTime        @default(now())
@@ -240,4 +241,28 @@ model VerificationCode {
   createdAt DateTime @default(now())
 
   @@index([phone])
+}
+
+// ← НОВАЯ МОДЕЛЬ CLIENT (В САМОМ КОНЦЕ!)
+model Client {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Адреса
+  savedAddresses  Json?     // [{ id, city, district, street, apartment, isDefault }]
+  
+  // Избранные медики
+  favoriteMedics  String[]  @default([])
+  
+  // Настройки
+  emailNotifications    Boolean @default(true)
+  smsNotifications      Boolean @default(true)
+  telegramNotifications Boolean @default(false)
+  telegramChatId        String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
 }

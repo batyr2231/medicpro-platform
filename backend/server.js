@@ -1130,7 +1130,6 @@ app.post('/api/reviews', authenticateToken, async (req, res) => {
 
 // ==================== MEDIC PROFILE ====================
 
-// ==================== MEDIC PROFILE ====================
 
 // Получение профиля медика
 app.get('/api/medics/profile', authenticateToken, async (req, res) => {
@@ -1404,7 +1403,356 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
   }
 });
 
+// ==================== CLIENT PROFILE ====================
 
+// Получение профиля клиента
+app.get('/api/clients/profile', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'CLIENT') {
+      return res.status(403).json({ error: 'Access denied. Clients only.' });
+    }
+
+    // Ищем или создаём профиль клиента
+    let client = await prisma.client.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!client) {
+      // Создаём профиль если его нет
+      client = await prisma.client.create({
+        data: {
+          userId: req.user.userId,
+          savedAddresses: [],
+          favoriteMedics: [],
+        }
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId }
+    });
+
+    const profile = {
+      id: client.id,
+      userId: client.userId,
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      savedAddresses: client.savedAddresses || [],
+      favoriteMedics: client.favoriteMedics || [],
+      emailNotifications: client.emailNotifications,
+      smsNotifications: client.smsNotifications,
+      telegramNotifications: client.telegramNotifications,
+      telegramChatId: client.telegramChatId,
+      createdAt: client.createdAt,
+    };
+
+    console.log('✅ Client profile loaded:', profile.id);
+    res.json(profile);
+  } catch (error) {
+    console.error('Get client profile error:', error);
+    res.status(500).json({ error: 'Failed to get profile' });
+  }
+});
+
+// Обновление профиля клиента
+app.put('/api/clients/profile', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'CLIENT') {
+      return res.status(403).json({ error: 'Access denied. Clients only.' });
+    }
+
+    const { 
+      name, 
+      phone, 
+      email,
+      emailNotifications,
+      smsNotifications,
+    } = req.body;
+
+    console.log('📝 Updating client profile');
+
+    // Обновляем user
+    if (name || phone || email !== undefined) {
+      await prisma.user.update({
+        where: { id: req.user.userId },
+        data: {
+          ...(name && { name }),
+          ...(phone && { phone }),
+          ...(email !== undefined && { email }),
+        }
+      });
+    }
+
+    // Обновляем client
+    let client = await prisma.client.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!client) {
+      client = await prisma.client.create({
+        data: {
+          userId: req.user.userId,
+          emailNotifications: emailNotifications ?? true,
+          smsNotifications: smsNotifications ?? true,
+        }
+      });
+    } else {
+      client = await prisma.client.update({
+        where: { userId: req.user.userId },
+        data: {
+          ...(emailNotifications !== undefined && { emailNotifications }),
+          ...(smsNotifications !== undefined && { smsNotifications }),
+        }
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId }
+    });
+
+    console.log('✅ Client profile updated successfully');
+
+    res.json({
+      id: client.id,
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      emailNotifications: client.emailNotifications,
+      smsNotifications: client.smsNotifications,
+    });
+  } catch (error) {
+    console.error('❌ Update client profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile: ' + error.message });
+  }
+});
+
+// Управление адресами
+app.put('/api/clients/addresses', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'CLIENT') {
+      return res.status(403).json({ error: 'Access denied. Clients only.' });
+    }
+
+    const { addresses } = req.body;
+
+    if (!Array.isArray(addresses)) {
+      return res.status(400).json({ error: 'Addresses must be an array' });
+    }
+
+    // Валидация адресов
+    for (const addr of addresses) {
+      if (!addr.city || !addr.district || !addr.street) {
+        return res.status(400).json({ error: 'Invalid address format' });
+      }
+    }
+
+    // Убеждаемся что есть только один основной адрес
+    let defaultCount = addresses.filter(a => a.isDefault).length;
+    if (defaultCount > 1) {
+      // Оставляем первый как основной
+      let foundDefault = false;
+      addresses.forEach(addr => {
+        if (addr.isDefault && !foundDefault) {
+          foundDefault = true;
+        } else {
+          addr.isDefault = false;
+        }
+      });
+    } else if (defaultCount === 0 && addresses.length > 0) {
+      // Если нет основного - делаем первый основным
+      addresses[0].isDefault = true;
+    }
+
+    let client = await prisma.client.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!client) {
+      client = await prisma.client.create({
+        data: {
+          userId: req.user.userId,
+          savedAddresses: addresses,
+        }
+      });
+    } else {
+      client = await prisma.client.update({
+        where: { userId: req.user.userId },
+        data: {
+          savedAddresses: addresses,
+        }
+      });
+    }
+
+    console.log(`✅ Client addresses updated: ${addresses.length} addresses`);
+
+    res.json({ 
+      success: true, 
+      addresses: client.savedAddresses 
+    });
+
+  } catch (error) {
+    console.error('❌ Update addresses error:', error);
+    res.status(500).json({ error: 'Failed to update addresses: ' + error.message });
+  }
+});
+
+// Добавить/удалить избранного медика
+app.post('/api/clients/favorites/:medicId', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'CLIENT') {
+      return res.status(403).json({ error: 'Access denied. Clients only.' });
+    }
+
+    const { medicId } = req.params;
+    const { action } = req.body; // 'add' или 'remove'
+
+    let client = await prisma.client.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!client) {
+      client = await prisma.client.create({
+        data: {
+          userId: req.user.userId,
+          favoriteMedics: action === 'add' ? [medicId] : [],
+        }
+      });
+    } else {
+      let favorites = client.favoriteMedics || [];
+
+      if (action === 'add' && !favorites.includes(medicId)) {
+        favorites.push(medicId);
+      } else if (action === 'remove') {
+        favorites = favorites.filter(id => id !== medicId);
+      }
+
+      client = await prisma.client.update({
+        where: { userId: req.user.userId },
+        data: {
+          favoriteMedics: favorites,
+        }
+      });
+    }
+
+    console.log(`✅ Favorite ${action}: medicId ${medicId}`);
+
+    res.json({ 
+      success: true, 
+      favoriteMedics: client.favoriteMedics 
+    });
+
+  } catch (error) {
+    console.error('❌ Update favorites error:', error);
+    res.status(500).json({ error: 'Failed to update favorites' });
+  }
+});
+
+// Получить избранных медиков
+app.get('/api/clients/favorites', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'CLIENT') {
+      return res.status(403).json({ error: 'Access denied. Clients only.' });
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!client || !client.favoriteMedics || client.favoriteMedics.length === 0) {
+      return res.json([]);
+    }
+
+    // Загружаем полную информацию о медиках
+    const medics = await prisma.medic.findMany({
+      where: {
+        id: { in: client.favoriteMedics },
+        status: 'APPROVED',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            createdAt: true,
+          }
+        }
+      }
+    });
+
+    const result = medics.map(medic => ({
+      id: medic.id,
+      userId: medic.userId,
+      name: medic.user.name,
+      phone: medic.user.phone,
+      city: medic.city,
+      district: medic.areas && medic.areas.length > 0 ? medic.areas.join(', ') : null,
+      specialization: medic.specialty,
+      experience: medic.experience,
+      bio: medic.description,
+      avgRating: medic.ratingAvg,
+      reviewCount: medic.reviewsCount,
+      memberSince: medic.user.createdAt,
+    }));
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ Get favorites error:', error);
+    res.status(500).json({ error: 'Failed to get favorites' });
+  }
+});
+
+// Статистика клиента
+app.get('/api/clients/stats', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'CLIENT') {
+      return res.status(403).json({ error: 'Access denied. Clients only.' });
+    }
+
+    const totalOrders = await prisma.order.count({
+      where: { clientId: req.user.userId }
+    });
+
+    const completedOrders = await prisma.order.count({
+      where: { 
+        clientId: req.user.userId,
+        status: { in: ['COMPLETED', 'PAID'] }
+      }
+    });
+
+    const orders = await prisma.order.findMany({
+      where: { 
+        clientId: req.user.userId,
+        status: { in: ['COMPLETED', 'PAID'] },
+        price: { not: null }
+      },
+      select: { price: true }
+    });
+
+    const totalSpent = orders.reduce((sum, order) => {
+      return sum + (order.price ? parseFloat(order.price.toString()) : 0);
+    }, 0);
+
+    const client = await prisma.client.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    const favoriteMedicsCount = client?.favoriteMedics?.length || 0;
+
+    res.json({
+      totalOrders,
+      completedOrders,
+      totalSpent: Math.round(totalSpent),
+      favoriteMedicsCount,
+    });
+
+  } catch (error) {
+    console.error('❌ Get client stats error:', error);
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
 
 // ========== TELEGRAM ENDPOINTS ==========
 
