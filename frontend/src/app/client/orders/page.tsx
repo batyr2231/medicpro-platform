@@ -65,7 +65,7 @@ export default function ClientOrdersPage() {
           <span>Каталог</span>
         </button>
         <button
-          onClick={() => router.push('/client/new-order')}
+          onClick={() => router.push('/orders/create')}
           className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all flex items-center space-x-2"
         >
           <Plus className="w-5 h-5" />
