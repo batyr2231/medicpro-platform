@@ -86,7 +86,7 @@ export default function CreateOrderPage() {
         <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <button 
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/client/orders')}
               className="flex items-center space-x-2 text-slate-300 hover:text-white transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
