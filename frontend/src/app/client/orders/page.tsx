@@ -63,7 +63,7 @@ export default function ClientOrdersPage() {
                   <User className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => router.push('/catalog')}
+                  onClick={() => router.push('/client/medics')}
                   className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center space-x-2"
                 >
                   <Search className="w-5 h-5" />
