@@ -846,6 +846,54 @@ app.patch('/api/orders/:orderId/status', authenticateToken, async (req, res) => 
   }
 });
 
+// Изменение цены заказа
+app.patch('/api/orders/:orderId/price', authenticateToken, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { price } = req.body;
+
+    if (!price || price < 0) {
+      return res.status(400).json({ error: 'Invalid price' });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Только медик или клиент могут менять цену
+    if (order.medicId !== req.user.userId && order.clientId !== req.user.userId && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Нельзя менять цену после завершения
+    if (order.status === 'PAID') {
+      return res.status(400).json({ error: 'Cannot change price for completed order' });
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: { price: parseFloat(price) }
+    });
+
+    console.log(`✅ Order ${orderId} price updated to: ${price}`);
+
+    // Уведомляем обе стороны
+    io.to(`user:${order.clientId}`).emit('order-price-changed', updatedOrder);
+    if (order.medicId) {
+      io.to(`user:${order.medicId}`).emit('order-price-changed', updatedOrder);
+    }
+
+    res.json(updatedOrder);
+  } catch (error) {
+    console.error('❌ Update price error:', error);
+    res.status(500).json({ error: 'Failed to update price' });
+  }
+});
+
 // Отметка "оплата получена"
 app.post('/api/orders/:orderId/payment-received', authenticateToken, async (req, res) => {
   try {
