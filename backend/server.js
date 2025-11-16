@@ -1547,6 +1547,114 @@ app.post('/api/medics/upload-portfolio', authenticateToken, upload.single('photo
   }
 });
 
+// Upload фото медика (аватар)
+app.post('/api/medics/upload-avatar', authenticateToken, upload.single('avatar'), async (req, res) => {
+  try {
+    if (req.user.role !== 'MEDIC') {
+      return res.status(403).json({ error: 'Только для медиков' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Файл не загружен' });
+    }
+
+    // Проверка типа файла
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({ error: 'Только изображения (JPEG, PNG, WebP)' });
+    }
+
+    // Проверка размера (макс 2MB)
+    if (req.file.size > 2 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Файл слишком большой. Максимум 2MB.' });
+    }
+
+    console.log(`[AVATAR] Uploading avatar for user ${req.user.userId}`);
+
+    const b64 = Buffer.from(req.file.buffer).toString('base64');
+    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+
+    const result = await cloudinary.uploader.upload(dataURI, {
+      folder: 'medicpro/avatars',
+      resource_type: 'image',
+      public_id: `${req.user.userId}_avatar`,
+      overwrite: true, // Перезаписывать старое фото
+      transformation: [
+        { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+        { quality: 'auto', fetch_format: 'auto' }
+      ]
+    });
+
+    console.log(`[AVATAR] Cloudinary upload successful: ${result.secure_url}`);
+
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Профиль медика не найден' });
+    }
+
+    await prisma.medic.update({
+      where: { id: medic.id },
+      data: { avatar: result.secure_url }
+    });
+
+    console.log(`[AVATAR] Avatar updated for medic ${medic.id}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Фото загружено',
+      url: result.secure_url
+    });
+
+  } catch (error) {
+    console.error('Upload avatar error:', error);
+    res.status(500).json({ error: 'Ошибка загрузки фото: ' + error.message });
+  }
+});
+
+// Удаление фото медика
+app.delete('/api/medics/avatar', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'MEDIC') {
+      return res.status(403).json({ error: 'Только для медиков' });
+    }
+
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Профиль медика не найден' });
+    }
+
+    // Удаляем из Cloudinary (опционально)
+    if (medic.avatar) {
+      try {
+        const publicId = `${req.user.userId}_avatar`;
+        await cloudinary.uploader.destroy(`medicpro/avatars/${publicId}`);
+        console.log(`[AVATAR] Deleted from Cloudinary: ${publicId}`);
+      } catch (cloudinaryError) {
+        console.error('Cloudinary delete error:', cloudinaryError);
+      }
+    }
+
+    await prisma.medic.update({
+      where: { id: medic.id },
+      data: { avatar: null }
+    });
+
+    console.log(`[AVATAR] Avatar removed for medic ${medic.id}`);
+
+    res.json({ success: true, message: 'Фото удалено' });
+
+  } catch (error) {
+    console.error('Delete avatar error:', error);
+    res.status(500).json({ error: 'Ошибка удаления фото' });
+  }
+});
+
 // Удаление фото из портфолио
 app.delete('/api/medics/portfolio/:publicId', authenticateToken, async (req, res) => {
   try {
