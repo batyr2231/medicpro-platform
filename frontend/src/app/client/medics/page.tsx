@@ -122,7 +122,7 @@ export default function MedicsCatalogPage() {
               value={cityFilter}
               onChange={(e) => {
                 setCityFilter(e.target.value);
-                setDistrictFilter(''); // Сбрасываем район при смене города
+                setDistrictFilter('');
               }}
               className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white appearance-none cursor-pointer"
               style={selectStyle}
@@ -189,9 +189,17 @@ export default function MedicsCatalogPage() {
               >
                 {/* Аватар */}
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-2xl font-bold shadow-lg">
-                    {medic.name[0]}
-                  </div>
+                  {medic.avatar ? (
+                    <img
+                      src={medic.avatar}
+                      alt={medic.name}
+                      className="w-16 h-16 rounded-full object-cover border-4 border-cyan-500/30 shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-2xl font-bold shadow-lg">
+                      {medic.name[0]}
+                    </div>
+                  )}
                   <div className="flex items-center space-x-1 px-3 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/30">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                     <span className="text-yellow-400 font-semibold">{medic.avgRating || '5.0'}</span>
