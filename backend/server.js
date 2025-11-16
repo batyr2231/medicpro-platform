@@ -2687,6 +2687,7 @@ app.get('/api/medics', async (req, res) => {
         userId: medic.userId,
         name: medic.user.name,
         phone: medic.user.phone,
+        avatar: medic.avatar || null,
         city: medic.city,
         district: medic.areas && medic.areas.length > 0 ? medic.areas.join(', ') : null,
         specialization: medic.specialty,
