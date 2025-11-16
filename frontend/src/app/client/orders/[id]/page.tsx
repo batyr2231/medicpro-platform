@@ -16,7 +16,8 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<any>(null);
   const { getOrderById, loading } = useOrders();
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
-
+  const [editingPrice, setEditingPrice] = useState(false);
+  const [newPrice, setNewPrice] = useState('');
 
   useEffect(() => {
     loadOrder();
@@ -45,6 +46,37 @@ export default function OrderDetailPage() {
       // Опционально: toast.error('Не удалось загрузить заказ');
     }
   };
+  
+  const handleUpdatePrice = async () => {
+  if (!newPrice || parseFloat(newPrice) <= 0) {
+    toast.error('Введите корректную цену');
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/price`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ price: newPrice }),
+      }
+    );
+
+    if (!response.ok) throw new Error('Failed to update price');
+
+    toast.success('✅ Цена обновлена');
+    setEditingPrice(false);
+    loadOrder(); // Перезагрузка заказа
+  } catch (error: any) {
+    console.error('Update price error:', error);
+    toast.error('❌ Ошибка обновления цены');
+  }
+};
 
   const getStatusInfo = (status: string) => {
     const info: Record<string, { text: string; icon: string; color: string; description: string }> = {
@@ -226,20 +258,101 @@ export default function OrderDetailPage() {
               </div>
             </div>
 
-            {order.price && (
+            {order.price ? (
               <div className="flex items-start space-x-3">
                 <div className="w-10 h-10 p-2 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0 text-xl">
                   💰
                 </div>
-                <div>
+                <div className="flex-1">
                   <div className="text-sm text-slate-400 mb-1">Цена</div>
-                  <div className="font-medium text-green-400 text-lg">
-                    {parseInt(order.price).toLocaleString('ru-RU')} тг
-                  </div>
+                  {editingPrice ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        value={newPrice}
+                        onChange={(e) => setNewPrice(e.target.value)}
+                        placeholder="Новая цена"
+                        className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white w-32"
+                      />
+                      <button
+                        onClick={handleUpdatePrice}
+                        className="px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition-all text-sm"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingPrice(false);
+                          setNewPrice('');
+                        }}
+                        className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-all text-sm"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-3">
+                      <div className="font-medium text-green-400 text-lg">
+                        {parseInt(order.price).toLocaleString('ru-RU')} тг
+                      </div>
+                      {order.status !== 'PAID' && (
+                        <button
+                          onClick={() => {
+                            setEditingPrice(true);
+                            setNewPrice(order.price?.toString() || '');
+                          }}
+                          className="text-xs text-cyan-400 hover:text-cyan-300 underline"
+                        >
+                          Изменить
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start space-x-3">
+                <div className="w-10 h-10 p-2 rounded-lg bg-yellow-500/20 flex items-center justify-center flex-shrink-0 text-xl">
+                  💰
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm text-slate-400 mb-1">Цена</div>
+                  {editingPrice ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        value={newPrice}
+                        onChange={(e) => setNewPrice(e.target.value)}
+                        placeholder="Введите цену"
+                        className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white w-32"
+                      />
+                      <button
+                        onClick={handleUpdatePrice}
+                        className="px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition-all text-sm"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingPrice(false);
+                          setNewPrice('');
+                        }}
+                        className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-all text-sm"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setEditingPrice(true)}
+                      className="text-sm text-yellow-400 hover:text-yellow-300 underline"
+                    >
+                      + Добавить цену
+                    </button>
+                  )}
                 </div>
               </div>
             )}
-
             {order.comment && (
               <div className="p-4 rounded-xl bg-white/5 border border-white/10 mt-4">
                 <div className="text-sm text-slate-400 mb-1">Комментарий</div>

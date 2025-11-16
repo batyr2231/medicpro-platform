@@ -132,13 +132,16 @@ export default function CreateOrderPage() {
                 <h1 className="text-3xl sm:text-4xl font-bold">Выберите услугу</h1>
                 <p className="text-slate-400">Какой специалист вам нужен?</p>
               </div>
-
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {services.map((service) => (
                   <button
                     key={service.id}
                     type="button"
-                    onClick={() => handleChange('serviceType', service.id)}
+                    onClick={() => {
+                      handleChange('serviceType', service.id);
+                      // ← АВТОПЕРЕХОД!
+                      setStep(2);
+                    }}
                     className={`p-6 rounded-2xl text-left transition-all ${
                       formData.serviceType === service.id
                         ? 'bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border-2 border-cyan-500 shadow-lg shadow-cyan-500/20'
@@ -152,18 +155,6 @@ export default function CreateOrderPage() {
                     <div className="text-sm text-slate-400">{service.desc}</div>
                   </button>
                 ))}
-              </div>
-
-              <div className="flex justify-end pt-4">
-                <button
-                  type="button"
-                  onClick={() => formData.serviceType && setStep(2)}
-                  disabled={!formData.serviceType}
-                  className="px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg shadow-blue-500/30 transition-all flex items-center"
-                >
-                  Далее
-                  <ChevronRight className="ml-2 w-5 h-5" />
-                </button>
               </div>
             </div>
           )}
