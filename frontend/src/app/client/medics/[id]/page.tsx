@@ -85,6 +85,18 @@ export default function MedicProfilePage() {
         </div>
       </header>
 
+    {medic.avatar ? (
+      <img
+        src={medic.avatar}
+        alt={medic.name}
+        className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-4 border-cyan-500/30 shadow-xl"
+      />
+    ) : (
+      <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-3xl md:text-4xl font-bold shadow-xl">
+        {medic.name[0]}
+      </div>
+    )}
+
       <div className="max-w-5xl mx-auto px-4 py-4 md:py-8">
         {/* Профиль */}
         <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-4 md:p-8 mb-4 md:mb-6">

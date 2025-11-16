@@ -7,7 +7,6 @@ import toast from 'react-hot-toast';
 import PhoneInput from '@/components/PhoneInput'; 
 import { getCities, getDistricts } from 'utils/cities';
 
-
 export default function MedicProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -19,6 +18,9 @@ export default function MedicProfilePage() {
   const [showTelegramInput, setShowTelegramInput] = useState(false);
   const [telegramDeepLink, setTelegramDeepLink] = useState('');
   const [checkingConnection, setCheckingConnection] = useState(false);
+  
+  const [uploading, setUploading] = useState(false);
+  const [medicAvatar, setMedicAvatar] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -33,7 +35,6 @@ export default function MedicProfilePage() {
   });
 
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-
   const [medicStatus, setMedicStatus] = useState<string>('PENDING');
   
   // Документы
@@ -77,8 +78,8 @@ export default function MedicProfilePage() {
         });
         
         setAgreedToTerms(result.agreedToTerms || false);
-
         setMedicStatus(result.status || 'PENDING');
+        setMedicAvatar(result.avatar || null);
         
         if (result.telegramChatId) {
           setTelegramConnected(true);
@@ -103,12 +104,11 @@ export default function MedicProfilePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-
-    // ← ДОБАВИТЬ:
     if (!agreedToTerms) {
       toast.error('Необходимо согласиться с договором-офертой');
       return;
     }
+
     // Валидация
     if (!formData.name.trim()) {
       toast.error('Введите ФИО');
@@ -189,7 +189,6 @@ export default function MedicProfilePage() {
         throw new Error(result.error || 'Failed to update profile');
       }
 
-      // Показываем модальное окно
       setShowSuccessModal(true);
       
     } catch (err: any) {
@@ -380,9 +379,7 @@ export default function MedicProfilePage() {
       if (response.ok) {
         setTelegramDeepLink(result.deepLink);
         setShowTelegramInput(true);
-        
         toast.success('✅ Ссылка готова! Откройте Telegram');
-        
         startCheckingConnection();
       } else {
         toast.error('❌ ' + result.error);
@@ -507,7 +504,137 @@ export default function MedicProfilePage() {
         )}
       </div>
 
+      {/* Фото профиля */}
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6 mb-6">
+          <h2 className="text-xl font-bold mb-4">📸 Фото профиля</h2>
+          
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            {/* Аватар */}
+            <div className="relative">
+              {medicAvatar ? (
+                <img
+                  src={medicAvatar}
+                  alt={formData.name}
+                  className="w-32 h-32 rounded-full object-cover border-4 border-cyan-500/30"
+                />
+              ) : (
+                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-5xl font-bold">
+                  {formData.name?.[0] || '?'}
+                </div>
+              )}
+              
+              {medicAvatar && (
+                <button
+                  onClick={async () => {
+                    if (!confirm('Удалить фото?')) return;
+                    
+                    try {
+                      const token = localStorage.getItem('token');
+                      const response = await fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL}/api/medics/avatar`,
+                        {
+                          method: 'DELETE',
+                          headers: { 'Authorization': `Bearer ${token}` }
+                        }
+                      );
+
+                      if (!response.ok) throw new Error('Failed to delete');
+
+                      toast.success('✅ Фото удалено');
+                      setMedicAvatar(null);
+                    } catch (err) {
+                      console.error('Delete avatar error:', err);
+                      toast.error('❌ Ошибка удаления фото');
+                    }
+                  }}
+                  className="absolute -top-2 -right-2 p-2 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Загрузка */}
+            <div className="flex-1 w-full">
+              <p className="text-sm text-slate-400 mb-3">
+                Загрузите ваше фото (макс. 2MB, JPEG/PNG)
+              </p>
+              
+              <input
+                type="file"
+                id="avatar-upload"
+                accept="image/jpeg,image/png,image/jpg,image/webp"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  if (file.size > 2 * 1024 * 1024) {
+                    toast.error('❌ Файл слишком большой (макс. 2MB)');
+                    return;
+                  }
+
+                  setUploading(true);
+
+                  try {
+                    const formData = new FormData();
+                    formData.append('avatar', file);
+
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(
+                      `${process.env.NEXT_PUBLIC_API_URL}/api/medics/upload-avatar`,
+                      {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        body: formData
+                      }
+                    );
+
+                    if (!response.ok) {
+                      const error = await response.json();
+                      throw new Error(error.error || 'Upload failed');
+                    }
+
+                    const result = await response.json();
+                    toast.success('✅ Фото загружено');
+                    setMedicAvatar(result.url);
+                    e.target.value = '';
+                  } catch (err: any) {
+                    console.error('Upload avatar error:', err);
+                    toast.error('❌ ' + err.message);
+                  } finally {
+                    setUploading(false);
+                  }
+                }}
+              />
+              <label
+                htmlFor="avatar-upload"
+                className={`block w-full py-3 rounded-xl text-center font-semibold transition-all cursor-pointer ${
+                  uploading
+                    ? 'bg-white/5 text-slate-400 cursor-not-allowed'
+                    : 'bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30'
+                }`}
+              >
+                {uploading ? (
+                  <span className="flex items-center justify-center">
+                    <Loader className="w-5 h-5 mr-2 animate-spin" />
+                    Загрузка...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center">
+                    <Upload className="w-5 h-5 mr-2" />
+                    {medicAvatar ? 'Изменить фото' : 'Загрузить фото'}
+                  </span>
+                )}
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Основная форма */}
+      <div className="max-w-4xl mx-auto px-4 pb-8">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Personal Info */}
           <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
@@ -744,14 +871,13 @@ export default function MedicProfilePage() {
                 )}
               </div>
 
-              {/* Сертификаты/Дипломы (множественная загрузка) */}
+              {/* Сертификаты/Дипломы */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-slate-300 mb-3">
                   Сертификаты / Дипломы <span className="text-red-400">*</span>
                   <span className="text-xs text-slate-400 ml-2">(можно загрузить несколько)</span>
                 </label>
                 
-                {/* Показываем загруженные сертификаты */}
                 {certificates.length > 0 && (
                   <div className="mb-3 space-y-2">
                     {certificates.map((cert, index) => (
@@ -765,7 +891,6 @@ export default function MedicProfilePage() {
                   </div>
                 )}
                 
-                {/* Кнопка загрузки еще одного */}
                 <label className="block">
                   <input
                     type="file"
@@ -786,7 +911,7 @@ export default function MedicProfilePage() {
                     ) : (
                       <>
                         <Upload className="w-5 h-5 mr-2 text-slate-400" />
-                        <span className ="text-sm">
+                        <span className="text-sm">
                           {certificates.length > 0 ? 'Загрузить ещё один' : 'Нажмите для загрузки'}
                         </span>
                       </>
@@ -795,7 +920,7 @@ export default function MedicProfilePage() {
                 </label>
               </div>
 
-              {/* Медицинская лицензия (необязательно) */}
+              {/* Лицензия */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-slate-300 mb-3">
                   Медицинская лицензия
@@ -919,7 +1044,6 @@ export default function MedicProfilePage() {
                         <li>Готово! Подключение произойдёт автоматически</li>
                       </ol>
                     </div>
-
                     <a
                       href={telegramDeepLink}
                       target="_blank"
