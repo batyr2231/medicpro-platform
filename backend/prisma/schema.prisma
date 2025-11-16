@@ -92,6 +92,7 @@ model Medic {
   birthDate       DateTime?
   residenceAddress String?
   identityDocument Json?
+  avatar          String?
 
   city           String      @default("Алматы")
   areas          String[]

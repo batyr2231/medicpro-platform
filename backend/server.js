@@ -679,7 +679,7 @@ app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
       medicData = medic;
     }
 
-    // ← ДОБАВИТЬ ПРОВЕРКУ ОТЗЫВА!
+
     const review = await prisma.review.findUnique({
       where: { orderId }
     });
@@ -1200,6 +1200,7 @@ app.get('/api/medics/profile', authenticateToken, async (req, res) => {
       name: user.name,
       phone: user.phone,
       email: user.email,
+      avatar: medic.avatar || null,
       specialization: medic.specialty || '',
       experience: medic.experience?.toString() || '0',
       education: medic.description || '',
@@ -1448,6 +1449,215 @@ app.post('/api/medics/upload-document', authenticateToken, upload.single('docume
   } catch (error) {
     console.error('Upload document error:', error);
     res.status(500).json({ error: 'Ошибка загрузки документа: ' + error.message });
+  }
+});
+
+// Upload фото в портфолио медика
+app.post('/api/medics/upload-portfolio', authenticateToken, upload.single('photo'), async (req, res) => {
+  try {
+    if (req.user.role !== 'MEDIC') {
+      return res.status(403).json({ error: 'Только для медиков' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Файл не загружен' });
+    }
+
+    // Проверка типа файла (только изображения)
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({ error: 'Только изображения (JPEG, PNG, WebP)' });
+    }
+
+    // Проверка размера (макс 5MB)
+    if (req.file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Файл слишком большой. Максимум 5MB.' });
+    }
+
+    console.log(`[PORTFOLIO] Uploading photo for user ${req.user.userId}`);
+
+    const b64 = Buffer.from(req.file.buffer).toString('base64');
+    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+
+    const result = await cloudinary.uploader.upload(dataURI, {
+      folder: 'medicpro/portfolio',
+      resource_type: 'image',
+      public_id: `${req.user.userId}_portfolio_${Date.now()}`,
+      transformation: [
+        { width: 800, height: 600, crop: 'limit' },
+        { quality: 'auto', fetch_format: 'auto' }
+      ]
+    });
+
+    console.log(`[PORTFOLIO] Cloudinary upload successful: ${result.secure_url}`);
+
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Профиль медика не найден' });
+    }
+
+    // Парсим текущее портфолио
+    let portfolio = [];
+    if (medic.portfolio) {
+      if (typeof medic.portfolio === 'string') {
+        try {
+          portfolio = JSON.parse(medic.portfolio);
+        } catch (e) {
+          portfolio = [];
+        }
+      } else if (Array.isArray(medic.portfolio)) {
+        portfolio = medic.portfolio;
+      }
+    }
+
+    // Ограничение: максимум 10 фото
+    if (portfolio.length >= 10) {
+      return res.status(400).json({ error: 'Максимум 10 фото в портфолио' });
+    }
+
+    // Добавляем новое фото
+    portfolio.push({
+      url: result.secure_url,
+      publicId: result.public_id,
+      uploadedAt: new Date().toISOString(),
+      width: result.width,
+      height: result.height
+    });
+
+    await prisma.medic.update({
+      where: { id: medic.id },
+      data: { portfolio }
+    });
+
+    console.log(`[PORTFOLIO] Photo added. Total: ${portfolio.length}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Фото добавлено в портфолио',
+      url: result.secure_url,
+      totalPhotos: portfolio.length
+    });
+
+  } catch (error) {
+    console.error('Upload portfolio error:', error);
+    res.status(500).json({ error: 'Ошибка загрузки фото: ' + error.message });
+  }
+});
+
+// Удаление фото из портфолио
+app.delete('/api/medics/portfolio/:publicId', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'MEDIC') {
+      return res.status(403).json({ error: 'Только для медиков' });
+    }
+
+    const { publicId } = req.params;
+
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Профиль медика не найден' });
+    }
+
+    let portfolio = [];
+    if (medic.portfolio) {
+      if (typeof medic.portfolio === 'string') {
+        portfolio = JSON.parse(medic.portfolio);
+      } else if (Array.isArray(medic.portfolio)) {
+        portfolio = medic.portfolio;
+      }
+    }
+
+    // Удаляем из Cloudinary
+    const decodedPublicId = decodeURIComponent(publicId);
+    try {
+      await cloudinary.uploader.destroy(decodedPublicId);
+      console.log(`[PORTFOLIO] Deleted from Cloudinary: ${decodedPublicId}`);
+    } catch (cloudinaryError) {
+      console.error('Cloudinary delete error:', cloudinaryError);
+    }
+
+    // Удаляем из портфолио
+    portfolio = portfolio.filter(photo => photo.publicId !== decodedPublicId);
+
+    await prisma.medic.update({
+      where: { id: medic.id },
+      data: { portfolio }
+    });
+
+    console.log(`[PORTFOLIO] Photo removed. Remaining: ${portfolio.length}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Фото удалено',
+      totalPhotos: portfolio.length
+    });
+
+  } catch (error) {
+    console.error('Delete portfolio error:', error);
+    res.status(500).json({ error: 'Ошибка удаления фото: ' + error.message });
+  }
+});
+
+// Удаление фото из портфолио
+app.delete('/api/medics/portfolio/:publicId', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'MEDIC') {
+      return res.status(403).json({ error: 'Только для медиков' });
+    }
+
+    const { publicId } = req.params;
+
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Профиль медика не найден' });
+    }
+
+    let portfolio = [];
+    if (medic.portfolio) {
+      if (typeof medic.portfolio === 'string') {
+        portfolio = JSON.parse(medic.portfolio);
+      } else if (Array.isArray(medic.portfolio)) {
+        portfolio = medic.portfolio;
+      }
+    }
+
+    // Удаляем из Cloudinary
+    const decodedPublicId = decodeURIComponent(publicId);
+    try {
+      await cloudinary.uploader.destroy(decodedPublicId);
+      console.log(`[PORTFOLIO] Deleted from Cloudinary: ${decodedPublicId}`);
+    } catch (cloudinaryError) {
+      console.error('Cloudinary delete error:', cloudinaryError);
+    }
+
+    // Удаляем из портфолио
+    portfolio = portfolio.filter(photo => photo.publicId !== decodedPublicId);
+
+    await prisma.medic.update({
+      where: { id: medic.id },
+      data: { portfolio }
+    });
+
+    console.log(`[PORTFOLIO] Photo removed. Remaining: ${portfolio.length}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Фото удалено',
+      totalPhotos: portfolio.length
+    });
+
+  } catch (error) {
+    console.error('Delete portfolio error:', error);
+    res.status(500).json({ error: 'Ошибка удаления фото: ' + error.message });
   }
 });
 
@@ -2472,6 +2682,7 @@ app.get('/api/medics/:medicId', async (req, res) => {
       userId: medic.userId,
       name: medic.user.name,
       phone: medic.user.phone,
+      avatar: medic.avatar || null,
       city: medic.city,
       district: medic.areas && medic.areas.length > 0 ? medic.areas.join(', ') : null,
       specialization: medic.specialty,
