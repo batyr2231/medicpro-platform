@@ -237,9 +237,17 @@ const loadOrder = async () => {
         {/* Order Info */}
         <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6 mb-8">
           <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-2xl font-bold">
-              {order.medic?.name[0]}
-            </div>
+            {order.medic?.avatar ? (
+              <img
+                src={order.medic.avatar}
+                alt={order.medic.name}
+                className="w-16 h-16 rounded-full object-cover border-4 border-cyan-500/30 shadow-lg"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-2xl font-bold shadow-lg">
+                {order.medic?.name[0]}
+              </div>
+            )}
             <div>
               <div className="font-semibold text-lg">{order.medic?.name}</div>
               <div className="text-slate-400">{order.serviceType}</div>
