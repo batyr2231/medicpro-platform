@@ -637,6 +637,7 @@ app.get('/api/orders/available', authenticateToken, async (req, res) => {
 
 
 // Получение одного заказа по ID
+// Получение одного заказа по ID
 app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -665,20 +666,32 @@ app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Если есть medicId - загружаем медика отдельно
+    // ✅ ИСПРАВЛЕНО: Загружаем медика с аватаром через связь medic
     let medicData = null;
     if (order.medicId) {
-      const medic = await prisma.user.findUnique({
-        where: { id: order.medicId },
+      const medicProfile = await prisma.medic.findUnique({
+        where: { userId: order.medicId },
         select: {
-          id: true,
-          name: true,
-          phone: true
+          avatar: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              phone: true
+            }
+          }
         }
       });
-      medicData = medic;
-    }
 
+      if (medicProfile) {
+        medicData = {
+          id: medicProfile.user.id,
+          name: medicProfile.user.name,
+          phone: medicProfile.user.phone,
+          avatar: medicProfile.avatar // ← ДОБАВЛЕНО!
+        };
+      }
+    }
 
     const review = await prisma.review.findUnique({
       where: { orderId }
@@ -688,7 +701,7 @@ app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
     const response = {
       ...order,
       medic: medicData,
-      review: review ? true : false  // ← Добавляем флаг наличия отзыва
+      review: review ? true : false
     };
 
     res.json(response);
