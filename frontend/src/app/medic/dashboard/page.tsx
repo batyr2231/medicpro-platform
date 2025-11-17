@@ -35,7 +35,7 @@ export default function MedicDashboard() {
       } else {
         loadMyOrders();
       }
-    }, 30000);
+    }, 15000);
     
     return () => clearInterval(interval);
   }, [activeTab]);
@@ -210,9 +210,19 @@ export default function MedicDashboard() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/50">
-                <Heart className="w-6 h-6" />
-              </div>
+              {/* Аватар медика */}
+              {medicInfo?.avatar ? (
+                <img
+                  src={medicInfo.avatar}
+                  alt={medicInfo.name}
+                  className="w-12 h-12 rounded-xl object-cover border-2 border-cyan-500/30 shadow-lg"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-xl font-bold shadow-lg shadow-blue-500/50">
+                  {medicInfo?.name?.[0] || '?'}
+                </div>
+              )}
+              
               <div>
                 <div className="font-bold text-lg">{medicInfo?.name || 'Медик'}</div>
                 <div className="text-xs text-slate-400">{medicInfo?.specialization || 'Специалист'}</div>
@@ -238,7 +248,7 @@ export default function MedicDashboard() {
                 onClick={handleLogout}
                 className="flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors"
               >
-                <span className="text-sm">Выйти</span>
+                <span className="text-sm hidden sm:inline">Выйти</span>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
