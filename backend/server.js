@@ -847,6 +847,7 @@ app.patch('/api/orders/:orderId/status', authenticateToken, async (req, res) => 
 });
 
 // Изменение цены заказа
+// Изменение цены заказа
 app.patch('/api/orders/:orderId/price', authenticateToken, async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -857,7 +858,12 @@ app.patch('/api/orders/:orderId/price', authenticateToken, async (req, res) => {
     }
 
     const order = await prisma.order.findUnique({
-      where: { id: orderId }
+      where: { id: orderId },
+      include: {
+        client: {
+          select: { name: true }
+        }
+      }
     });
 
     if (!order) {
@@ -874,14 +880,43 @@ app.patch('/api/orders/:orderId/price', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Cannot change price for completed order' });
     }
 
+    const oldPrice = order.price;
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: { price: parseFloat(price) }
     });
 
-    console.log(`✅ Order ${orderId} price updated to: ${price}`);
+    console.log(`✅ Order ${orderId} price updated: ${oldPrice} → ${price}`);
 
-    // Уведомляем обе стороны
+    // ✅ ДОБАВЛЕНО: Telegram уведомление медику если клиент изменил цену
+    if (req.user.role === 'CLIENT' && order.medicId) {
+      try {
+        const medic = await prisma.medic.findUnique({
+          where: { userId: order.medicId },
+          select: { telegramChatId: true }
+        });
+
+        if (medic?.telegramChatId) {
+          const priceChange = oldPrice 
+            ? `${parseInt(oldPrice).toLocaleString('ru-RU')} → ${parseInt(price).toLocaleString('ru-RU')} тг`
+            : `${parseInt(price).toLocaleString('ru-RU')} тг`;
+
+          await sendTelegramMessage(
+            medic.telegramChatId,
+            `💰 *Клиент изменил цену заказа*\n\n` +
+            `📋 Заказ #${orderId.substring(0, 8)}\n` +
+            `👤 Клиент: ${order.client.name}\n` +
+            `💵 Цена: ${priceChange}\n\n` +
+            `Проверьте детали заказа в приложении.`
+          );
+          console.log(`📱 Price change notification sent to medic`);
+        }
+      } catch (telegramError) {
+        console.error('❌ Telegram notification error:', telegramError);
+      }
+    }
+
+    // Уведомляем обе стороны через WebSocket
     io.to(`user:${order.clientId}`).emit('order-price-changed', updatedOrder);
     if (order.medicId) {
       io.to(`user:${order.medicId}`).emit('order-price-changed', updatedOrder);
