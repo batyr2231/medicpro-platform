@@ -542,13 +542,13 @@ export default function MedicDashboard() {
         {/* Available Orders */}
         {activeTab === 'available' && (
           <div className="space-y-4 animate-slide-in">
-          {ordersLoading ? (
-            <div className="space-y-4">
-              <OrderSkeleton />
-              <OrderSkeleton />
-              <OrderSkeleton />
-            </div>
-          ) : realOrders.length === 0 ? (
+            {ordersLoading ? (
+              <div className="space-y-4">
+                <OrderSkeleton />
+                <OrderSkeleton />
+                <OrderSkeleton />
+              </div>
+            ) : realOrders.length === 0 ? (
               <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-12 text-center">
                 <AlertCircle className="w-16 h-16 text-slate-400 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Нет доступных заказов</h3>
@@ -558,88 +558,113 @@ export default function MedicDashboard() {
               realOrders.map((order) => (
                 <div
                   key={order.id}
-                  className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6 hover:border-cyan-500/50 transition-all"
+                  className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6 hover:border-cyan-500/50 transition-all shadow-xl"
                 >
-                  <div className="flex items-start justify-between mb-4">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-6">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 rounded-xl bg-cyan-500/20 flex items-center justify-center text-2xl">
+                      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-3xl shadow-lg">
                         💉
                       </div>
                       <div>
-                        <div className="font-semibold text-lg">{order.serviceType}</div>
+                        <div className="font-bold text-xl mb-1">{order.serviceType}</div>
                         <div className="text-xs text-slate-400">
-                          {new Date(order.createdAt).toLocaleString('ru-RU')}
+                          {new Date(order.createdAt).toLocaleString('ru-RU', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Цена - справа вверху */}
+                    {order.price && (
+                      <div className="text-right">
+                        <div className="text-sm text-slate-400 mb-1">Цена</div>
+                        <div className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">
+                          {parseInt(order.price).toLocaleString('ru-RU')} ₸
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="grid sm:grid-cols-2 gap-4 mb-4">
-                    <div className="flex items-start space-x-3">
-                      <User className="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs text-slate-400 mb-1">Клиент</div>
-                        <div className="font-medium truncate">{order.client?.name}</div>
-                        <div className="text-sm text-slate-300">{order.client?.phone}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start space-x-3">
-                      <Clock className="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="text-xs text-slate-400 mb-1">Время</div>
-                        <div className="font-medium">
-                          {new Date(order.scheduledTime).toLocaleString('ru-RU')}
+                  {/* Info Grid */}
+                  <div className="grid sm:grid-cols-2 gap-4 mb-6">
+                    {/* Клиент */}
+                    <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                      <div className="flex items-start space-x-3">
+                        <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-cyan-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs text-slate-400 mb-1">Клиент</div>
+                          <div className="font-semibold truncate">{order.client?.name}</div>
+                          <div className="text-sm text-slate-300">{order.client?.phone}</div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-start space-x-3 sm:col-span-2">
-                      <MapPin className="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs text-slate-400 mb-1">Адрес</div>
-                        <div className="font-medium">{order.city}</div>
-                        <div className="font-medium">{order.district}</div>
-                        <div className="text-sm text-slate-300">{order.address}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {order.price && (
-                    <div className="flex items-start space-x-3">
-                      <div className="w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        💰
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-400 mb-1">Цена</div>
-                        <div className="font-semibold text-emerald-400 text-lg">
-                          {parseInt(order.price).toLocaleString('ru-RU')} тг
+                    {/* Время */}
+                    <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                      <div className="flex items-start space-x-3">
+                        <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                          <Clock className="w-5 h-5 text-purple-400" />
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {order.comment && (
-                    <div className="mb-4 p-3 rounded-xl bg-white/5 border border-white/10">
-                      <div className="flex items-start space-x-2">
-                        <FileText className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                         <div>
-                          <div className="text-xs text-slate-400 mb-1">Комментарий</div>
-                          <div className="text-sm text-slate-300">{order.comment}</div>
+                          <div className="text-xs text-slate-400 mb-1">Запланировано</div>
+                          <div className="font-semibold">
+                            {new Date(order.scheduledTime).toLocaleString('ru-RU', {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Адрес */}
+                    <div className="sm:col-span-2 p-4 rounded-xl bg-white/5 border border-white/10">
+                      <div className="flex items-start space-x-3">
+                        <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                          <MapPin className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs text-slate-400 mb-1">Адрес</div>
+                          <div className="font-semibold text-blue-400">{order.city}</div>
+                          <div className="font-medium">{order.district}</div>
+                          <div className="text-sm text-slate-300 mt-1">{order.address}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Комментарий */}
+                  {order.comment && (
+                    <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30">
+                      <div className="flex items-start space-x-3">
+                        <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-4 h-4 text-yellow-400" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs text-yellow-400 font-semibold mb-1">Комментарий клиента</div>
+                          <div className="text-sm text-slate-200">{order.comment}</div>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={() => handleAcceptOrder(order.id)}
-                      className="flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center"
-                    >
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      Принять заказ
-                    </button>
-                  </div>
+                  {/* Кнопка принять */}
+                  <button
+                    onClick={() => handleAcceptOrder(order.id)}
+                    className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-bold text-lg shadow-lg shadow-cyan-500/30 transition-all flex items-center justify-center group"
+                  >
+                    <CheckCircle className="w-6 h-6 mr-2 group-hover:scale-110 transition-transform" />
+                    Принять заказ
+                  </button>
                 </div>
               ))
             )}
