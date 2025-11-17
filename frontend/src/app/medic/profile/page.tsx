@@ -189,6 +189,8 @@ export default function MedicProfilePage() {
         throw new Error(result.error || 'Failed to update profile');
       }
 
+      // ✅ ИСПРАВЛЕНО: Обновляем статус на PENDING после сохранения
+      setMedicStatus('PENDING');
       setShowSuccessModal(true);
       
     } catch (err: any) {
@@ -211,7 +213,7 @@ export default function MedicProfilePage() {
     setFormData({ ...formData, areas: newAreas });
   };
 
-  // Загрузка удостоверения
+  // ✅ ИСПРАВЛЕНО: Загрузка удостоверения БЕЗ модалки и БЕЗ перезагрузки страницы
   const handleUploadIdentity = async (file: File) => {
     if (!file) return;
 
@@ -250,18 +252,19 @@ export default function MedicProfilePage() {
         throw new Error(result.error || 'Ошибка загрузки');
       }
 
-      toast.success('✅ Удостоверение загружено!');
-      loadProfile();
+      // ✅ ПРОСТО обновляем состояние без модалки
+      setIdentityDoc({ type: 'IDENTITY', url: result.url });
+      toast.success('Документ загружен', { duration: 2000 });
 
     } catch (err: any) {
       console.error('Upload error:', err);
-      toast.error('❌ Ошибка загрузки: ' + err.message);
+      toast.error('Ошибка загрузки: ' + err.message);
     } finally {
       setUploadingIdentity(false);
     }
   };
 
-  // Загрузка сертификата/диплома (множественная)
+  // ✅ ИСПРАВЛЕНО: Загрузка сертификата БЕЗ модалки и БЕЗ перезагрузки
   const handleUploadCertificate = async (file: File) => {
     if (!file) return;
 
@@ -300,18 +303,19 @@ export default function MedicProfilePage() {
         throw new Error(result.error || 'Ошибка загрузки');
       }
 
-      toast.success('✅ Сертификат/Диплом загружен!');
-      loadProfile();
+      // ✅ Добавляем сертификат в список БЕЗ перезагрузки страницы
+      setCertificates([...certificates, { type: 'CERTIFICATE', url: result.url }]);
+      toast.success('Сертификат загружен', { duration: 2000 });
 
     } catch (err: any) {
       console.error('Upload error:', err);
-      toast.error('❌ Ошибка загрузки: ' + err.message);
+      toast.error('Ошибка загрузки: ' + err.message);
     } finally {
       setUploadingCertificate(false);
     }
   };
 
-  // Загрузка лицензии (одна, заменяется)
+  // ✅ ИСПРАВЛЕНО: Загрузка лицензии БЕЗ модалки и БЕЗ перезагрузки
   const handleUploadLicense = async (file: File) => {
     if (!file) return;
 
@@ -350,12 +354,13 @@ export default function MedicProfilePage() {
         throw new Error(result.error || 'Ошибка загрузки');
       }
 
-      toast.success('✅ Лицензия загружена!');
-      loadProfile();
+      // ✅ Обновляем лицензию БЕЗ перезагрузки страницы
+      setLicense({ type: 'LICENSE', url: result.url });
+      toast.success('Лицензия загружена', { duration: 2000 });
 
     } catch (err: any) {
       console.error('Upload error:', err);
-      toast.error('❌ Ошибка загрузки: ' + err.message);
+      toast.error('Ошибка загрузки: ' + err.message);
     } finally {
       setUploadingLicense(false);
     }
@@ -770,7 +775,7 @@ export default function MedicProfilePage() {
                     areas: []
                   });
                 }}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors appearance-none cursor-pointer"
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border -cyan-500 focus:outline-none text-white transition-colors appearance-none cursor-pointer"
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
                   backgroundRepeat: 'no-repeat',
@@ -849,7 +854,10 @@ export default function MedicProfilePage() {
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleUploadIdentity(file);
+                        if (file) {
+                          handleUploadIdentity(file);
+                          e.target.value = ''; // Очищаем input
+                        }
                       }}
                       disabled={uploadingIdentity}
                       className="hidden"
@@ -897,7 +905,10 @@ export default function MedicProfilePage() {
                     accept="image/*"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) handleUploadCertificate(file);
+                      if (file) {
+                        handleUploadCertificate(file);
+                        e.target.value = ''; // Очищаем input
+                      }
                     }}
                     disabled={uploadingCertificate}
                     className="hidden"
@@ -940,7 +951,10 @@ export default function MedicProfilePage() {
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleUploadLicense(file);
+                        if (file) {
+                          handleUploadLicense(file);
+                          e.target.value = ''; // Очищаем input
+                        }
                       }}
                       disabled={uploadingLicense}
                       className="hidden"
@@ -1044,6 +1058,7 @@ export default function MedicProfilePage() {
                         <li>Готово! Подключение произойдёт автоматически</li>
                       </ol>
                     </div>
+
                     <a
                       href={telegramDeepLink}
                       target="_blank"
@@ -1150,10 +1165,10 @@ export default function MedicProfilePage() {
                 <CheckCircle className="w-10 h-10 text-green-400" />
               </div>
               <h3 className="text-2xl font-bold text-white mb-2">
-                Профиль сохранён!
+                ✅ Отправлено на одобрение!
               </h3>
               <p className="text-slate-300 mb-6">
-                Благодарим за заполнение профиля. Ваша заявка отправлена на модерацию. 
+                Ваш профиль успешно сохранён и отправлен на модерацию. 
                 Ожидайте подтверждения в течение 24 часов.
               </p>
               <button
@@ -1163,7 +1178,7 @@ export default function MedicProfilePage() {
                 }}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all"
               >
-                Понятно
+                Перейти в дашборд
               </button>
             </div>
           </div>
