@@ -37,37 +37,6 @@ export default function ClientLayout({
       });
     });
 
-    // ← НОВОЕ: Уведомление о новом сообщении
-    newSocket.on('new-chat-message', (data: any) => {
-      console.log('💬 New chat message:', data);
-      
-      // Проверяем, что пользователь НЕ на странице этого чата
-      const isInChat = pathname === `/chat/${data.orderId}`;
-      
-      if (!isInChat) {
-        const messageText = data.text.length > 30 
-          ? data.text.substring(0, 30) + '...' 
-          : data.text;
-        
-        toast((t) => (
-          <div 
-            onClick={() => {
-              toast.dismiss(t.id);
-              router.push(`/chat/${data.orderId}`);
-            }}
-            className="cursor-pointer"
-          >
-            <div className="font-semibold">💬 {data.senderName}</div>
-            <div className="text-sm text-slate-600">{messageText}</div>
-            <div className="text-xs text-blue-600 mt-1">Нажмите чтобы открыть</div>
-          </div>
-        ), {
-          duration: 6000,
-          icon: '💬',
-        });
-      }
-    });
-
     setSocket(newSocket);
 
     return () => {
