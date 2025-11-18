@@ -241,21 +241,31 @@ export default function ClientProfilePage() {
         {/* Табы */}
         <div className="flex space-x-2 mb-6 border-b border-white/10">
           {[
-            { id: 'info', label: 'Информация', icon: User },
-            { id: 'addresses', label: 'Адреса', icon: MapPin },
-            { id: 'settings', label: 'Настройки', icon: Bell },
+            { id: 'info', label: 'Информация', icon: User, disabled: false },
+            { id: 'addresses', label: 'Адреса', icon: MapPin, disabled: true },
+            { id: 'settings', label: 'Настройки', icon: Bell, disabled: true },
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center space-x-2 px-4 py-3 border-b-2 transition-colors ${
+              onClick={() => !tab.disabled && setActiveTab(tab.id as any)}
+              disabled={tab.disabled}
+              className={`flex items-center space-x-2 px-4 py-3 border-b-2 transition-all relative ${
                 activeTab === tab.id
                   ? 'border-cyan-500 text-cyan-400'
-                  : 'border-transparent text-slate-400 hover:text-white'
+                  : tab.disabled
+                  ? 'border-transparent text-slate-600 cursor-not-allowed'
+                  : 'border-transparent text-slate-400 hover:text-white cursor-pointer'
               }`}
             >
-              <tab.icon className="w-5 h-5" />
-              <span>{tab.label}</span>
+              <tab.icon className={`w-5 h-5 ${tab.disabled ? 'opacity-50' : ''}`} />
+              <span className={tab.disabled ? 'opacity-50' : ''}>{tab.label}</span>
+              
+              {/* Бейдж "Скоро" */}
+              {tab.disabled && (
+                <span className="absolute -top-1 -right-1 px-2 py-0.5 rounded-full bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[10px] font-bold">
+                  СКОРО
+                </span>
+              )}
             </button>
           ))}
         </div>
