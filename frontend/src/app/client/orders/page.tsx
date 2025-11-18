@@ -190,7 +190,7 @@ export default function ClientOrdersPage() {
             <h2 className="text-2xl font-bold mb-2">Нет заказов</h2>
             <p className="text-slate-400 mb-6">Создайте свой первый заказ</p>
             <button
-              onClick={() => router.push('/client/orders')}
+              onClick={() => router.push('/orders/create')} 
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg transition-all"
             >
               Создать заказ
