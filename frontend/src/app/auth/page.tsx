@@ -103,8 +103,12 @@ export default function AuthPage() {
         role: role,
       });
 
+      // ✅ Сохраняем в localStorage
       localStorage.setItem('token', result.token);
       localStorage.setItem('user', JSON.stringify(result.user));
+
+      // ✅ ДОБАВЛЕНО: Сохраняем в cookies для middleware
+      document.cookie = `token=${result.token}; path=/; max-age=${30 * 24 * 60 * 60}`; // 30 дней
 
       toast.success('✅ Регистрация успешна!');
 
@@ -125,6 +129,7 @@ export default function AuthPage() {
     }
   };
 
+
   // Вход
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,14 +138,18 @@ export default function AuthPage() {
     try {
       const result = await login(formData.phone, formData.password);
 
+      // ✅ Сохраняем в localStorage
       localStorage.setItem('token', result.token);
       localStorage.setItem('user', JSON.stringify(result.user));
+
+      // ✅ ДОБАВЛЕНО: Сохраняем в cookies для middleware
+      document.cookie = `token=${result.token}; path=/; max-age=${30 * 24 * 60 * 60}`; // 30 дней
 
       toast.success('✅ Вход выполнен!');
 
       setTimeout(() => {
         if (result.user.role === 'CLIENT') {
-          router.push('/client/orders'); // ← ИЗМЕНИТЬ С /orders/create
+          router.push('/client/orders');
         } else if (result.user.role === 'MEDIC') {
           router.push('/medic/dashboard');
         } else if (result.user.role === 'ADMIN') {
