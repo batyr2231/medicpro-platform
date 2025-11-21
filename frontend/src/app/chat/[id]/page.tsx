@@ -59,27 +59,46 @@ export default function ChatPage() {
     }
   };
 
-  const loadMedicProfile = async (medicId: string) => {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/${medicId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      }
-    );
+  const loadMedicProfile = async (userId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // ✅ ИСПРАВЛЕНО: Сначала находим medicId по userId
+      const profileResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/profile-by-user/${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
 
-    const result = await response.json();
-    if (response.ok) {
-      setMedicProfile(result);
-      setShowMedicProfile(true);
+      if (!profileResponse.ok) {
+        console.error('Failed to find medic profile');
+        return;
+      }
+
+      const profileData = await profileResponse.json();
+      
+      // Теперь загружаем полный профиль медика
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/${profileData.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+      if (response.ok) {
+        setMedicProfile(result);
+        setShowMedicProfile(true);
+      }
+    } catch (err) {
+      console.error('Failed to load medic profile:', err);
     }
-  } catch (err) {
-    console.error('Failed to load medic profile:', err);
-  }
-};
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

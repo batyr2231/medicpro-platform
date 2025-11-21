@@ -16,38 +16,49 @@ export default function MedicProfilePage() {
     loadMedicProfile();
   }, [medicId]);
 
-  const loadMedicProfile = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const userStr = localStorage.getItem('user');
-      
-      // ✅ ПРОВЕРКА: Запрещаем медикам смотреть профили
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        if (user.role === 'MEDIC') {
-          console.log('❌ Medics cannot view other medic profiles');
-          router.push('/medic/dashboard');
-          return;
-        }
-      }
-      
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/${medicId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-      setMedic(data);
-    } catch (err) {
-      console.error('Failed to load medic:', err);
-    } finally {
-      setLoading(false);
+const loadMedicProfile = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    
+    // ✅ ПРОВЕРКА 1: Требуем авторизацию
+    if (!token || !userStr) {
+      console.log('❌ Not authenticated');
+      router.push('/auth');
+      return;
     }
-  };
+    
+    // ✅ ПРОВЕРКА 2: Запрещаем медикам смотреть профили
+    const user = JSON.parse(userStr);
+    if (user.role === 'MEDIC') {
+      console.log('❌ Medics cannot view other medic profiles');
+      router.push('/medic/dashboard');
+      return;
+    }
+    
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/${medicId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      router.push('/auth');
+      return;
+    }
+
+    const data = await response.json();
+    setMedic(data);
+  } catch (err) {
+    console.error('Failed to load medic:', err);
+    router.push('/auth');
+  } finally {
+    setLoading(false);
+  }
+};
   
 
   if (loading) {
@@ -227,17 +238,20 @@ export default function MedicProfilePage() {
             </div>
           )}
 
-          {/* Кнопки связи */}
+          {/* Кнопка связи - Создать заказ для чата */}
           <button
             onClick={() => {
-              // Создаем временный заказ для чата или используем существующий
-              router.push(`/client/medics/${medicId}/chat`);
+              // Перенаправляем на создание заказа с предзаполненной специализацией
+              router.push(`/orders/create?medic=${medicId}&specialty=${encodeURIComponent(medic.specialization)}`);
             }}
             className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg shadow-cyan-500/30 transition-all flex items-center justify-center text-lg"
           >
             <MessageCircle className="w-6 h-6 mr-2" />
-            Написать в чат
+            Создать заказ
           </button>
+          <p className="text-center text-sm text-slate-400 mt-2">
+            Чат доступен после создания заказа
+          </p>
         </div>
 
         {/* Распределение рейтингов */}
