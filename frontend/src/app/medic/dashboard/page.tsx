@@ -175,9 +175,10 @@ export default function MedicDashboard() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      ACCEPTED: 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400',
+      ACCEPTED: 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400',
+      CONFIRMED: 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400',
       ON_THE_WAY: 'bg-purple-500/20 border-purple-500/30 text-purple-400',
-      STARTED: 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400',
+      STARTED: 'bg-blue-500/20 border-blue-500/30 text-blue-400',
       COMPLETED: 'bg-green-500/20 border-green-500/30 text-green-400',
       PAID: 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400',
     };
@@ -186,7 +187,8 @@ export default function MedicDashboard() {
 
   const getStatusText = (status: string) => {
     const texts: Record<string, string> = {
-      ACCEPTED: 'Принят',
+      ACCEPTED: 'Ожидание подтверждения',
+      CONFIRMED: 'Подтверждён',
       ON_THE_WAY: 'В пути',
       STARTED: 'На месте',
       COMPLETED: 'Завершён',
@@ -762,7 +764,16 @@ export default function MedicDashboard() {
                         )}
                     </button>
 
-                    {order.status === 'ACCEPTED' && (
+                    {order.status === 'ACCEPTED' && !order.confirmedByClient && (
+                      <div className="w-full p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-center">
+                        <div className="text-yellow-400 font-medium mb-2">⏳ Ожидание подтверждения</div>
+                        <div className="text-xs text-slate-400">
+                          Клиент должен подтвердить ваше назначение
+                        </div>
+                      </div>
+                    )}
+
+                    {order.status === 'CONFIRMED' && (
                       <button
                         onClick={() => handleStatusChange(order.id, 'ON_THE_WAY')}
                         className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 font-semibold shadow-lg transition-all flex items-center justify-center"
