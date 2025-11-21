@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast'; 
-import { ArrowLeft, MapPin, Clock, User, Phone, FileText, CheckCircle, Loader, AlertCircle, MessageSquare, X } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, User, Phone, FileText, CheckCircle, Loader, AlertCircle, MessageSquare, X, Star } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation'; 
 import { useOrders } from '../../../hooks/useOrders'; 
 
@@ -373,59 +373,139 @@ export default function OrderDetailPage() {
                 <h3 className="font-bold text-lg text-yellow-400 mb-2">
                   Подтвердите медика
                 </h3>
-                <p className="text-sm text-slate-300 mb-3">
-                  Медик <span className="font-semibold text-white">{order.medic?.name}</span> принял ваш заказ.
-                  Подтвердите, чтобы медик мог выехать к вам.
+                <p className="text-sm text-slate-300 mb-4">
+                  Медик принял ваш заказ. Ознакомьтесь с его профилем и подтвердите назначение.
                 </p>
                 
-                {/* Информация о медике */}
-                <div className="bg-white/5 rounded-xl p-3 mb-3 space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Телефон:</span>
-                    <a href={`tel:${order.medic?.phone}`} className="text-cyan-400 hover:text-cyan-300">
-                      {order.medic?.phone}
-                    </a>
+                {/* ✅ Карточка медика с фото */}
+                <div className="bg-white/5 rounded-xl p-4 mb-4 border border-white/10">
+                  <div className="flex items-center space-x-4 mb-3">
+                    {/* Аватар медика */}
+                    {order.medic?.avatar ? (
+                      <img
+                        src={order.medic.avatar}
+                        alt={order.medic.name}
+                        className="w-16 h-16 rounded-full object-cover border-2 border-cyan-500/30"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-2xl font-bold">
+                        {order.medic?.name?.[0]}
+                      </div>
+                    )}
+                    
+                    {/* Информация о медике */}
+                    <div className="flex-1">
+                      <div className="font-bold text-lg text-white mb-1">
+                        {order.medic?.name}
+                      </div>
+                      <div className="text-sm text-slate-400 mb-1">
+                        Медицинский специалист
+                      </div>
+                      <div className="flex items-center space-x-3 text-xs">
+                        <div className="flex items-center text-yellow-400">
+                          <Star className="w-4 h-4 mr-1" />
+                          <span>5.0</span>
+                        </div>
+                        <div className="text-slate-400">
+                          50+ заказов
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Рейтинг:</span>
-                    <span className="text-yellow-400">⭐ 5.0</span>
+
+                  {/* Контакты */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between py-2 border-t border-white/5">
+                      <span className="text-slate-400">Телефон:</span>
+                      <a 
+                        href={`tel:${order.medic?.phone}`} 
+                        className="text-cyan-400 hover:text-cyan-300 flex items-center"
+                      >
+                        <Phone className="w-4 h-4 mr-1" />
+                        {order.medic?.phone}
+                      </a>
+                    </div>
+                    <div className="flex items-center justify-between py-2 border-t border-white/5">
+                      <span className="text-slate-400">Опыт:</span>
+                      <span className="text-white font-medium">5+ лет</span>
+                    </div>
                   </div>
                 </div>
 
-                <button
-                  onClick={async () => {
-                    if (!confirm('Подтвердить этого медика?')) return;
-                    
-                    try {
-                      const token = localStorage.getItem('token');
-                      const response = await fetch(
-                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/confirm`,
-                        {
-                          method: 'POST',
-                          headers: {
-                            'Authorization': `Bearer ${token}`,
-                          },
-                        }
-                      );
-
-                      if (!response.ok) {
-                        throw new Error('Failed to confirm');
-                      }
-
-                      const result = await response.json();
-                      setOrder(result);
-                      alert('✅ Медик подтверждён! Он выезжает к вам.');
+                {/* ✅ Кнопки: Подтвердить и Отклонить */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Подтвердить */}
+                  <button
+                    onClick={async () => {
+                      if (!confirm('✅ Подтвердить этого медика?')) return;
                       
-                    } catch (err) {
-                      console.error('Confirm error:', err);
-                      alert('❌ Ошибка подтверждения');
-                    }
-                  }}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 font-semibold shadow-lg transition-all flex items-center justify-center"
-                >
-                  <CheckCircle className="w-5 h-5 mr-2" />
-                  Подтвердить медика
-                </button>
+                      try {
+                        const token = localStorage.getItem('token');
+                        const response = await fetch(
+                          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/confirm`,
+                          {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                            },
+                          }
+                        );
+
+                        if (!response.ok) {
+                          throw new Error('Failed to confirm');
+                        }
+
+                        const result = await response.json();
+                        setOrder(result);
+                        alert('✅ Медик подтверждён! Он выезжает к вам.');
+                        
+                      } catch (err) {
+                        console.error('Confirm error:', err);
+                        alert('❌ Ошибка подтверждения');
+                      }
+                    }}
+                    className="py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-semibold shadow-lg transition-all flex items-center justify-center"
+                  >
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    Подтвердить
+                  </button>
+
+                  {/* Отклонить */}
+                  <button
+                    onClick={async () => {
+                      if (!confirm('❌ Отклонить этого медика? Заказ вернётся в поиск нового медика.')) return;
+                      
+                      try {
+                        const token = localStorage.getItem('token');
+                        const response = await fetch(
+                          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/reject-medic`,
+                          {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                            },
+                          }
+                        );
+
+                        if (!response.ok) {
+                          throw new Error('Failed to reject');
+                        }
+
+                        const result = await response.json();
+                        setOrder(result);
+                        alert('✅ Медик отклонён. Ищем нового медика...');
+                        
+                      } catch (err) {
+                        console.error('Reject error:', err);
+                        alert('❌ Ошибка отклонения');
+                      }
+                    }}
+                    className="py-3 rounded-xl bg-red-500/20 border-2 border-red-500/30 text-red-400 hover:bg-red-500/30 font-semibold transition-all flex items-center justify-center"
+                  >
+                    <X className="w-5 h-5 mr-2" />
+                    Отклонить
+                  </button>
+                </div>
               </div>
             </div>
           </div>
