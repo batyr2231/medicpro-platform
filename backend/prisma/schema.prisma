@@ -25,6 +25,7 @@ enum MedicStatus {
 enum OrderStatus {
   NEW
   ACCEPTED
+  CONFIRMED       
   ON_THE_WAY
   STARTED
   COMPLETED
@@ -129,6 +130,8 @@ model Order {
   comment       String?
   status        OrderStatus @default(NEW)
   paymentStatus Boolean     @default(false)
+  confirmedByClient Boolean     @default(false)
+  confirmedAt       DateTime?
   price         Float?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt

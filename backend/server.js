@@ -799,6 +799,97 @@ app.post('/api/orders/:orderId/accept', authenticateToken, async (req, res) => {
   }
 });
 
+// Подтверждение медика клиентом
+app.post('/api/orders/:orderId/confirm', authenticateToken, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    console.log(`[CONFIRM] Client ${req.user.userId} confirming order ${orderId}`);
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        medic: {
+          select: {
+            telegramChatId: true,
+          }
+        },
+        client: {
+          select: {
+            name: true,
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Проверка что это клиент заказа
+    if (order.clientId !== req.user.userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Можно подтверждать только ACCEPTED заказы
+    if (order.status !== 'ACCEPTED') {
+      return res.status(400).json({ error: 'Order must be in ACCEPTED status' });
+    }
+
+    // Подтверждаем медика
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        confirmedByClient: true,
+        confirmedAt: new Date(),
+        status: 'CONFIRMED'
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
+        },
+        medic: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
+        }
+      }
+    });
+
+    console.log(`✅ Order ${orderId} confirmed by client`);
+
+    // Уведомляем медика
+    io.to(`user:${order.medicId}`).emit('order-confirmed', updatedOrder);
+
+    // Telegram уведомление медику
+    if (order.medic?.telegramChatId) {
+      try {
+        await sendTelegramMessage(
+          order.medic.telegramChatId,
+          `✅ *Клиент подтвердил заказ!*\n\n` +
+          `📋 Заказ #${orderId.substring(0, 8)}\n` +
+          `👤 Клиент: ${order.client.name}\n` +
+          `📍 ${order.city}, ${order.district}\n\n` +
+          `Можете выезжать к клиенту! 🚗`
+        );
+      } catch (telegramError) {
+        console.error('❌ Telegram notification error:', telegramError);
+      }
+    }
+
+    res.json(updatedOrder);
+  } catch (error) {
+    console.error('❌ Confirm order error:', error);
+    res.status(500).json({ error: 'Failed to confirm order' });
+  }
+});
+
 // Изменение статуса заказа
 app.patch('/api/orders/:orderId/status', authenticateToken, async (req, res) => {
   try {
