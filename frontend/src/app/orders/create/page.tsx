@@ -240,7 +240,7 @@ export default function CreateOrderPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
                     <Calendar className="w-4 h-4 mr-2" />
-                    Дата
+                    Дата <span className="text-red-400 ml-1">*</span>
                   </label>
                   <input
                     type="date"
@@ -249,14 +249,18 @@ export default function CreateOrderPage() {
                     min={new Date().toISOString().split('T')[0]}
                     className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors"
                     required
+                    placeholder="Выберите дату" // ← Добавлено
                   />
+                  {!formData.date && (
+                    <p className="text-xs text-red-400 mt-1">⚠️ Выберите дату визита</p>
+                  )}
                 </div>
 
                 {/* Time */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
                     <Clock className="w-4 h-4 mr-2" />
-                    Время
+                    Время <span className="text-red-400 ml-1">*</span>
                   </label>
                   <input
                     type="time"
@@ -264,7 +268,11 @@ export default function CreateOrderPage() {
                     onChange={(e) => handleChange('time', e.target.value)}
                     className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors"
                     required
+                    placeholder="Выберите время" // ← Добавлено
                   />
+                  {!formData.time && (
+                    <p className="text-xs text-red-400 mt-1">⚠️ Выберите время визита</p>
+                  )}
                 </div>
                 {/* Price */}
                 <div>
@@ -281,7 +289,7 @@ export default function CreateOrderPage() {
                     className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors"
                   />
                   <p className="text-xs text-slate-400 mt-2">
-                    * Необязательно. Окончательная цена будет согласована с медиком
+                    Окончательная цена будет согласована с медиком
                   </p>
                 </div>
               </div>
@@ -296,8 +304,30 @@ export default function CreateOrderPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => formData.district && formData.address && formData.date && formData.time && setStep(3)}
-                  disabled={!formData.district || !formData.address || !formData.date || !formData.time}
+                  onClick={() => {
+                    if (!formData.city) {
+                      alert('❌ Выберите город');
+                      return;
+                    }
+                    if (!formData.district) {
+                      alert('❌ Выберите район');
+                      return;
+                    }
+                    if (!formData.address) {
+                      alert('❌ Введите адрес');
+                      return;
+                    }
+                    if (!formData.date) {
+                      alert('❌ Выберите дату визита');
+                      return;
+                    }
+                    if (!formData.time) {
+                      alert('❌ Выберите время визита');
+                      return;
+                    }
+                    setStep(3); // ← Переходим на Шаг 3
+                  }}
+                  disabled={!formData.city || !formData.district || !formData.address || !formData.date || !formData.time}
                   className="px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg shadow-blue-500/30 transition-all flex items-center"
                 >
                   Далее
