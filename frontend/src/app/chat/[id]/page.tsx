@@ -23,6 +23,7 @@ export default function ChatPage() {
   const [showMedicProfile, setShowMedicProfile] = useState(false);
   const [medicProfile, setMedicProfile] = useState<any>(null);
   const { messages, loading, error, sendMessage } = useChat(orderId);
+  const [medicId, setMedicId] = useState<string>('');
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -53,6 +54,27 @@ export default function ChatPage() {
       const result = await response.json();
       if (response.ok) {
         setOrderInfo(result);
+        
+        // ✅ ДОБАВЛЕНО: Если есть медик, находим его medicId
+        if (result.medic?.id) {
+          try {
+            const medicResponse = await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/profile-by-user/${result.medic.id}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              }
+            );
+            
+            if (medicResponse.ok) {
+              const medicData = await medicResponse.json();
+              setMedicId(medicData.id); // Сохраняем medicId
+            }
+          } catch (err) {
+            console.error('Failed to get medicId:', err);
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to load order info:', err);
@@ -501,29 +523,33 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             )}
 
             {/* Кнопки действий */}
+            {/* Кнопки действий */}
             <div className="space-y-3">
               {/* Позвонить */}
-              <a
-                href={`tel:${medicProfile.phone}`}
-                className="w-full py-3 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 font-semibold transition-all flex items-center justify-center"
-              >
-                <Phone className="w-5 h-5 mr-2" />
-                Позвонить
-              </a>
+              {medicProfile.phone && (
+                <a
+                  href={`tel:${medicProfile.phone}`}
+                  className="w-full py-3 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 font-semibold transition-all flex items-center justify-center"
+                >
+                  <Phone className="w-5 h-5 mr-2" />
+                  Позвонить
+                </a>
+              )}
 
-              {/* ✅ НОВАЯ КНОПКА: Профиль медика */}
-              <button
-                onClick={() => {
-                  setShowMedicProfile(false);
-                  // Сохраняем orderId для возврата
-                  sessionStorage.setItem('returnToOrder', orderId);
-                  router.push(`/client/medics/${medicProfile.id}`);
-                }}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all flex items-center justify-center"
-              >
-                <User className="w-5 h-5 mr-2" />
-                Открыть профиль медика
-              </button>
+              {/* ✅ Профиль медика - показываем только если medicId загружен */}
+              {medicId && (
+                <button
+                  onClick={() => {
+                    setShowMedicProfile(false);
+                    sessionStorage.setItem('returnToOrder', orderId);
+                    router.push(`/client/medics/${medicId}`);
+                  }}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all flex items-center justify-center"
+                >
+                  <User className="w-5 h-5 mr-2" />
+                  Открыть профиль медика
+                </button>
+              )}
 
               {/* Детали заказа */}
               <button
