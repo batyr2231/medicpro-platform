@@ -1264,6 +1264,7 @@ app.post('/api/orders/:orderId/payment-received', authenticateToken, async (req,
   }
 });
 
+
   // Отменить заказ (клиент может отменить только NEW заказы)
   app.post('/api/orders/:orderId/cancel', authenticateToken, async (req, res) => {
     try {
@@ -1273,7 +1274,6 @@ app.post('/api/orders/:orderId/payment-received', authenticateToken, async (req,
       const order = await prisma.order.findUnique({
         where: { id: orderId },
         include: {
-          medic: true,
           client: {
             select: { name: true }
           }
@@ -1301,23 +1301,54 @@ app.post('/api/orders/:orderId/payment-received', authenticateToken, async (req,
         },
       });
 
-      // ✅ ДОБАВЛЕНО: Telegram уведомление медику (если заказ был принят)
-      if (order.medicId && order.medic?.telegramChatId) {
-        try {
-          await sendTelegramMessage(
-            order.medic.telegramChatId,
-            `❌ *Клиент отменил заказ*\n\n` +
-            `📋 Заказ #${orderId.substring(0, 8)}\n` +
-            `👤 Клиент: ${order.client.name}\n` +
-            `📍 ${order.city}, ${order.district}\n` +
-            `🕐 ${new Date(order.scheduledTime).toLocaleString('ru-RU')}\n\n` +
-            `Заказ был отменён клиентом.`
-          );
-          console.log('📱 Cancellation notification sent to medic');
-        } catch (telegramError) {
-          console.error('❌ Telegram notification error:', telegramError);
+      console.log(`❌ Order ${orderId} cancelled by client`);
+
+      // ✅ ИСПРАВЛЕНО: Уведомляем ВСЕХ медиков в этом районе с подходящей специализацией
+      try {
+        // Извлекаем ключевое слово специализации
+        let specialtyKeyword = order.serviceType;
+        if (order.serviceType.includes('Медсестра')) specialtyKeyword = 'Медсестра';
+        else if (order.serviceType.includes('Терапевт')) specialtyKeyword = 'Терапевт';
+        else if (order.serviceType.includes('Педиатр')) specialtyKeyword = 'Педиатр';
+        else if (order.serviceType.includes('Врач общей практики')) specialtyKeyword = 'Врач общей практики';
+
+        const medicsInArea = await prisma.medic.findMany({
+          where: {
+            areas: { has: order.district },
+            status: 'APPROVED',
+            telegramChatId: { not: null },
+            specialty: { contains: specialtyKeyword }
+          }
+        });
+
+        console.log(`📱 Sending cancellation to ${medicsInArea.length} medics`);
+
+        // Отправляем уведомления всем медикам
+        for (const medic of medicsInArea) {
+          try {
+            await sendTelegramMessage(
+              medic.telegramChatId,
+              `❌ *Заказ отменён клиентом*\n\n` +
+              `📋 Заказ #${orderId.substring(0, 8)}\n` +
+              `👤 Клиент: ${order.client.name}\n` +
+              `📍 ${order.city}, ${order.district}\n` +
+              `💉 ${order.serviceType}\n` +
+              `🕐 ${new Date(order.scheduledTime).toLocaleString('ru-RU')}\n\n` +
+              `Заказ был отменён клиентом.`
+            );
+          } catch (err) {
+            console.error(`Failed to send to medic ${medic.id}:`, err);
+          }
         }
+
+        console.log(`✅ Cancellation notifications sent to ${medicsInArea.length} medics`);
+
+      } catch (telegramError) {
+        console.error('❌ Telegram notification error:', telegramError);
       }
+
+      // WebSocket уведомление
+      io.to(`medics-city-${order.district}`).emit('order-cancelled', { orderId });
 
       res.json(updatedOrder);
     } catch (error) {
