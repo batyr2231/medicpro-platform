@@ -133,6 +133,7 @@ model Order {
   confirmedByClient Boolean     @default(false)
   confirmedAt       DateTime?
   price         Float?
+  rejectedMedicIds String[]   @default([])
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   acceptedAt    DateTime?

@@ -575,93 +575,100 @@ app.get('/api/cities/:city/districts', (req, res) => {
       res.status(500).json({ error: 'Failed to fetch orders' });
     }
   });
-  // Получение новых заказов для медика С ФИЛЬТРАЦИЕЙ ПО СПЕЦИАЛИЗАЦИИ
-  app.get('/api/orders/available', authenticateToken, async (req, res) => {
-    try {
-      console.log('📋 Getting available orders for user:', req.user.userId);
-      
-      const medic = await prisma.medic.findUnique({
-        where: { userId: req.user.userId }
-      });
+  
+// Получение новых заказов для медика С ФИЛЬТРАЦИЕЙ ПО СПЕЦИАЛИЗАЦИИ И ОТКЛОНЕНИЯМ
+app.get('/api/orders/available', authenticateToken, async (req, res) => {
+  try {
+    console.log('📋 Getting available orders for user:', req.user.userId);
+    
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
+    });
 
-      if (!medic) {
-        console.log('❌ User is not a medic');
-        return res.status(403).json({ error: 'Not a medic' });
-      }
-
-      console.log('✅ Medic found:', {
-        id: medic.id,
-        specialty: medic.specialty,
-        areas: medic.areas,
-        status: medic.status
-      });
-
-      if (medic.status !== 'APPROVED') {
-        console.log('⚠️ Medic not approved, status:', medic.status);
-        return res.json([]);
-      }
-
-      if (!medic.areas || medic.areas.length === 0) {
-        console.log('⚠️ Medic has no areas configured');
-        return res.json([]);
-      }
-
-      if (!medic.specialty) {
-        console.log('⚠️ Medic has no specialty configured');
-        return res.json([]);
-      }
-
-      console.log('🔍 Searching orders in districts:', medic.areas);
-      console.log('🎯 Matching specialty:', medic.specialty);
-
-      // ✅ НОВАЯ ЛОГИКА: Фильтрация по специализации
-      const orders = await prisma.order.findMany({
-        where: {
-          status: 'NEW',
-          city: medic.city,
-          district: {
-            in: medic.areas
-          },
-          // ← КРИТИЧНО: Фильтруем по специализации!
-          serviceType: {
-            contains: medic.specialty // Например: "Медсестра" содержится в "💉 Медсестра на дом"
-          }
-        },
-        include: {
-          client: {
-            select: {
-              id: true,
-              name: true,
-              phone: true
-            }
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
-
-      console.log('✅ Found', orders.length, 'available orders matching specialty');
-      if (orders.length > 0) {
-        console.log('📦 Orders:', orders.map(o => ({ 
-          id: o.id.substring(0, 8), 
-          district: o.district, 
-          serviceType: o.serviceType,
-          status: o.status 
-        })));
-      } else {
-        console.log('📭 No orders found matching:', {
-          districts: medic.areas,
-          specialty: medic.specialty
-        });
-      }
-
-      res.json(orders);
-    } catch (error) {
-      console.error('❌ Fetch available orders error:', error);
-      res.status(500).json({ error: 'Failed to fetch orders' });
+    if (!medic) {
+      console.log('❌ User is not a medic');
+      return res.status(403).json({ error: 'Not a medic' });
     }
-  });
+
+    console.log('✅ Medic found:', {
+      id: medic.id,
+      specialty: medic.specialty,
+      areas: medic.areas,
+      status: medic.status
+    });
+
+    if (medic.status !== 'APPROVED') {
+      console.log('⚠️ Medic not approved, status:', medic.status);
+      return res.json([]);
+    }
+
+    if (!medic.areas || medic.areas.length === 0) {
+      console.log('⚠️ Medic has no areas configured');
+      return res.json([]);
+    }
+
+    if (!medic.specialty) {
+      console.log('⚠️ Medic has no specialty configured');
+      return res.json([]);
+    }
+
+    console.log('🔍 Searching orders in districts:', medic.areas);
+    console.log('🎯 Matching specialty:', medic.specialty);
+
+    // ✅ ОБНОВЛЕНО: Фильтрация по специализации И по отклонениям
+    const orders = await prisma.order.findMany({
+      where: {
+        status: 'NEW',
+        city: medic.city,
+        district: {
+          in: medic.areas
+        },
+        serviceType: {
+          contains: medic.specialty
+        },
+        // ✅ КРИТИЧНО: Исключаем заказы где этот медик был отклонён!
+        NOT: {
+          rejectedMedicIds: {
+            has: req.user.userId
+          }
+        }
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    console.log('✅ Found', orders.length, 'available orders (excluding rejected)');
+    if (orders.length > 0) {
+      console.log('📦 Orders:', orders.map(o => ({ 
+        id: o.id.substring(0, 8), 
+        district: o.district, 
+        serviceType: o.serviceType,
+        status: o.status 
+      })));
+    } else {
+      console.log('📭 No orders found matching:', {
+        districts: medic.areas,
+        specialty: medic.specialty,
+        note: 'Excluding orders where medic was rejected'
+      });
+    }
+
+    res.json(orders);
+  } catch (error) {
+    console.error('❌ Fetch available orders error:', error);
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
 
 
 // Получение одного заказа по ID
@@ -910,7 +917,11 @@ app.post('/api/orders/:orderId/reject-medic', authenticateToken, async (req, res
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        medic: true,
+        medic: {
+          select: {
+            telegramChatId: true,
+          }
+        },
         client: {
           select: {
             name: true,
@@ -935,6 +946,10 @@ app.post('/api/orders/:orderId/reject-medic', authenticateToken, async (req, res
 
     const rejectedMedicId = order.medicId;
 
+    // ✅ ДОБАВЛЯЕМ отклонённого медика в список
+    const currentRejectedIds = order.rejectedMedicIds || [];
+    const updatedRejectedIds = [...currentRejectedIds, rejectedMedicId];
+
     // Возвращаем заказ в статус NEW, убираем медика
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
@@ -944,6 +959,7 @@ app.post('/api/orders/:orderId/reject-medic', authenticateToken, async (req, res
         acceptedAt: null,
         confirmedByClient: false,
         confirmedAt: null,
+        rejectedMedicIds: updatedRejectedIds, // ✅ СОХРАНЯЕМ СПИСОК!
       },
       include: {
         client: {
@@ -956,7 +972,8 @@ app.post('/api/orders/:orderId/reject-medic', authenticateToken, async (req, res
       }
     });
 
-    console.log(`✅ Order ${orderId} returned to NEW status, medic rejected`);
+    console.log(`✅ Order ${orderId} returned to NEW status, medic ${rejectedMedicId} rejected`);
+    console.log(`📝 Rejected medics list:`, updatedRejectedIds);
 
     // Уведомляем отклонённого медика
     io.to(`user:${rejectedMedicId}`).emit('order-rejected', { orderId });
@@ -985,97 +1002,6 @@ app.post('/api/orders/:orderId/reject-medic', authenticateToken, async (req, res
     res.status(500).json({ error: 'Failed to reject medic' });
   }
 });
-
-
-  // Отклонение медика клиентом
-  app.post('/api/orders/:orderId/reject-medic', authenticateToken, async (req, res) => {
-    try {
-      const { orderId } = req.params;
-
-      console.log(`[REJECT] Client ${req.user.userId} rejecting medic for order ${orderId}`);
-
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-          medic: {
-            select: {
-              telegramChatId: true,
-            }
-          },
-          client: {
-            select: {
-              name: true,
-            }
-          }
-        }
-      });
-
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
-
-      // Проверка что это клиент заказа
-      if (order.clientId !== req.user.userId) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-
-      // Можно отклонять только ACCEPTED заказы
-      if (order.status !== 'ACCEPTED') {
-        return res.status(400).json({ error: 'Order must be in ACCEPTED status' });
-      }
-
-      const rejectedMedicId = order.medicId;
-
-      // Возвращаем заказ в статус NEW, убираем медика
-      const updatedOrder = await prisma.order.update({
-        where: { id: orderId },
-        data: {
-          medicId: null,
-          status: 'NEW',
-          acceptedAt: null,
-          confirmedByClient: false,
-          confirmedAt: null,
-        },
-        include: {
-          client: {
-            select: {
-              id: true,
-              name: true,
-              phone: true
-            }
-          }
-        }
-      });
-
-      console.log(`✅ Order ${orderId} returned to NEW status, medic rejected`);
-
-      // Уведомляем отклонённого медика
-      io.to(`user:${rejectedMedicId}`).emit('order-rejected', { orderId });
-
-      // Telegram уведомление отклонённому медику
-      if (order.medic?.telegramChatId) {
-        try {
-          await sendTelegramMessage(
-            order.medic.telegramChatId,
-            `❌ *Клиент отклонил ваше назначение*\n\n` +
-            `📋 Заказ #${orderId.substring(0, 8)}\n` +
-            `👤 Клиент: ${order.client.name}\n\n` +
-            `Заказ вернулся в поиск другого медика.`
-          );
-        } catch (telegramError) {
-          console.error('❌ Telegram notification error:', telegramError);
-        }
-      }
-
-      // Уведомляем других медиков о доступном заказе
-      io.to(`medics-city-${order.district}`).emit('new-order', updatedOrder);
-
-      res.json(updatedOrder);
-    } catch (error) {
-      console.error('❌ Reject medic error:', error);
-      res.status(500).json({ error: 'Failed to reject medic' });
-    }
-  });
 
 // Изменение статуса заказа
 app.patch('/api/orders/:orderId/status', authenticateToken, async (req, res) => {
