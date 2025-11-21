@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader, X, MapPin } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader, X, MapPin, Phone } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useChat } from '../../hooks/useChat';
 
@@ -59,45 +59,18 @@ export default function ChatPage() {
     }
   };
 
-  const loadMedicProfile = async (userId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      // ✅ ИСПРАВЛЕНО: Сначала находим medicId по userId
-      const profileResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/profile-by-user/${userId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!profileResponse.ok) {
-        console.error('Failed to find medic profile');
-        return;
-      }
-
-      const profileData = await profileResponse.json();
-      
-      // Теперь загружаем полный профиль медика
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/${profileData.id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      const result = await response.json();
-      if (response.ok) {
-        setMedicProfile(result);
-        setShowMedicProfile(true);
-      }
-    } catch (err) {
-      console.error('Failed to load medic profile:', err);
-    }
+  const loadMedicProfile = () => {
+    if (!orderInfo?.medic) return;
+    
+    // ✅ БЫСТРО: Используем данные которые уже есть из orderInfo
+    setMedicProfile({
+      id: orderInfo.medic.id,
+      name: orderInfo.medic.name,
+      phone: orderInfo.medic.phone,
+      avatar: orderInfo.medic.avatar,
+      specialization: 'Медицинский специалист', // Базовая инфа
+    });
+    setShowMedicProfile(true);
   };
 
   const scrollToBottom = () => {
@@ -223,7 +196,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             {/* ✅ АВАТАР МЕДИКА - КЛИКАБЕЛЬНЫЙ */}
             {orderInfo?.medic && (
               <button
-                onClick={() => loadMedicProfile(orderInfo.medic.id)}
+                onClick={() => loadMedicProfile()} // ← ИСПРАВЛЕНО: убрали параметр
                 className="group relative"
                 title="Нажмите чтобы открыть профиль медика"
               >
@@ -453,14 +426,15 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           </form>
         </div>
       </div>
-            {/* Модальное окно профиля медика */}
+
+      {/* Модальное окно профиля медика */}
       {showMedicProfile && medicProfile && (
         <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-fade-in"
           onClick={() => setShowMedicProfile(false)}
         >
           <div 
-            className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/20 p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+            className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/20 p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Кнопка закрытия */}
@@ -485,28 +459,38 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 </div>
               )}
               <h2 className="text-2xl font-bold mb-2">{medicProfile.name}</h2>
-              <p className="text-cyan-400 mb-2">{medicProfile.specialization}</p>
-              <div className="flex items-center justify-center space-x-2 text-slate-400 text-sm">
-                <MapPin className="w-4 h-4" />
-                <span>{medicProfile.city}</span>
-              </div>
+              <p className="text-cyan-400 mb-2">{medicProfile.specialization || 'Медицинский специалист'}</p>
+              {medicProfile.phone && (
+                <div className="flex items-center justify-center space-x-2 text-slate-400 text-sm">
+                  <Phone className="w-4 h-4" />
+                  <span>{medicProfile.phone}</span>
+                </div>
+              )}
             </div>
 
-            {/* Статистика */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="text-center p-3 rounded-xl bg-white/5">
-                <div className="text-xl font-bold text-cyan-400">{medicProfile.avgRating || '5.0'}</div>
-                <div className="text-xs text-slate-400">Рейтинг</div>
+            {/* Статистика - показываем только если есть данные */}
+            {(medicProfile.avgRating || medicProfile.experience || medicProfile.reviewCount) && (
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                {medicProfile.avgRating && (
+                  <div className="text-center p-3 rounded-xl bg-white/5">
+                    <div className="text-xl font-bold text-cyan-400">{medicProfile.avgRating}</div>
+                    <div className="text-xs text-slate-400">Рейтинг</div>
+                  </div>
+                )}
+                {medicProfile.experience && (
+                  <div className="text-center p-3 rounded-xl bg-white/5">
+                    <div className="text-xl font-bold text-green-400">{medicProfile.experience}</div>
+                    <div className="text-xs text-slate-400">Лет опыта</div>
+                  </div>
+                )}
+                {medicProfile.reviewCount !== undefined && (
+                  <div className="text-center p-3 rounded-xl bg-white/5">
+                    <div className="text-xl font-bold text-purple-400">{medicProfile.reviewCount}</div>
+                    <div className="text-xs text-slate-400">Отзывов</div>
+                  </div>
+                )}
               </div>
-              <div className="text-center p-3 rounded-xl bg-white/5">
-                <div className="text-xl font-bold text-green-400">{medicProfile.experience}</div>
-                <div className="text-xs text-slate-400">Лет опыта</div>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-white/5">
-                <div className="text-xl font-bold text-purple-400">{medicProfile.reviewCount || 0}</div>
-                <div className="text-xs text-slate-400">Отзывов</div>
-              </div>
-            </div>
+            )}
 
             {/* О себе */}
             {medicProfile.bio && (
@@ -516,16 +500,30 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
               </div>
             )}
 
-            {/* Кнопка полного профиля */}
-            <button
-              onClick={() => {
-                setShowMedicProfile(false);
-                router.push(`/client/medics/${medicProfile.id}`);
-              }}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all"
-            >
-              Открыть полный профиль
-            </button>
+            {/* Кнопки действий */}
+            <div className="space-y-3">
+              {/* Позвонить */}
+              <a
+                href={`tel:${medicProfile.phone}`}
+                className="w-full py-3 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 font-semibold transition-all flex items-center justify-center"
+              >
+                <Phone className="w-5 h-5 mr-2" />
+                Позвонить
+              </a>
+
+              {/* Полный профиль - только если есть medicProfile.id для полной версии */}
+              {medicProfile.fullProfileAvailable && (
+                <button
+                  onClick={() => {
+                    setShowMedicProfile(false);
+                    router.push(`/client/medics/${medicProfile.id}`);
+                  }}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all"
+                >
+                  Открыть полный профиль
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
