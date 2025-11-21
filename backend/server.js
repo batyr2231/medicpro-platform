@@ -561,79 +561,93 @@ app.get('/api/cities/:city/districts', (req, res) => {
       res.status(500).json({ error: 'Failed to fetch orders' });
     }
   });
-// Получение новых заказов для медика
-app.get('/api/orders/available', authenticateToken, async (req, res) => {
-  try {
-    console.log('📋 Getting available orders for user:', req.user.userId);
-    
-    const medic = await prisma.medic.findUnique({
-      where: { userId: req.user.userId }
-    });
+  // Получение новых заказов для медика С ФИЛЬТРАЦИЕЙ ПО СПЕЦИАЛИЗАЦИИ
+  app.get('/api/orders/available', authenticateToken, async (req, res) => {
+    try {
+      console.log('📋 Getting available orders for user:', req.user.userId);
+      
+      const medic = await prisma.medic.findUnique({
+        where: { userId: req.user.userId }
+      });
 
-    if (!medic) {
-      console.log('❌ User is not a medic');
-      return res.status(403).json({ error: 'Not a medic' });
-    }
-
-    console.log('✅ Medic found:', {
-      id: medic.id,
-      specialty: medic.specialty,
-      areas: medic.areas,
-      status: medic.status
-    });
-
-    if (medic.status !== 'APPROVED') {
-      console.log('⚠️ Medic not approved, status:', medic.status);
-      return res.json([]); // Возвращаем пустой массив если не одобрен
-    }
-
-    if (!medic.areas || medic.areas.length === 0) {
-      console.log('⚠️ Medic has no areas configured');
-      return res.json([]);
-    }
-
-    console.log('🔍 Searching orders in districts:', medic.areas);
-
-    const orders = await prisma.order.findMany({
-      where: {
-        status: 'NEW',
-        city: medic.city,
-        district: {
-          in: medic.areas
-        }
-      },
-      include: {
-        client: {
-          select: {
-            id: true,
-            name: true,
-            phone: true
-          }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
+      if (!medic) {
+        console.log('❌ User is not a medic');
+        return res.status(403).json({ error: 'Not a medic' });
       }
-    });
 
-    console.log('✅ Found', orders.length, 'available orders');
-    if (orders.length > 0) {
-      console.log('📦 Orders:', orders.map(o => ({ 
-        id: o.id.substring(0, 8), 
-        district: o.district, 
-        serviceType: o.serviceType,
-        status: o.status 
-      })));
-    } else {
-      console.log('📭 No orders found matching districts:', medic.areas);
+      console.log('✅ Medic found:', {
+        id: medic.id,
+        specialty: medic.specialty,
+        areas: medic.areas,
+        status: medic.status
+      });
+
+      if (medic.status !== 'APPROVED') {
+        console.log('⚠️ Medic not approved, status:', medic.status);
+        return res.json([]);
+      }
+
+      if (!medic.areas || medic.areas.length === 0) {
+        console.log('⚠️ Medic has no areas configured');
+        return res.json([]);
+      }
+
+      if (!medic.specialty) {
+        console.log('⚠️ Medic has no specialty configured');
+        return res.json([]);
+      }
+
+      console.log('🔍 Searching orders in districts:', medic.areas);
+      console.log('🎯 Matching specialty:', medic.specialty);
+
+      // ✅ НОВАЯ ЛОГИКА: Фильтрация по специализации
+      const orders = await prisma.order.findMany({
+        where: {
+          status: 'NEW',
+          city: medic.city,
+          district: {
+            in: medic.areas
+          },
+          // ← КРИТИЧНО: Фильтруем по специализации!
+          serviceType: {
+            contains: medic.specialty // Например: "Медсестра" содержится в "💉 Медсестра на дом"
+          }
+        },
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+              phone: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      console.log('✅ Found', orders.length, 'available orders matching specialty');
+      if (orders.length > 0) {
+        console.log('📦 Orders:', orders.map(o => ({ 
+          id: o.id.substring(0, 8), 
+          district: o.district, 
+          serviceType: o.serviceType,
+          status: o.status 
+        })));
+      } else {
+        console.log('📭 No orders found matching:', {
+          districts: medic.areas,
+          specialty: medic.specialty
+        });
+      }
+
+      res.json(orders);
+    } catch (error) {
+      console.error('❌ Fetch available orders error:', error);
+      res.status(500).json({ error: 'Failed to fetch orders' });
     }
-
-    res.json(orders);
-  } catch (error) {
-    console.error('❌ Fetch available orders error:', error);
-    res.status(500).json({ error: 'Failed to fetch orders' });
-  }
-});
+  });
 
 
 // Получение одного заказа по ID
