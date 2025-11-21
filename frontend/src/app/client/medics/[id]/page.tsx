@@ -19,6 +19,18 @@ export default function MedicProfilePage() {
   const loadMedicProfile = async () => {
     try {
       const token = localStorage.getItem('token');
+      const userStr = localStorage.getItem('user');
+      
+      // ✅ ПРОВЕРКА: Запрещаем медикам смотреть профили
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user.role === 'MEDIC') {
+          console.log('❌ Medics cannot view other medic profiles');
+          router.push('/medic/dashboard');
+          return;
+        }
+      }
+      
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/${medicId}`,
         {
@@ -36,6 +48,7 @@ export default function MedicProfilePage() {
       setLoading(false);
     }
   };
+  
 
   if (loading) {
     return (
@@ -215,24 +228,16 @@ export default function MedicProfilePage() {
           )}
 
           {/* Кнопки связи */}
-          <div className="grid grid-cols-2 gap-2 md:gap-3">
-            <a 
-              href={`tel:${medic.phone}`}
-              className="flex items-center justify-center space-x-1.5 md:space-x-2 py-2.5 md:py-3 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition-all text-sm md:text-base"
-            >
-              <Phone className="w-4 h-4 md:w-5 md:h-5" />
-              <span>Позвонить</span>
-            </a>
-            <a
-              href={`https://wa.me/${medic.phone.replace(/[^0-9]/g, '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center space-x-1.5 md:space-x-2 py-2.5 md:py-3 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition-all text-sm md:text-base"
-            >
-              <MessageCircle className="w-4 h-4 md:w-5 md:h-5" />
-              <span>WhatsApp</span>
-            </a>
-          </div>
+          <button
+            onClick={() => {
+              // Создаем временный заказ для чата или используем существующий
+              router.push(`/client/medics/${medicId}/chat`);
+            }}
+            className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg shadow-cyan-500/30 transition-all flex items-center justify-center text-lg"
+          >
+            <MessageCircle className="w-6 h-6 mr-2" />
+            Написать в чат
+          </button>
         </div>
 
         {/* Распределение рейтингов */}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader, X} from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader, X, MapPin } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useChat } from '../../hooks/useChat';
 
@@ -20,7 +20,8 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  
+  const [showMedicProfile, setShowMedicProfile] = useState(false);
+  const [medicProfile, setMedicProfile] = useState<any>(null);
   const { messages, loading, error, sendMessage } = useChat(orderId);
 
   useEffect(() => {
@@ -57,6 +58,28 @@ export default function ChatPage() {
       console.error('Failed to load order info:', err);
     }
   };
+
+  const loadMedicProfile = async (medicId: string) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/${medicId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      }
+    );
+
+    const result = await response.json();
+    if (response.ok) {
+      setMedicProfile(result);
+      setShowMedicProfile(true);
+    }
+  } catch (err) {
+    console.error('Failed to load medic profile:', err);
+  }
+};
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -154,8 +177,6 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 
                 try {
                   const user = JSON.parse(userStr);
-                  console.log('👤 Current user role:', user.role); // Для отладки
-                  
                   if (user.role === 'MEDIC') {
                     router.push('/medic/dashboard');
                   } else if (user.role === 'CLIENT') {
@@ -174,11 +195,39 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
+
             <div className="text-center flex-1">
               <div className="font-semibold">Чат с {orderInfo?.medic?.name || orderInfo?.client?.name || 'пользователем'}</div>
               <div className="text-xs text-slate-400">Заказ #{orderId.slice(0, 8)}</div>
             </div>
-            <div className="w-20"></div>
+
+            {/* ✅ АВАТАР МЕДИКА - КЛИКАБЕЛЬНЫЙ */}
+            {orderInfo?.medic && (
+              <button
+                onClick={() => loadMedicProfile(orderInfo.medic.id)}
+                className="group relative"
+                title="Нажмите чтобы открыть профиль медика"
+              >
+                {orderInfo.medic.avatar ? (
+                  <img
+                    src={orderInfo.medic.avatar}
+                    alt={orderInfo.medic.name}
+                    className="w-10 h-10 rounded-full object-cover border-2 border-cyan-500/30 group-hover:border-cyan-500 transition-all cursor-pointer"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-lg font-bold group-hover:scale-110 transition-transform cursor-pointer">
+                    {orderInfo.medic.name[0]}
+                  </div>
+                )}
+                {/* Индикатор кликабельности */}
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-cyan-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                    <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
+                  </svg>
+                </div>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -385,6 +434,82 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           </form>
         </div>
       </div>
+            {/* Модальное окно профиля медика */}
+      {showMedicProfile && medicProfile && (
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+          onClick={() => setShowMedicProfile(false)}
+        >
+          <div 
+            className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/20 p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Кнопка закрытия */}
+            <button
+              onClick={() => setShowMedicProfile(false)}
+              className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Аватар и имя */}
+            <div className="text-center mb-6">
+              {medicProfile.avatar ? (
+                <img
+                  src={medicProfile.avatar}
+                  alt={medicProfile.name}
+                  className="w-24 h-24 rounded-full object-cover border-4 border-cyan-500/30 shadow-xl mx-auto mb-4"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-4xl font-bold shadow-xl mx-auto mb-4">
+                  {medicProfile.name[0]}
+                </div>
+              )}
+              <h2 className="text-2xl font-bold mb-2">{medicProfile.name}</h2>
+              <p className="text-cyan-400 mb-2">{medicProfile.specialization}</p>
+              <div className="flex items-center justify-center space-x-2 text-slate-400 text-sm">
+                <MapPin className="w-4 h-4" />
+                <span>{medicProfile.city}</span>
+              </div>
+            </div>
+
+            {/* Статистика */}
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="text-center p-3 rounded-xl bg-white/5">
+                <div className="text-xl font-bold text-cyan-400">{medicProfile.avgRating || '5.0'}</div>
+                <div className="text-xs text-slate-400">Рейтинг</div>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-white/5">
+                <div className="text-xl font-bold text-green-400">{medicProfile.experience}</div>
+                <div className="text-xs text-slate-400">Лет опыта</div>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-white/5">
+                <div className="text-xl font-bold text-purple-400">{medicProfile.reviewCount || 0}</div>
+                <div className="text-xs text-slate-400">Отзывов</div>
+              </div>
+            </div>
+
+            {/* О себе */}
+            {medicProfile.bio && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2">О себе</h3>
+                <p className="text-slate-300 text-sm">{medicProfile.bio}</p>
+              </div>
+            )}
+
+            {/* Кнопка полного профиля */}
+            <button
+              onClick={() => {
+                setShowMedicProfile(false);
+                router.push(`/client/medics/${medicProfile.id}`);
+              }}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all"
+            >
+              Открыть полный профиль
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
