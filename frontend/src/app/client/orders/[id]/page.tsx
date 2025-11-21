@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast'; 
-import { ArrowLeft, MapPin, Clock, User, Phone, FileText, CheckCircle, Loader, AlertCircle, MessageSquare } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, User, Phone, FileText, CheckCircle, Loader, AlertCircle, MessageSquare, X } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation'; 
 import { useOrders } from '../../../hooks/useOrders'; 
 
@@ -534,11 +534,11 @@ export default function OrderDetailPage() {
           </div>
         )}
 
-        {/* Cancel Button */}
+        {/* Кнопка отмены - только для NEW заказов */}
         {order.status === 'NEW' && (
           <button
             onClick={async () => {
-              if (!confirm('Вы уверены, что хотите отменить заказ?')) return;
+              if (!confirm('❌ Отменить заказ? Это действие нельзя отменить.')) return;
               
               try {
                 const token = localStorage.getItem('token');
@@ -552,24 +552,24 @@ export default function OrderDetailPage() {
                   }
                 );
 
-                const result = await response.json();
-
                 if (!response.ok) {
-                  throw new Error(result.error || 'Failed to cancel order');
+                  throw new Error('Failed to cancel');
                 }
 
-                toast.success('✅ Заказ отменён');
+                alert('✅ Заказ отменён');
                 router.push('/client/orders');
-              } catch (error: any) {
-                console.error('Cancel error:', error);
-                toast.error('❌ Ошибка отмены: ' + error.message);
+                
+              } catch (err) {
+                console.error('Cancel error:', err);
+                alert('❌ Ошибка отмены');
               }
             }}
-            className="w-full py-4 rounded-xl bg-red-500/20 border-2 border-red-500 hover:bg-red-500/30 font-semibold transition-all flex items-center justify-center text-lg text-red-400 shadow-xl shadow-red-500/30"
+            className="w-full py-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 font-semibold transition-all flex items-center justify-center"
           >
-            ❌ Отменить заказ
+            <X className="w-5 h-5 mr-2" />
+            Отменить заказ
           </button>
-        )} 
+        )}
       </div>
     </div>
   );
