@@ -430,16 +430,30 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
 
     // Найти медиков в этом районе с Telegram
     try {
+      // Извлекаем ключевое слово специализации из serviceType
+      // Например: "💉 Медсестра на дом" → "Медсестра"
+      let specialtyKeyword = serviceType;
+      if (serviceType.includes('Медсестра')) specialtyKeyword = 'Медсестра';
+      else if (serviceType.includes('Терапевт')) specialtyKeyword = 'Терапевт';
+      else if (serviceType.includes('Педиатр')) specialtyKeyword = 'Педиатр';
+      else if (serviceType.includes('Врач общей практики')) specialtyKeyword = 'Врач общей практики';
+
+      console.log(`🎯 Ищем медиков с специализацией: ${specialtyKeyword}`);
+
       const medicsInArea = await prisma.medic.findMany({
         where: {
           areas: { has: order.district },
           status: 'APPROVED',
-          telegramChatId: { not: null }
+          telegramChatId: { not: null },
+          // ✅ КРИТИЧНО: Фильтр по специализации!
+          specialty: {
+            contains: specialtyKeyword
+          }
         },
         include: { user: true }
       });
 
-      console.log(`📢 Найдено ${medicsInArea.length} медиков с Telegram в районе ${order.district}`);
+      console.log(`📢 Найдено ${medicsInArea.length} медиков с Telegram, специализацией "${specialtyKeyword}" в районе ${order.district}`);
 
       // Отправить уведомления
       for (const medic of medicsInArea) {
@@ -449,7 +463,7 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
           district: order.district,
           serviceType: order.serviceType,
           scheduledTime: order.scheduledTime,
-          price: order.price, // ← Теперь price будет из БД!
+          price: order.price,
           address: order.address
         });
       }
@@ -1250,43 +1264,67 @@ app.post('/api/orders/:orderId/payment-received', authenticateToken, async (req,
   }
 });
 
-// Отменить заказ (клиент может отменить только NEW заказы)
-app.post('/api/orders/:orderId/cancel', authenticateToken, async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const userId = req.user.userId;
+  // Отменить заказ (клиент может отменить только NEW заказы)
+  app.post('/api/orders/:orderId/cancel', authenticateToken, async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      const userId = req.user.userId;
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-    });
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          medic: true,
+          client: {
+            select: { name: true }
+          }
+        }
+      });
 
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
+      if (!order) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      // Проверка что это заказ клиента
+      if (order.clientId !== userId) {
+        return res.status(403).json({ error: 'Not authorized' });
+      }
+
+      // Можно отменить только NEW заказы
+      if (order.status !== 'NEW') {
+        return res.status(400).json({ error: 'Cannot cancel order in this status' });
+      }
+
+      const updatedOrder = await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          status: 'CANCELLED',
+        },
+      });
+
+      // ✅ ДОБАВЛЕНО: Telegram уведомление медику (если заказ был принят)
+      if (order.medicId && order.medic?.telegramChatId) {
+        try {
+          await sendTelegramMessage(
+            order.medic.telegramChatId,
+            `❌ *Клиент отменил заказ*\n\n` +
+            `📋 Заказ #${orderId.substring(0, 8)}\n` +
+            `👤 Клиент: ${order.client.name}\n` +
+            `📍 ${order.city}, ${order.district}\n` +
+            `🕐 ${new Date(order.scheduledTime).toLocaleString('ru-RU')}\n\n` +
+            `Заказ был отменён клиентом.`
+          );
+          console.log('📱 Cancellation notification sent to medic');
+        } catch (telegramError) {
+          console.error('❌ Telegram notification error:', telegramError);
+        }
+      }
+
+      res.json(updatedOrder);
+    } catch (error) {
+      console.error('Cancel order error:', error);
+      res.status(500).json({ error: 'Failed to cancel order' });
     }
-
-    // Проверка что это заказ клиента
-    if (order.clientId !== userId) {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
-
-    // Можно отменить только NEW заказы
-    if (order.status !== 'NEW') {
-      return res.status(400).json({ error: 'Cannot cancel order in this status' });
-    }
-
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: 'CANCELLED',
-      },
-    });
-
-    res.json(updatedOrder);
-  } catch (error) {
-    console.error('Cancel order error:', error);
-    res.status(500).json({ error: 'Failed to cancel order' });
-  }
-});
+  });
 
 // ==================== CHAT/MESSAGES ====================
 
