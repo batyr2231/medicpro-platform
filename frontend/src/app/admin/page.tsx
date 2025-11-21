@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, Package, AlertTriangle, TrendingUp, CheckCircle, XCircle, Eye, Loader, ArrowLeft, X, FileText } from 'lucide-react';
+import { Shield, Users, Package, AlertTriangle, TrendingUp, CheckCircle, XCircle, Eye, Loader, ArrowLeft, X, FileText, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
@@ -18,7 +18,8 @@ export default function AdminDashboard() {
   const [showDocsModal, setShowDocsModal] = useState(false);
   const [selectedMedicDocs, setSelectedMedicDocs] = useState<any>(null);
   const [loadingDocs, setLoadingDocs] = useState(false);
-  
+  const [chats, setChats] = useState([]);
+
   const router = useRouter();
 
   useEffect(() => {
@@ -34,6 +35,8 @@ export default function AdminDashboard() {
       loadComplaints();
     } else if (activeTab === 'stats') {
       loadStats();
+    } else if (activeTab === 'chats') { // ← ДОБАВИТЬ
+      loadChats();
     }
   };
 
@@ -137,6 +140,30 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
+  const loadChats = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/chats`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+      if (response.ok) {
+        setChats(result);
+      }
+    } catch (err) {
+      toast.error('Ошибка загрузки чатов');
+    } finally {
+      setLoading(false);
+    }
+  }; 
 
   const handleApproveMedic = async (medicId: string) => {
     try {
@@ -375,7 +402,7 @@ export default function AdminDashboard() {
 
         {/* Navigation Tabs */}
         <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-2 mb-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             <button
               onClick={() => setActiveTab('medics')}
               className={`py-3 px-4 rounded-xl font-medium transition-all ${
@@ -387,6 +414,7 @@ export default function AdminDashboard() {
               <Users className="w-5 h-5 mx-auto mb-1" />
               <span className="text-sm">Медики</span>
             </button>
+            
             <button
               onClick={() => setActiveTab('orders')}
               className={`py-3 px-4 rounded-xl font-medium transition-all ${
@@ -398,6 +426,20 @@ export default function AdminDashboard() {
               <Package className="w-5 h-5 mx-auto mb-1" />
               <span className="text-sm">Заказы</span>
             </button>
+            
+            {/* ✅ НОВАЯ КНОПКА: ЧАТЫ */}
+            <button
+              onClick={() => setActiveTab('chats')}
+              className={`py-3 px-4 rounded-xl font-medium transition-all ${
+                activeTab === 'chats'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg'
+                  : 'hover:bg-white/10'
+              }`}
+            >
+              <MessageSquare className="w-5 h-5 mx-auto mb-1" />
+              <span className="text-sm">Чаты</span>
+            </button>
+            
             <button
               onClick={() => setActiveTab('complaints')}
               className={`py-3 px-4 rounded-xl font-medium transition-all ${
@@ -409,6 +451,7 @@ export default function AdminDashboard() {
               <AlertTriangle className="w-5 h-5 mx-auto mb-1" />
               <span className="text-sm">Жалобы</span>
             </button>
+            
             <button
               onClick={() => setActiveTab('stats')}
               className={`py-3 px-4 rounded-xl font-medium transition-all ${
@@ -561,6 +604,66 @@ export default function AdminDashboard() {
                           <div className="font-medium">{new Date(order.createdAt).toLocaleDateString('ru-RU')}</div>
                         </div>
                       </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Chats Tab */}
+            {activeTab === 'chats' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold">Все чаты ({chats.length})</h2>
+                </div>
+
+                {chats.length === 0 ? (
+                  <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-12 text-center">
+                    <MessageSquare className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                    <p className="text-slate-400">Нет активных чатов</p>
+                  </div>
+                ) : (
+                  chats.map((chat: any) => (
+                    <div
+                      key={chat.orderId}
+                      className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6 hover:border-cyan-500/50 transition-all cursor-pointer"
+                      onClick={() => router.push(`/admin/chats/${chat.orderId}`)}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
+                            <MessageSquare className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-lg">Заказ #{chat.orderId.slice(0, 8)}</div>
+                            <div className="text-sm text-slate-400">{chat.serviceType}</div>
+                          </div>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium border bg-cyan-500/20 border-cyan-500/30 text-cyan-400`}>
+                          {chat.messagesCount} сообщений
+                        </span>
+                      </div>
+
+                      <div className="grid sm:grid-cols-2 gap-4 text-sm mb-4">
+                        <div>
+                          <div className="text-xs text-slate-400 mb-1">Клиент</div>
+                          <div className="font-medium">{chat.clientName}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-400 mb-1">Медик</div>
+                          <div className="font-medium">{chat.medicName || 'Не назначен'}</div>
+                        </div>
+                      </div>
+
+                      {chat.lastMessage && (
+                        <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                          <div className="text-xs text-slate-400 mb-1">Последнее сообщение:</div>
+                          <div className="text-sm text-slate-300 truncate">{chat.lastMessage}</div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            {new Date(chat.lastMessageAt).toLocaleString('ru-RU')}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
