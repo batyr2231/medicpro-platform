@@ -2680,6 +2680,131 @@ app.get('/api/admin/stats', authenticateToken, authenticateAdmin, async (req, re
   }
 });
 
+  // ==================== ADMIN CHATS ====================
+
+  // Получение всех чатов (заказов с сообщениями)
+  app.get('/api/admin/chats', authenticateToken, authenticateAdmin, async (req, res) => {
+    try {
+      console.log('[ADMIN] Loading all chats');
+
+      // Получаем все заказы с сообщениями
+      const orders = await prisma.order.findMany({
+        where: {
+          medicId: { not: null }, // Только заказы с назначенным медиком
+          status: { notIn: ['CANCELLED'] } // Исключаем отменённые
+        },
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            }
+          },
+          medic: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            }
+          },
+          messages: {
+            orderBy: {
+              createdAt: 'desc'
+            },
+            take: 1 // Только последнее сообщение
+          },
+          _count: {
+            select: {
+              messages: true
+            }
+          }
+        },
+        orderBy: {
+          updatedAt: 'desc'
+        }
+      });
+
+      // Форматируем результат
+      const chats = orders.map(order => ({
+        orderId: order.id,
+        serviceType: order.serviceType,
+        status: order.status,
+        clientName: order.client.name,
+        clientPhone: order.client.phone,
+        medicName: order.medic?.name || null,
+        medicPhone: order.medic?.phone || null,
+        messagesCount: order._count.messages,
+        lastMessage: order.messages[0]?.text || null,
+        lastMessageAt: order.messages[0]?.createdAt || order.updatedAt,
+        createdAt: order.createdAt,
+      }));
+
+      console.log(`[ADMIN] Found ${chats.length} chats`);
+
+      res.json(chats);
+    } catch (error) {
+      console.error('[ADMIN] Get chats error:', error);
+      res.status(500).json({ error: 'Failed to get chats' });
+    }
+  });
+
+  // Получение конкретного чата с полной историей
+  app.get('/api/admin/chats/:orderId', authenticateToken, authenticateAdmin, async (req, res) => {
+    try {
+      const { orderId } = req.params;
+
+      console.log(`[ADMIN] Loading chat for order: ${orderId}`);
+
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+            }
+          },
+          medic: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+            }
+          },
+          messages: {
+            include: {
+              from: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'asc'
+            }
+          }
+        }
+      });
+
+      if (!order) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      console.log(`[ADMIN] Found ${order.messages.length} messages`);
+
+      res.json(order);
+    } catch (error) {
+      console.error('[ADMIN] Get chat error:', error);
+      res.status(500).json({ error: 'Failed to get chat' });
+    }
+  });
+
   // Получение жалоб с фильтрацией
   app.get('/api/admin/complaints', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
