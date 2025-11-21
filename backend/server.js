@@ -2778,51 +2778,16 @@ app.get('/api/medics', async (req, res) => {
   }
 });
 
-// Получить профиль медика по ID
-app.get('/api/medics/:medicId', async (req, res) => {
+// Получить medicId по userId (для чата)
+app.get('/api/medics/profile-by-user/:userId', authenticateToken, async (req, res) => {
   try {
-    const { medicId } = req.params;
-
+    const { userId } = req.params;
+    
     const medic = await prisma.medic.findUnique({
-      where: { id: medicId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            createdAt: true,
-            medicReviews: {
-              where: {
-                isHidden: false // Только видимые отзывы
-              },
-              include: {
-                client: {
-                  select: {
-                    name: true,
-                  }
-                },
-                order: {
-                  select: {
-                    serviceType: true,
-                    createdAt: true,
-                  }
-                }
-              },
-              orderBy: {
-                createdAt: 'desc'
-              }
-            },
-            medicOrders: {
-              where: {
-                status: 'PAID'
-              },
-              select: {
-                id: true,
-              }
-            }
-          }
-        }
+      where: { userId: userId },
+      select: {
+        id: true,
+        userId: true,
       }
     });
 
@@ -2830,58 +2795,122 @@ app.get('/api/medics/:medicId', async (req, res) => {
       return res.status(404).json({ error: 'Medic not found' });
     }
 
-    if (medic.status !== 'APPROVED') {
-      return res.status(403).json({ error: 'Medic not approved' });
-    }
-
-    const reviews = medic.user.medicReviews;
-    const ratings = reviews.map(r => r.rating);
-    const avgRating = ratings.length > 0 
-      ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)
-      : 0;
-
-    const ratingDistribution = {
-      5: reviews.filter(r => r.rating === 5).length,
-      4: reviews.filter(r => r.rating === 4).length,
-      3: reviews.filter(r => r.rating === 3).length,
-      2: reviews.filter(r => r.rating === 2).length,
-      1: reviews.filter(r => r.rating === 1).length,
-    };
-
-    const result = {
-      id: medic.id,
-      userId: medic.userId,
-      name: medic.user.name,
-      phone: medic.user.phone,
-      avatar: medic.avatar || null,
-      city: medic.city,
-      district: medic.areas && medic.areas.length > 0 ? medic.areas.join(', ') : null,
-      specialization: medic.specialty,
-      experience: medic.experience,
-      bio: medic.description,
-      services: medic.specialty ? [medic.specialty] : [],
-      education: null,
-      avgRating: parseFloat(avgRating),
-      reviewCount: reviews.length,
-      completedOrders: medic.user.medicOrders.length,
-      memberSince: medic.user.createdAt,
-      reviews: reviews.map(review => ({
-        id: review.id,
-        rating: review.rating,
-        comment: review.comment,
-        serviceType: review.order.serviceType,
-        clientName: review.client.name,
-        createdAt: review.createdAt,
-      })),
-      ratingDistribution,
-    };
-
-    res.json(result);
+    res.json(medic);
   } catch (error) {
-    console.error('Fetch medic profile error:', error);
-    res.status(500).json({ error: 'Failed to fetch medic profile' });
+    console.error('Get medic by userId error:', error);
+    res.status(500).json({ error: 'Failed to get medic' });
   }
 });
+
+  // Получить профиль медика по ID (ТРЕБУЕТ АВТОРИЗАЦИИ)
+  app.get('/api/medics/:medicId', authenticateToken, async (req, res) => {
+    try {
+      const { medicId } = req.params;
+
+      // ✅ ПРОВЕРКА: Только клиенты могут смотреть профили
+      if (req.user.role === 'MEDIC') {
+        return res.status(403).json({ error: 'Medics cannot view other medic profiles' });
+      }
+
+      const medic = await prisma.medic.findUnique({
+        where: { id: medicId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              createdAt: true,
+              medicReviews: {
+                where: {
+                  isHidden: false
+                },
+                include: {
+                  client: {
+                    select: {
+                      name: true,
+                    }
+                  },
+                  order: {
+                    select: {
+                      serviceType: true,
+                      createdAt: true,
+                    }
+                  }
+                },
+                orderBy: {
+                  createdAt: 'desc'
+                }
+              },
+              medicOrders: {
+                where: {
+                  status: 'PAID'
+                },
+                select: {
+                  id: true,
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!medic) {
+        return res.status(404).json({ error: 'Medic not found' });
+      }
+
+      if (medic.status !== 'APPROVED') {
+        return res.status(403).json({ error: 'Medic not approved' });
+      }
+
+      const reviews = medic.user.medicReviews;
+      const ratings = reviews.map(r => r.rating);
+      const avgRating = ratings.length > 0 
+        ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)
+        : 0;
+
+      const ratingDistribution = {
+        5: reviews.filter(r => r.rating === 5).length,
+        4: reviews.filter(r => r.rating === 4).length,
+        3: reviews.filter(r => r.rating === 3).length,
+        2: reviews.filter(r => r.rating === 2).length,
+        1: reviews.filter(r => r.rating === 1).length,
+      };
+
+      const result = {
+        id: medic.id,
+        userId: medic.userId,
+        name: medic.user.name,
+        phone: medic.user.phone,
+        avatar: medic.avatar || null,
+        city: medic.city,
+        district: medic.areas && medic.areas.length > 0 ? medic.areas.join(', ') : null,
+        specialization: medic.specialty,
+        experience: medic.experience,
+        bio: medic.description,
+        services: medic.specialty ? [medic.specialty] : [],
+        education: null,
+        avgRating: parseFloat(avgRating),
+        reviewCount: reviews.length,
+        completedOrders: medic.user.medicOrders.length,
+        memberSince: medic.user.createdAt,
+        reviews: reviews.map(review => ({
+          id: review.id,
+          rating: review.rating,
+          comment: review.comment,
+          serviceType: review.order.serviceType,
+          clientName: review.client.name,
+          createdAt: review.createdAt,
+        })),
+        ratingDistribution,
+      };
+
+      res.json(result);
+    } catch (error) {
+      console.error('Fetch medic profile error:', error);
+      res.status(500).json({ error: 'Failed to fetch medic profile' });
+    }
+  });
 
 // ==================== SOCKET.IO ====================
 
