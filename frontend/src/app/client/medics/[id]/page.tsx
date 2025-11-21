@@ -246,21 +246,26 @@ const loadMedicProfile = async () => {
               </div>
             </div>
           )}
-
-          {/* Кнопка связи - Создать заказ для чата */}
+          {/* Кнопка возврата */}
           <button
             onClick={() => {
-              // Перенаправляем на создание заказа с предзаполненной специализацией
-              router.push(`/orders/create?medic=${medicId}&specialty=${encodeURIComponent(medic.specialization)}`);
+              // Проверяем откуда пришёл пользователь
+              const returnToOrder = sessionStorage.getItem('returnToOrder');
+              
+              if (returnToOrder) {
+                // Пришли из чата/заказа - возвращаемся к заказу
+                sessionStorage.removeItem('returnToOrder');
+                router.push(`/client/orders/${returnToOrder}`);
+              } else {
+                // Пришли из каталога - возвращаемся в каталог
+                router.push('/client/medics');
+              }
             }}
-            className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg shadow-cyan-500/30 transition-all flex items-center justify-center text-lg"
+            className="w-full py-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-semibold transition-all flex items-center justify-center"
           >
-            <MessageCircle className="w-6 h-6 mr-2" />
-            Создать заказ
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            {sessionStorage.getItem('returnToOrder') ? 'Назад к заказу' : 'Назад к каталогу'}
           </button>
-          <p className="text-center text-sm text-slate-400 mt-2">
-            Чат доступен после создания заказа
-          </p>
         </div>
 
         {/* Распределение рейтингов */}

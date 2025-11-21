@@ -6,36 +6,63 @@ import { ArrowLeft, MapPin, Clock, User, Phone, FileText, CheckCircle, Loader, A
 import { useParams, useRouter } from 'next/navigation'; 
 import { useOrders } from '../../../hooks/useOrders'; 
 
-
-
 export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const orderId = params.id as string;
   
+  // ✅ ВСЕ useState ВВЕРХУ
   const [order, setOrder] = useState<any>(null);
-  const { getOrderById, loading } = useOrders();
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
   const [newPrice, setNewPrice] = useState('');
+  const [medicId, setMedicId] = useState<string>('');
+  
+  const { getOrderById, loading } = useOrders();
 
+  // ✅ useEffect для загрузки заказа
   useEffect(() => {
     loadOrder();
-    
-    // Обновляем каждые 5 секунд (этот интервал должен быть заменен на подписку onSnapshot для реальных данных)
     const interval = setInterval(loadOrder, 5000);
     return () => clearInterval(interval);
   }, [orderId]);
 
+  // ✅ useEffect для загрузки medicId
+  useEffect(() => {
+    const fetchMedicId = async () => {
+      if (!order?.medic?.id) return;
+      
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/profile-by-user/${order.medic.id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          }
+        );
+        
+        if (response.ok) {
+          const medicData = await response.json();
+          setMedicId(medicData.id);
+        }
+      } catch (err) {
+        console.error('Failed to get medicId:', err);
+      }
+    };
+
+    fetchMedicId();
+  }, [order?.medic?.id]);
+
+  // ✅ ФУНКЦИИ
   const loadOrder = async () => {
     try {
-      // Предотвращение загрузки, если она уже идет и нет данных
       if (loading) return;
 
       const result = await getOrderById(orderId);
       setOrder(result);
       
-      // Проверяем есть ли уже отзыв
       if (result.review) {
         setReviewSubmitted(true);
       } else {
@@ -43,40 +70,39 @@ export default function OrderDetailPage() {
       }
     } catch (err) {
       console.error('Failed to load order:', err);
-      // Опционально: toast.error('Не удалось загрузить заказ');
     }
   };
   
   const handleUpdatePrice = async () => {
-  if (!newPrice || parseFloat(newPrice) <= 0) {
-    toast.error('Введите корректную цену');
-    return;
-  }
+    if (!newPrice || parseFloat(newPrice) <= 0) {
+      toast.error('Введите корректную цену');
+      return;
+    }
 
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/price`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ price: newPrice }),
-      }
-    );
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/price`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ price: newPrice }),
+        }
+      );
 
-    if (!response.ok) throw new Error('Failed to update price');
+      if (!response.ok) throw new Error('Failed to update price');
 
-    toast.success('✅ Цена обновлена');
-    setEditingPrice(false);
-    loadOrder(); // Перезагрузка заказа
-  } catch (error: any) {
-    console.error('Update price error:', error);
-    toast.error('❌ Ошибка обновления цены');
-  }
-};
+      toast.success('✅ Цена обновлена');
+      setEditingPrice(false);
+      loadOrder();
+    } catch (error: any) {
+      console.error('Update price error:', error);
+      toast.error('❌ Ошибка обновления цены');
+    }
+  };
 
   const getStatusInfo = (status: string) => {
     const info: Record<string, { text: string; icon: string; color: string; description: string }> = {
@@ -120,6 +146,7 @@ export default function OrderDetailPage() {
     return info[status] || info.NEW;
   };
 
+  // ✅ РАННИЕ ВЫХОДЫ
   if (loading && !order) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center">
@@ -218,10 +245,8 @@ export default function OrderDetailPage() {
                 <div className="font-medium">{new Date(order.completedAt).toLocaleString('ru-RU')}</div>
               </div>
             )}
-            {/* Добавлено пустое место для выравнивания, если completedAt отсутствует */}
             {!order.acceptedAt && <div className="p-3 rounded-xl bg-transparent"></div>}
             {order.acceptedAt && !order.completedAt && <div className="p-3 rounded-xl bg-transparent"></div>}
-
           </div>
         </div>
 
@@ -457,11 +482,11 @@ export default function OrderDetailPage() {
 
                         const result = await response.json();
                         setOrder(result);
-                        alert('✅ Медик подтверждён! Он выезжает к вам.');
+                        toast.success('✅ Медик подтверждён! Он выезжает к вам.');
                         
                       } catch (err) {
                         console.error('Confirm error:', err);
-                        alert('❌ Ошибка подтверждения');
+                        toast.error('❌ Ошибка подтверждения');
                       }
                     }}
                     className="py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-semibold shadow-lg transition-all flex items-center justify-center"
@@ -493,11 +518,11 @@ export default function OrderDetailPage() {
 
                         const result = await response.json();
                         setOrder(result);
-                        alert('✅ Медик отклонён. Ищем нового медика...');
+                        toast.success('✅ Медик отклонён. Ищем нового медика...');
                         
                       } catch (err) {
                         console.error('Reject error:', err);
-                        alert('❌ Ошибка отклонения');
+                        toast.error('❌ Ошибка отклонения');
                       }
                     }}
                     className="py-3 rounded-xl bg-red-500/20 border-2 border-red-500/30 text-red-400 hover:bg-red-500/30 font-semibold transition-all flex items-center justify-center"
@@ -566,11 +591,24 @@ export default function OrderDetailPage() {
                   <MessageSquare className="w-5 h-5" />
                   <span className="text-sm font-medium">Чат</span>
                 </button>
+
+                {/* Профиль медика - показываем только если medicId загружен */}
+                {medicId && (
+                  <button
+                    onClick={() => {
+                      sessionStorage.setItem('returnToOrder', order.id);
+                      router.push(`/client/medics/${medicId}`);
+                    }}
+                    className="flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 transition-all"
+                  >
+                    <User className="w-5 h-5" />
+                    <span className="text-sm font-medium">Профиль</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )}
-        
         
         {/* Блок отзыва - показывается только если заказ завершён и НЕТ отзыва */}
         {(order.status === 'COMPLETED' || order.status === 'PAID') && !reviewSubmitted && (
@@ -588,7 +626,7 @@ export default function OrderDetailPage() {
             <div className="flex items-start space-x-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg">
                 <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 88 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="flex-1">
@@ -623,12 +661,12 @@ export default function OrderDetailPage() {
                   throw new Error('Failed to cancel');
                 }
 
-                alert('✅ Заказ отменён');
+                toast.success('✅ Заказ отменён');
                 router.push('/client/orders');
                 
               } catch (err) {
                 console.error('Cancel error:', err);
-                alert('❌ Ошибка отмены');
+                toast.error('❌ Ошибка отмены');
               }
             }}
             className="w-full py-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 font-semibold transition-all flex items-center justify-center"

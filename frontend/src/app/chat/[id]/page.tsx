@@ -541,6 +541,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 <button
                   onClick={() => {
                     setShowMedicProfile(false);
+                    // ✅ СОХРАНЯЕМ orderId перед переходом
                     sessionStorage.setItem('returnToOrder', orderId);
                     router.push(`/client/medics/${medicId}`);
                   }}
