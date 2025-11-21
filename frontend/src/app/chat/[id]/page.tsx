@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader, X, MapPin, Phone } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader, X, MapPin, Phone, User } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useChat } from '../../hooks/useChat';
 
@@ -511,18 +511,31 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 Позвонить
               </a>
 
-              {/* Полный профиль - только если есть medicProfile.id для полной версии */}
-              {medicProfile.fullProfileAvailable && (
-                <button
-                  onClick={() => {
-                    setShowMedicProfile(false);
-                    router.push(`/client/medics/${medicProfile.id}`);
-                  }}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all"
-                >
-                  Открыть полный профиль
-                </button>
-              )}
+              {/* ✅ НОВАЯ КНОПКА: Профиль медика */}
+              <button
+                onClick={() => {
+                  setShowMedicProfile(false);
+                  // Сохраняем orderId для возврата
+                  sessionStorage.setItem('returnToOrder', orderId);
+                  router.push(`/client/medics/${medicProfile.id}`);
+                }}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all flex items-center justify-center"
+              >
+                <User className="w-5 h-5 mr-2" />
+                Открыть профиль медика
+              </button>
+
+              {/* Детали заказа */}
+              <button
+                onClick={() => {
+                  setShowMedicProfile(false);
+                  router.push(`/client/orders/${orderId}`);
+                }}
+                className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-semibold transition-all flex items-center justify-center"
+              >
+                <FileText className="w-5 h-5 mr-2" />
+                Детали заказа
+              </button>
             </div>
           </div>
         </div>

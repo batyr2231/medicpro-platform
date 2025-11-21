@@ -100,11 +100,20 @@ const loadMedicProfile = async () => {
       <header className="border-b border-white/10 backdrop-blur-xl bg-slate-900/50 sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 py-3">
           <button
-            onClick={() => router.push('/client/medics')}
+            onClick={() => {
+              // Проверяем есть ли сохраненный orderId для возврата
+              const returnToOrder = sessionStorage.getItem('returnToOrder');
+              if (returnToOrder) {
+                sessionStorage.removeItem('returnToOrder');
+                router.push(`/client/orders/${returnToOrder}`);
+              } else {
+                router.push('/client/medics');
+              }
+            }}
             className="flex items-center space-x-2 text-slate-300 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span className="text-sm md:text-base">К каталогу</span>
+            <span className="text-sm md:text-base">Назад</span>
           </button>
         </div>
       </header>
