@@ -7,6 +7,7 @@ export function middleware(request: NextRequest) {
 
   // Публичные страницы (не требуют авторизации)
   const publicPaths = [
+    '/', 
     '/auth',
     '/auth/register',
     '/auth/login',
