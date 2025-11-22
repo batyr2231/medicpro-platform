@@ -13,6 +13,8 @@ import multer from 'multer';
 import { sendVerificationCode, sendWhatsAppCode, generateCode, sendSMS } from './utils/sms.js';
 import { getCities, getDistricts, isValidCity, isValidDistrict } from './utils/cities.js';
 import { initBot, handleWebhook, sendOrderNotification, sendOrderAcceptedNotification, sendStatusUpdateNotification, sendChatNotification, sendTelegramMessage  } from './utils/telegram.js';
+import cookieParser from 'cookie-parser';
+
 
 dotenv.config();
 
@@ -41,11 +43,15 @@ app.use(helmet({
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://medicpro-platform.vercel.app'  // ← ДОБАВИТЬ!
+    'https://medicpro-platform.vercel.app'
   ],
-  credentials: true
+  credentials: true, // ← КРИТИЧНО для cookies!
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['set-cookie']
 }));
 app.use(express.json());
+app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
 // Socket.IO setup
@@ -61,15 +67,25 @@ const io = new Server(httpServer, {
 
 // JWT Middleware
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  // ✅ ПРИОРИТЕТ 1: Проверяем cookie
+  let token = req.cookies?.token;
+  
+  // ✅ ПРИОРИТЕТ 2: Проверяем Authorization header (обратная совместимость)
+  if (!token) {
+    const authHeader = req.headers['authorization'];
+    token = authHeader && authHeader.split(' ')[1];
+  }
 
   if (!token) {
+    console.log('❌ No token found');
     return res.status(401).json({ error: 'Access denied' });
   }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid token' });
+    if (err) {
+      console.log('❌ Invalid token:', err.message);
+      return res.status(403).json({ error: 'Invalid token' });
+    }
     req.user = user;
     next();
   });
