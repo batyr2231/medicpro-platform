@@ -194,7 +194,7 @@ async function sendChatNotification(chatId, data) {
       `👉 Откройте приложение для ответа`;
 
     // Автологин URL
-    const autoLoginUrl = `https://medicpro-platform.vercel.app/api/auth/auto-login?chatId=${chatId}&redirect=/chat/${orderId}`;
+    const autoLoginUrl = `https://medicpro-platform.vercel.app/api/auth/auto-login?chatId=${chatId}&redirect=/medic/dashboard`;
 
 
     const keyboard = Markup.inlineKeyboard([
