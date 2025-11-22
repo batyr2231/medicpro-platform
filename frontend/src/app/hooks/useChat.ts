@@ -75,17 +75,25 @@ export function useChat(orderId: string) {
     });
 
     // Новое сообщение
-    socket.on('new-message', (message: any) => {
-      console.log('💬 useChat: New message received:', message); // ← ИЗМЕНИТЬ
-      setMessages(prev => {
-        const exists = prev.find(m => m.id === message.id);
-        if (exists) {
-          console.log('⚠️ useChat: Duplicate message, skipping'); // ← ДОБАВИТЬ
-          return prev;
-        }
-        return [...prev, message];
-      });
-    });
+// Новое сообщение
+socket.on('new-message', (message: any) => {
+  console.log('💬 useChat: New message received:', message);
+  setMessages(prev => {
+    const exists = prev.find(m => m.id === message.id);
+    if (exists) {
+      console.log('⚠️ useChat: Duplicate message, skipping');
+      return prev;
+    }
+    
+    // ✅ ДОБАВЛЕНО: Воспроизводим звук если сообщение НЕ от текущего пользователя
+    if (message.fromUserId !== currentUserId) {
+      (window as any).playNotificationSound?.();
+      console.log('🔔 Notification sound played');
+    }
+    
+    return [...prev, message];
+  });
+});
 
     // Ошибка подключения к комнате
     socket.on('join-error', (err: any) => {

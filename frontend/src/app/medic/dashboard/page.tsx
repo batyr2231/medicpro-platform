@@ -6,6 +6,7 @@ import { useOrders } from '../../hooks/useOrders';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import OrderSkeleton from '@/components/OrderSkeleton';
+import { io } from 'socket.io-client';
 
 export default function MedicDashboard() {
   const [activeTab, setActiveTab] = useState('available');
@@ -39,6 +40,51 @@ export default function MedicDashboard() {
     
     return () => clearInterval(interval);
   }, [activeTab]);
+
+  // ✅ ДОБАВЛЕНО: WebSocket для новых заказов
+useEffect(() => {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  // Подключаемся к Socket.IO
+  const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000', {
+    transports: ['websocket', 'polling'],
+  });
+
+  socket.on('connect', () => {
+    console.log('✅ Dashboard socket connected');
+    socket.emit('authenticate', token);
+  });
+
+  // Слушаем новые заказы
+  socket.on('new-order', (order: any) => {
+    console.log('🔔 New order received:', order);
+    
+    // Добавляем заказ в список
+    setRealOrders(prev => {
+      const exists = prev.find(o => o.id === order.id);
+      if (exists) return prev;
+      return [order, ...prev];
+    });
+    
+    // ✅ Воспроизводим звук
+    (window as any).playNotificationSound?.();
+    
+    // Показываем toast уведомление
+    toast.success('🔔 Новый заказ доступен!', {
+      duration: 5000,
+      icon: '💉',
+    });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('❌ Dashboard socket disconnected');
+  });
+
+  return () => {
+    socket.disconnect();
+  };
+}, []); // Пустой массив - выполняется 1 раз при монтировании
 
   useEffect(() => {
     checkOnboardingProgress();
