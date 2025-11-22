@@ -2547,116 +2547,116 @@ app.post('/api/medics/disconnect-telegram', authenticateToken, async (req, res) 
 // ================================================
 
   // ✅ АВТОЛОГИН ДЛЯ TELEGRAM
-  app.get('/api/auth/auto-login', async (req, res) => {
-    try {
-      const { chatId, redirect } = req.query;
+app.get('/api/auth/auto-login', async (req, res) => {
+  try {
+    const { chatId, redirect } = req.query;
 
-      console.log('🔐 Auto-login attempt:', { chatId, redirect });
+    console.log('🔐 Auto-login attempt:', { chatId, redirect });
 
-      if (!chatId) {
-        return res.redirect('https://medicpro-platform.vercel.app/auth?error=missing_chatId');
-      }
+    if (!chatId) {
+      return res.redirect('https://medicpro-platform.vercel.app/auth?error=missing_chatId');
+    }
 
-      // Находим медика по telegramChatId
-      const medic = await prisma.medic.findFirst({
-        where: { telegramChatId: chatId },
-        include: {
-          user: {
-            select: {
-              id: true,
-              phone: true,
-              name: true,
-              role: true,
-            }
+    const medic = await prisma.medic.findFirst({
+      where: { telegramChatId: chatId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            phone: true,
+            name: true,
+            role: true,
           }
         }
-      });
-
-      if (!medic || !medic.user) {
-        console.log('❌ Medic not found for chatId:', chatId);
-        return res.redirect('https://medicpro-platform.vercel.app/auth?error=not_found');
       }
+    });
 
-      console.log('✅ Medic found:', medic.user.id);
-
-      // Генерируем JWT токен
-      const token = jwt.sign(
-        {
-          userId: medic.user.id,
-          phone: medic.user.phone,
-          role: medic.user.role,
-        },
-        JWT_SECRET,
-        { expiresIn: '30d' }
-      );
-
-      // Формируем HTML для автологина
-      const html = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Вход...</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              body {
-                margin: 0;
-                padding: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-                font-family: system-ui, -apple-system, sans-serif;
-                color: white;
-              }
-              .loader {
-                text-align: center;
-              }
-              .spinner {
-                border: 4px solid rgba(255,255,255,0.1);
-                border-top: 4px solid #06b6d4;
-                border-radius: 50%;
-                width: 50px;
-                height: 50px;
-                animation: spin 1s linear infinite;
-                margin: 0 auto 20px;
-              }
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="loader">
-              <div class="spinner"></div>
-              <div>Вход в систему...</div>
-            </div>
-            <script>
-              const token = "${token}";
-              const user = ${JSON.stringify(medic.user)};
-              const redirect = "${redirect || '/medic/dashboard'}";
-              
-              // Сохраняем в localStorage
-              localStorage.setItem('token', token);
-              localStorage.setItem('user', JSON.stringify(user));
-              
-              // Редирект
-              setTimeout(() => {
-                window.location.href = redirect;
-              }, 500);
-            </script>
-          </body>
-        </html>
-      `;
-
-      res.send(html);
-
-    } catch (error) {
-      console.error('❌ Auto-login error:', error);
-      res.redirect('https://medicpro-platform.vercel.app/auth?error=server_error');
+    if (!medic || !medic.user) {
+      console.log('❌ Medic not found for chatId:', chatId);
+      return res.redirect('https://medicpro-platform.vercel.app/auth?error=not_found');
     }
-  });
+
+    console.log('✅ Medic found:', medic.user.id);
+
+    const token = jwt.sign(
+      {
+        userId: medic.user.id,
+        phone: medic.user.phone,
+        role: medic.user.role,
+      },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    // ✅ ИСПРАВЛЕННЫЙ HTML:
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Вход...</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body {
+              margin: 0;
+              padding: 0;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+              font-family: system-ui, -apple-system, sans-serif;
+              color: white;
+            }
+            .loader {
+              text-align: center;
+            }
+            .spinner {
+              border: 4px solid rgba(255,255,255,0.1);
+              border-top: 4px solid #06b6d4;
+              border-radius: 50%;
+              width: 50px;
+              height: 50px;
+              animation: spin 1s linear infinite;
+              margin: 0 auto 20px;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="loader">
+            <div class="spinner"></div>
+            <div>Вход в систему...</div>
+          </div>
+          <script>
+            const token = "${token}";
+            const user = ${JSON.stringify(medic.user)};
+            const redirect = "${redirect || '/medic/dashboard'}";
+            
+            // Сохраняем в localStorage
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
+            
+            // ✅ ИСПРАВЛЕНО: Редирект на FRONTEND!
+            const frontendUrl = "https://medicpro-platform.vercel.app" + redirect;
+            
+            setTimeout(() => {
+              window.location.href = frontendUrl;
+            }, 500);
+          </script>
+        </body>
+      </html>
+    `;
+
+    res.send(html);
+
+  } catch (error) {
+    console.error('❌ Auto-login error:', error);
+    res.redirect('https://medicpro-platform.vercel.app/auth?error=server_error');
+  }
+});
 
 
 // Middleware для логирования всех admin запросов
