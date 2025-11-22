@@ -6,20 +6,10 @@ import { Search, MapPin, Star, Award, Briefcase, Users, Loader, Filter } from 'l
 import { getCities, getDistricts } from 'utils/cities';
 
 const SPECIALIZATIONS = [
+  'Медсестра',
   'Терапевт',
   'Педиатр',
-  'Кардиолог',
-  'Невролог',
-  'Дерматолог',
-  'Эндокринолог',
-  'Гинеколог',
-  'Уролог',
-  'Офтальмолог',
-  'ЛОР',
-  'Хирург',
-  'Медсестра',
-  'Массажист',
-  'Физиотерапевт'
+  'Врач общей практики'
 ];
 
 export default function MedicsCatalogPage() {

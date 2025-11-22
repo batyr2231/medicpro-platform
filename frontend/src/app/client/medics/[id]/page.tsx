@@ -374,14 +374,17 @@ const handleCreateOrder = async () => {
               <>
                 <button
                   onClick={() => setShowOrderModal(true)}
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg shadow-cyan-500/30 transition-all flex items-center justify-center text-lg"
+                  className="w-full py-4 sm:py-5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-bold shadow-2xl shadow-cyan-500/40 transition-all flex items-center justify-center text-base sm:text-lg active:scale-95 relative overflow-hidden group"
                 >
-                  <MessageCircle className="w-6 h-6 mr-2" />
-                  Создать заказ с этим медиком
+                  {/* Анимированный фон */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                  
+                  <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 mr-2 relative z-10" />
+                  <span className="relative z-10">Создать заказ</span>
                 </button>
-                
-                <p className="text-center text-sm text-slate-400">
-                  После создания заказа откроется чат
+
+                <p className="text-center text-xs sm:text-sm text-slate-400 mt-2">
+                  После создания откроется чат с медиком
                 </p>
                 
                 <button
@@ -549,17 +552,17 @@ const handleCreateOrder = async () => {
                 <button
                   onClick={handleCreateOrder}
                   disabled={creatingOrder || !orderForm.address || !orderForm.scheduledTime}
-                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 font-semibold transition-all flex items-center justify-center"
+                  className="flex-1 py-4 sm:py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-sm sm:text-base transition-all flex items-center justify-center shadow-lg shadow-cyan-500/30 active:scale-95"
                 >
                   {creatingOrder ? (
                     <>
-                      <Loader className="w-5 h-5 mr-2 animate-spin" />
-                      Создание...
+                      <Loader className="w-5 h-5 sm:w-6 sm:h-6 mr-2 animate-spin" />
+                      <span>Создаём...</span>
                     </>
                   ) : (
                     <>
-                      <MessageCircle className="w-5 h-5 mr-2" />
-                      Создать и открыть чат
+                      <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
+                      <span>Создать и открыть чат</span>
                     </>
                   )}
                 </button>
