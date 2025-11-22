@@ -405,10 +405,9 @@ setInterval(() => {
 
 // ==================== ORDER ROUTES ====================
 
-// Создание заказа
 app.post('/api/orders', authenticateToken, async (req, res) => {
   try {
-    const { serviceType, address, city, district, scheduledTime, comment, price } = req.body; // ← ДОБАВИТЬ price
+    const { serviceType, address, city, district, scheduledTime, comment, price, isPersonalized } = req.body; // ← ДОБАВИТЬ isPersonalized
 
     const order = await prisma.order.create({
       data: {
@@ -419,7 +418,7 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
         district,
         scheduledTime: new Date(scheduledTime),
         comment,
-        price: price ? parseFloat(price) : null, // ← ДОБАВИТЬ ЭТУ СТРОКУ!
+        price: price ? parseFloat(price) : null,
         status: 'NEW'
       },
       include: {
@@ -433,52 +432,53 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
       }
     });
 
-    // Уведомляем медиков в этом районе
-    io.to(`medics-city-${district}`).emit('new-order', order);
-    console.log(`📢 New order broadcast to: medics-city-${district}`);
+    // ✅ ИСПРАВЛЕНО: Отправляем уведомления ТОЛЬКО если НЕ персональный заказ
+    if (!isPersonalized) {
+      // Уведомляем медиков в этом районе через WebSocket
+      io.to(`medics-city-${district}`).emit('new-order', order);
+      console.log(`📢 New order broadcast to: medics-city-${district}`);
 
-    // Найти медиков в этом районе с Telegram
-    try {
-      // Извлекаем ключевое слово специализации из serviceType
-      // Например: "💉 Медсестра на дом" → "Медсестра"
-      let specialtyKeyword = serviceType;
-      if (serviceType.includes('Медсестра')) specialtyKeyword = 'Медсестра';
-      else if (serviceType.includes('Терапевт')) specialtyKeyword = 'Терапевт';
-      else if (serviceType.includes('Педиатр')) specialtyKeyword = 'Педиатр';
-      else if (serviceType.includes('Врач общей практики')) specialtyKeyword = 'Врач общей практики';
+      // Найти медиков в этом районе с Telegram
+      try {
+        let specialtyKeyword = serviceType;
+        if (serviceType.includes('Медсестра')) specialtyKeyword = 'Медсестра';
+        else if (serviceType.includes('Терапевт')) specialtyKeyword = 'Терапевт';
+        else if (serviceType.includes('Педиатр')) specialtyKeyword = 'Педиатр';
+        else if (serviceType.includes('Врач общей практики')) specialtyKeyword = 'Врач общей практики';
 
-      console.log(`🎯 Ищем медиков с специализацией: ${specialtyKeyword}`);
+        console.log(`🎯 Ищем медиков с специализацией: ${specialtyKeyword}`);
 
-      const medicsInArea = await prisma.medic.findMany({
-        where: {
-          areas: { has: order.district },
-          status: 'APPROVED',
-          telegramChatId: { not: null },
-          // ✅ КРИТИЧНО: Фильтр по специализации!
-          specialty: {
-            contains: specialtyKeyword
-          }
-        },
-        include: { user: true }
-      });
-
-      console.log(`📢 Найдено ${medicsInArea.length} медиков с Telegram, специализацией "${specialtyKeyword}" в районе ${order.district}`);
-
-      // Отправить уведомления
-      for (const medic of medicsInArea) {
-        await sendOrderNotification(medic.telegramChatId, {
-          city: city,
-          orderId: order.id,
-          district: order.district,
-          serviceType: order.serviceType,
-          scheduledTime: order.scheduledTime,
-          price: order.price,
-          address: order.address
+        const medicsInArea = await prisma.medic.findMany({
+          where: {
+            areas: { has: order.district },
+            status: 'APPROVED',
+            telegramChatId: { not: null },
+            specialty: {
+              contains: specialtyKeyword
+            }
+          },
+          include: { user: true }
         });
+
+        console.log(`📢 Найдено ${medicsInArea.length} медиков с Telegram`);
+
+        // Отправить уведомления
+        for (const medic of medicsInArea) {
+          await sendOrderNotification(medic.telegramChatId, {
+            city: city,
+            orderId: order.id,
+            district: order.district,
+            serviceType: order.serviceType,
+            scheduledTime: order.scheduledTime,
+            price: order.price,
+            address: order.address
+          });
+        }
+      } catch (telegramError) {
+        console.error('❌ Ошибка отправки Telegram уведомлений:', telegramError);
       }
-    } catch (telegramError) {
-      console.error('❌ Ошибка отправки Telegram уведомлений:', telegramError);
-      // Не падаем если Telegram не работает
+    } else {
+      console.log(`✅ Персональный заказ - уведомления не отправляются`);
     }
 
     res.json(order);
