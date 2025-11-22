@@ -84,87 +84,90 @@ export default function MedicProfilePage() {
     }
   };
 
-  const handleCreateOrder = async () => {
-    if (!orderForm.address || !orderForm.scheduledTime) {
-      toast.error('Заполните все обязательные поля');
-      return;
+const handleCreateOrder = async () => {
+  if (!orderForm.address || !orderForm.scheduledTime) {
+    toast.error('Заполните все обязательные поля');
+    return;
+  }
+
+  setCreatingOrder(true);
+
+  try {
+    const token = localStorage.getItem('token');
+    
+    const medicDistricts = medic.district.split(', ');
+    const medicCity = medic.city;
+    
+    // 1️⃣ Создаём заказ с флагом isPersonalized
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        credentials: 'include', // ← Для cookies
+        body: JSON.stringify({
+          serviceType: medic.specialization,
+          city: medicCity,
+          district: medicDistricts[0],
+          address: orderForm.address,
+          scheduledTime: orderForm.scheduledTime,
+          comment: orderForm.comment,
+          price: orderForm.price ? parseInt(orderForm.price) : undefined,
+          isPersonalized: true, // ← КРИТИЧНО: Флаг персонального заказа!
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to create order');
     }
 
-    setCreatingOrder(true);
+    const order = await response.json();
+    console.log('✅ Order created:', order.id);
 
-    try {
-      const token = localStorage.getItem('token');
-      
-      const medicDistricts = medic.district.split(', ');
-      const medicCity = medic.city;
-      
-      // 1️⃣ Создаём заказ
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            serviceType: medic.specialization,
-            city: medicCity,
-            district: medicDistricts[0],
-            address: orderForm.address,
-            scheduledTime: orderForm.scheduledTime,
-            comment: orderForm.comment,
-            price: orderForm.price ? parseInt(orderForm.price) : undefined,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to create order');
+    // 2️⃣ Назначаем медика
+    const assignResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/assign-medic`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          medicUserId: medic.userId,
+        }),
       }
+    );
 
-      const order = await response.json();
-      console.log('✅ Order created:', order.id);
-
-      // 2️⃣ Назначаем медика
-      const assignResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/assign-medic`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            medicUserId: medic.userId,
-          }),
-        }
-      );
-
-      if (!assignResponse.ok) {
-        console.warn('Failed to assign medic, but order created');
-      } else {
-        console.log('✅ Medic assigned to order');
-      }
-
-      toast.success('✅ Заказ создан! Открываем чат...');
-
-      // 3️⃣ ✅ КЛЮЧЕВОЕ: Сохраняем orderId для возврата
-      sessionStorage.setItem('chatReturnTo', 'order'); // Флаг что пришли из заказа
-      sessionStorage.setItem('chatOrderId', order.id); // ID заказа
-
-      // 4️⃣ Переходим в чат
-      setTimeout(() => {
-        router.push(`/chat/${order.id}`);
-      }, 500);
-
-    } catch (error: any) {
-      console.error('Create order error:', error);
-      toast.error('❌ Ошибка создания заказа');
-    } finally {
-      setCreatingOrder(false);
+    if (!assignResponse.ok) {
+      console.warn('Failed to assign medic, but order created');
+    } else {
+      console.log('✅ Medic assigned to order');
     }
-  };
+
+    toast.success('✅ Заказ создан! Открываем чат...');
+
+    // 3️⃣ Сохраняем для возврата
+    sessionStorage.setItem('chatReturnTo', 'order');
+    sessionStorage.setItem('chatOrderId', order.id);
+
+    // 4️⃣ Переходим в чат
+    setTimeout(() => {
+      router.push(`/chat/${order.id}`);
+    }, 500);
+
+  } catch (error: any) {
+    console.error('Create order error:', error);
+    toast.error('❌ Ошибка создания заказа');
+  } finally {
+    setCreatingOrder(false);
+  }
+};
 
   if (loading) {
     return (
