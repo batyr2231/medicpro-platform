@@ -6,53 +6,72 @@ import { Volume2, VolumeX } from 'lucide-react';
 export default function NotificationSound() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
+  // ✅ ИСПРАВЛЕНИЕ 1: Загружаем настройку ОДИН раз при монтировании
   useEffect(() => {
-    setMounted(true);
+    setIsClient(true);
     
-    // Проверяем сохранённую настройку
     const saved = localStorage.getItem('notificationSoundEnabled');
-    if (saved === 'true') {
-      setSoundEnabled(true);
+    const enabled = saved === 'true';
+    
+    console.log('🔊 Initial sound state:', enabled);
+    setSoundEnabled(enabled);
+    
+    // Если звук включён - инициализируем AudioContext
+    if (enabled) {
+      initAudio();
     }
-  }, []);
+  }, []); // ← Пустой массив = выполняется ОДИН раз!
 
   // Инициализация Audio Context
   const initAudio = () => {
-    if (!audioContextRef.current) {
-      try {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        console.log('✅ AudioContext initialized');
-      } catch (error) {
-        console.error('❌ Failed to create AudioContext:', error);
-      }
+    if (audioContextRef.current) {
+      console.log('⚠️ AudioContext already exists');
+      return;
+    }
+
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      audioContextRef.current = new AudioContextClass();
+      console.log('✅ AudioContext initialized');
+    } catch (error) {
+      console.error('❌ Failed to create AudioContext:', error);
     }
   };
 
-  // Воспроизведение звука "динь"
+  // Воспроизведение звука
   const playBeep = () => {
+    console.log('🎵 playBeep called, soundEnabled:', soundEnabled);
+
     if (!soundEnabled) {
-      console.log('🔇 Sound disabled');
+      console.log('🔇 Sound is disabled');
       return;
     }
 
     if (!audioContextRef.current) {
-      console.log('⚠️ AudioContext not initialized');
+      console.log('⚠️ AudioContext not initialized, initializing now...');
+      initAudio();
+      
+      // Попробуем ещё раз через 50мс
+      setTimeout(() => playBeep(), 50);
       return;
     }
 
     try {
       const context = audioContextRef.current;
       
-      // Проверяем что AudioContext активен
+      // Проверяем состояние AudioContext
       if (context.state === 'suspended') {
+        console.log('⏸️ AudioContext suspended, resuming...');
         context.resume().then(() => {
-          console.log('✅ AudioContext resumed');
+          console.log('▶️ AudioContext resumed');
           playTone(context);
         });
-      } else {
+      } else if (context.state === 'running') {
         playTone(context);
+      } else {
+        console.error('❌ AudioContext in unexpected state:', context.state);
       }
     } catch (error) {
       console.error('❌ Play sound error:', error);
@@ -68,18 +87,16 @@ export default function NotificationSound() {
       oscillator.connect(gainNode);
       gainNode.connect(context.destination);
       
-      // Настройки звука "динь"
       oscillator.type = 'sine';
-      oscillator.frequency.value = 800; // Частота (Hz)
+      oscillator.frequency.value = 800;
       
-      // Плавное затухание
-      gainNode.gain.setValueAtTime(0.3, context.currentTime); // Начальная громкость
+      gainNode.gain.setValueAtTime(0.3, context.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.3);
       
       oscillator.start(context.currentTime);
       oscillator.stop(context.currentTime + 0.3);
       
-      console.log('🔔 Sound played');
+      console.log('🔔 Sound played successfully');
     } catch (error) {
       console.error('❌ Play tone error:', error);
     }
@@ -88,44 +105,52 @@ export default function NotificationSound() {
   // Переключение звука
   const toggleSound = () => {
     const newValue = !soundEnabled;
+    console.log('🔄 Toggling sound:', soundEnabled, '→', newValue);
+    
     setSoundEnabled(newValue);
     localStorage.setItem('notificationSoundEnabled', newValue.toString());
     
     if (newValue) {
-      // Инициализируем AudioContext
+      // Включаем звук
       initAudio();
       
-      // Воспроизводим тестовый звук через 100мс
+      // Тестовый звук через 200мс
       setTimeout(() => {
+        console.log('🧪 Playing test sound...');
         playBeep();
-      }, 100);
+      }, 200);
     } else {
-      // Отключаем AudioContext
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-        console.log('🔇 AudioContext closed');
-      }
+      // Выключаем звук
+      console.log('🔇 Sound disabled by user');
+      
+      // НЕ закрываем AudioContext! Просто отключаем флаг
+      // Это позволит быстро включить звук снова
     }
   };
 
-  // Экспортируем функцию глобально
+  // ✅ ИСПРАВЛЕНИЕ 2: Регистрируем функцию при КАЖДОМ изменении soundEnabled
   useEffect(() => {
-    if (mounted) {
-      (window as any).playNotificationSound = playBeep;
-      console.log('✅ playNotificationSound registered');
-    }
-    
+    if (!isClient) return;
+
+    // Создаём функцию которая всегда имеет доступ к актуальному soundEnabled
+    const playFunction = () => {
+      playBeep();
+    };
+
+    (window as any).playNotificationSound = playFunction;
+    console.log('✅ playNotificationSound registered, soundEnabled:', soundEnabled);
+
+    // Cleanup
     return () => {
-      // Cleanup при размонтировании
-      if (audioContextRef.current) {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
         audioContextRef.current = null;
+        console.log('🧹 AudioContext closed');
       }
     };
-  }, [soundEnabled, mounted]);
+  }, [soundEnabled, isClient]);
 
-  if (!mounted) return null;
+  if (!isClient) return null;
 
   return (
     <button
