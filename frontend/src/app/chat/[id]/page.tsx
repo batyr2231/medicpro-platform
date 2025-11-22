@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader, X, MapPin, Phone, User } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, Check, CheckCheck, Smile, Image as ImageIcon, FileText, Loader, X, MapPin, Phone, User, MessageSquare } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useChat } from '../../hooks/useChat';
 
@@ -523,46 +523,51 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             )}
 
             {/* Кнопки действий */}
-            {/* Кнопки действий */}
             <div className="space-y-3">
-              {/* Позвонить */}
-              {medicProfile.phone && (
-                <a
-                  href={`tel:${medicProfile.phone}`}
-                  className="w-full py-3 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 font-semibold transition-all flex items-center justify-center"
-                >
-                  <Phone className="w-5 h-5 mr-2" />
-                  Позвонить
-                </a>
-              )}
-
-              {/* ✅ Профиль медика - показываем только если medicId загружен */}
-              {medicId && (
+              {/* ✅ Проверяем: есть ли returnToOrder (пришли из заказа) */}
+              {sessionStorage.getItem('returnToOrder') ? (
+                // Пришли из активного заказа - кнопка "Назад к заказу"
                 <button
                   onClick={() => {
-                    setShowMedicProfile(false);
-                    // ✅ СОХРАНЯЕМ orderId перед переходом
-                    sessionStorage.setItem('returnToOrder', orderId);
-                    router.push(`/client/medics/${medicId}`);
+                    const returnToOrder = sessionStorage.getItem('returnToOrder');
+                    sessionStorage.removeItem('returnToOrder');
+                    router.push(`/client/orders/${returnToOrder}`);
                   }}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all flex items-center justify-center"
+                  className="w-full py-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-semibold transition-all flex items-center justify-center"
                 >
-                  <User className="w-5 h-5 mr-2" />
-                  Открыть профиль медика
+                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  Назад к заказу
                 </button>
+              ) : (
+                // Пришли из каталога - кнопка "Создать заказ"
+                <>
+                  <button
+                    onClick={() => {
+                      // Сохраняем данные медика для предзаполнения
+                      sessionStorage.setItem('preselectedMedicId', medicId);
+                      sessionStorage.setItem('preselectedMedicUserId', medic.userId);
+                      sessionStorage.setItem('preselectedSpecialty', medic.specialization);
+                      router.push('/client/orders/create');
+                    }}
+                    className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg shadow-cyan-500/30 transition-all flex items-center justify-center text-lg"
+                  >
+                    <MessageSquare className="w-6 h-6 mr-2" />
+                    Создать заказ с этим медиком
+                  </button>
+                  
+                  <p className="text-center text-sm text-slate-400">
+                    После создания заказа откроется чат 💬
+                  </p>
+                  
+                  <button
+                    onClick={() => router.push('/client/medics')}
+                    className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-medium transition-all flex items-center justify-center"
+                  >
+                    <ArrowLeft className="w-5 h-5 mr-2" />
+                    Назад к каталогу
+                  </button>
+                </>
               )}
-
-              {/* Детали заказа */}
-              <button
-                onClick={() => {
-                  setShowMedicProfile(false);
-                  router.push(`/client/orders/${orderId}`);
-                }}
-                className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-semibold transition-all flex items-center justify-center"
-              >
-                <FileText className="w-5 h-5 mr-2" />
-                Детали заказа
-              </button>
             </div>
           </div>
         </div>
