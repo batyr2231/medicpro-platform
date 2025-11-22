@@ -829,6 +829,91 @@ app.post('/api/orders/:orderId/accept', authenticateToken, async (req, res) => {
   }
 });
 
+// ✅ НОВЫЙ ENDPOINT: Назначить медика на заказ (для персонализированных заказов)
+app.post('/api/orders/:orderId/assign-medic', authenticateToken, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { medicUserId } = req.body;
+
+    console.log(`[ASSIGN] Client ${req.user.userId} assigning medic ${medicUserId} to order ${orderId}`);
+
+    // Проверяем заказ
+    const order = await prisma.order.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Проверка что это клиент заказа
+    if (order.clientId !== req.user.userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Можно назначать только NEW заказы
+    if (order.status !== 'NEW') {
+      return res.status(400).json({ error: 'Order must be in NEW status' });
+    }
+
+    // Проверяем что медик существует
+    const medic = await prisma.medic.findUnique({
+      where: { userId: medicUserId }
+    });
+
+    if (!medic || medic.status !== 'APPROVED') {
+      return res.status(400).json({ error: 'Invalid medic' });
+    }
+
+    // Назначаем медика и меняем статус на ACCEPTED
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        medicId: medicUserId,
+        status: 'ACCEPTED',
+        acceptedAt: new Date()
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
+        }
+      }
+    });
+
+    console.log(`✅ Medic ${medicUserId} assigned to order ${orderId}`);
+
+    // Уведомляем медика
+    io.to(`user:${medicUserId}`).emit('order-accepted', updatedOrder);
+
+    // Telegram уведомление медику
+    try {
+      if (medic.telegramChatId) {
+        await sendTelegramMessage(
+          medic.telegramChatId,
+          `✅ *Клиент выбрал вас!*\n\n` +
+          `📋 Заказ #${orderId.substring(0, 8)}\n` +
+          `👤 Клиент: ${order.client?.name || 'Клиент'}\n` +
+          `📍 ${order.city}, ${order.district}\n` +
+          `💉 ${order.serviceType}\n` +
+          `📅 ${new Date(order.scheduledTime).toLocaleString('ru-RU')}\n\n` +
+          `Откройте приложение для связи с клиентом.`
+        );
+      }
+    } catch (telegramError) {
+      console.error('❌ Telegram notification error:', telegramError);
+    }
+
+    res.json(updatedOrder);
+  } catch (error) {
+    console.error('❌ Assign medic error:', error);
+    res.status(500).json({ error: 'Failed to assign medic' });
+  }
+});
+
 // Подтверждение медика клиентом
 app.post('/api/orders/:orderId/confirm', authenticateToken, async (req, res) => {
   try {
