@@ -1,6 +1,5 @@
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
-import NotificationListener from '@/components/NotificationListener';
 import CookieConsent from '@/components/CookieConsent';
 import NotificationSound from '@/components/NotificationSound';
 
@@ -13,8 +12,6 @@ export default function RootLayout({
     <html lang="ru">
       <body>
         {children}
-        
-        {/* Beautiful Toast Container */}
         
         <Toaster 
           position="top-right"
@@ -69,10 +66,10 @@ export default function RootLayout({
             },
           }}
         />
+        
+        {/* ✅ Компоненты */}
         <NotificationSound />
         <CookieConsent />
-        {/* Глобальный слушатель уведомлений */}
-        <NotificationListener />
       </body>
     </html>
   );

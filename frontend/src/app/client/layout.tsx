@@ -42,9 +42,16 @@ export default function ClientLayout({
         console.log('❌ ClientLayout: Disconnected');
       });
 
+
       // ✅ УВЕДОМЛЕНИЯ О НОВЫХ СООБЩЕНИЯХ В ЧАТАХ
       newSocket.on('new-chat-message', (notification: any) => {
         console.log('💬 New chat message notification:', notification);
+
+        // ✅ ПРОВЕРКА: Не показываем уведомление если мы УЖЕ В ЭТОМ ЧАТЕ!
+        if (pathname === `/chat/${notification.orderId}`) {
+          console.log('⚠️ Already in this chat, skipping notification');
+          return; // ← Выходим, не показываем уведомление
+        }
 
         // ✅ ВОСПРОИЗВОДИМ ЗВУК
         (window as any).playNotificationSound?.();
