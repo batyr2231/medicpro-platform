@@ -149,7 +149,7 @@ async function sendOrderNotification(chatId, orderData) {
       `⏰ <i>Время ограничено! Первый медик получит заказ.</i>`;
 
     // Автологин URL
-    const autoLoginUrl = `https://medicpro-platform.vercel.app/api/auth/auto-login?chatId=${chatId}&redirect=/medic/dashboard`
+    const autoLoginUrl = `https://medicpro-platform.onrender.com/api/auth/auto-login?chatId=${chatId}&redirect=/medic/dashboard`;
 
 
 
@@ -196,7 +196,8 @@ async function sendChatNotification(chatId, data) {
       `👉 Откройте приложение для ответа`;
 
     // Автологин URL
-   const autoLoginUrl = `https://medicpro-platform.vercel.app/api/auth/auto-login?chatId=${chatId}&redirect=/chat/${orderId}`;
+   const autoLoginUrl = `https://medicpro-platform.onrender.com/api/auth/auto-login?chatId=${chatId}&redirect=/chat/${orderId}`;
+
 
 
     const keyboard = Markup.inlineKeyboard([
