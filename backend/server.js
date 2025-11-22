@@ -245,6 +245,19 @@ app.post('/api/auth/register', async (req, res) => {
       { expiresIn: '30d' }
     );
 
+
+    // ✅ ДОБАВЛЕНО: Устанавливаем httpOnly cookie
+    res.cookie('token', token, {
+      httpOnly: true, // Защита от XSS
+      secure: process.env.NODE_ENV === 'production', // HTTPS only
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
+      path: '/',
+    });
+
+    console.log('✅ Token cookie set for user:', user.id);
+
+
     res.json({
       token,
       user: {
@@ -285,6 +298,15 @@ app.post('/api/auth/login', async (req, res) => {
       { expiresIn: '30d' }
     );
 
+    // ✅ ДОБАВЛЕНО: Устанавливаем httpOnly cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
     res.json({
       token,
       user: {
@@ -299,6 +321,20 @@ app.post('/api/auth/login', async (req, res) => {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
   }
+});
+
+// Logout - очистить cookie
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
+  });
+  
+  console.log('✅ Token cookie cleared');
+  
+  res.json({ success: true, message: 'Logged out successfully' });
 });
 
 // Хранилище кодов сброса пароля (в памяти)
