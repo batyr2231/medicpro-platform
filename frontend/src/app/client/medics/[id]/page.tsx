@@ -111,12 +111,12 @@ export default function MedicProfilePage() {
           },
           body: JSON.stringify({
             serviceType: medic.specialization,
-            city: medicCity, // ✅ Город медика
-            district: medicDistricts[0], // ✅ Первый район медика
+            city: medicCity,
+            district: medicDistricts[0],
             address: orderForm.address,
             scheduledTime: orderForm.scheduledTime,
             comment: orderForm.comment,
-            price: orderForm.price ? parseInt(orderForm.price) : undefined, // ✅ ДОБАВЛЕНО
+            price: orderForm.price ? parseInt(orderForm.price) : undefined,
           }),
         }
       );
@@ -128,9 +128,31 @@ export default function MedicProfilePage() {
       const order = await response.json();
       console.log('✅ Order created:', order.id);
 
+      // 2️⃣ ✅ КРИТИЧНО: Назначаем медика и меняем статус на ACCEPTED
+      const assignResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/assign-medic`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            medicUserId: medic.userId, // ✅ Передаём userId медика
+          }),
+        }
+      );
+
+      if (!assignResponse.ok) {
+        console.warn('Failed to assign medic, but order created');
+        // Не падаем, просто логируем
+      } else {
+        console.log('✅ Medic assigned to order');
+      }
+
       toast.success('✅ Заказ создан! Открываем чат...');
 
-      // 2️⃣ НЕ принимаем автоматически, просто идём в чат
+      // 3️⃣ Переходим в чат
       setTimeout(() => {
         router.push(`/chat/${order.id}`);
       }, 500);
