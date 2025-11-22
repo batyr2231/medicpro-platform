@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Star, Award, Briefcase, Users, Phone, Loader, GraduationCap, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Star, Award, Briefcase, Users, Phone, Loader, GraduationCap, MessageCircle, Clock, X } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { getCities, getDistricts } from 'utils/cities';
 
 export default function MedicProfilePage() {
   const params = useParams();
@@ -11,55 +13,147 @@ export default function MedicProfilePage() {
 
   const [medic, setMedic] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [creatingOrder, setCreatingOrder] = useState(false);
+
+  // Форма быстрого заказа
+  const [orderForm, setOrderForm] = useState({
+    city: 'Алматы',
+    district: '',
+    address: '',
+    scheduledTime: '',
+    comment: '',
+  });
 
   useEffect(() => {
     loadMedicProfile();
   }, [medicId]);
 
-const loadMedicProfile = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    
-    // ✅ ПРОВЕРКА 1: Требуем авторизацию
-    if (!token || !userStr) {
-      console.log('❌ Not authenticated');
-      router.push('/auth');
-      return;
-    }
-    
-    // ✅ ПРОВЕРКА 2: Запрещаем медикам смотреть профили
-    const user = JSON.parse(userStr);
-    if (user.role === 'MEDIC') {
-      console.log('❌ Medics cannot view other medic profiles');
-      router.push('/medic/dashboard');
-      return;
-    }
-    
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/${medicId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+  // ✅ Установить минимальную дату (сейчас + 1 час)
+  useEffect(() => {
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    const minDateTime = now.toISOString().slice(0, 16);
+    setOrderForm(prev => ({ ...prev, scheduledTime: minDateTime }));
+  }, []);
+
+  const loadMedicProfile = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const userStr = localStorage.getItem('user');
+      
+      if (!token || !userStr) {
+        console.log('❌ Not authenticated');
+        router.push('/auth');
+        return;
       }
-    );
+      
+      const user = JSON.parse(userStr);
+      if (user.role === 'MEDIC') {
+        console.log('❌ Medics cannot view other medic profiles');
+        router.push('/medic/dashboard');
+        return;
+      }
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/${medicId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
 
-    if (response.status === 401 || response.status === 403) {
+      if (response.status === 401 || response.status === 403) {
+        router.push('/auth');
+        return;
+      }
+
+      const data = await response.json();
+      setMedic(data);
+      
+      // ✅ Автоматически выбрать первый район медика
+      if (data.district) {
+        const districts = data.district.split(', ');
+        setOrderForm(prev => ({ ...prev, district: districts[0] }));
+      }
+    } catch (err) {
+      console.error('Failed to load medic:', err);
       router.push('/auth');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ СОЗДАНИЕ ЗАКАЗА
+  const handleCreateOrder = async () => {
+    if (!orderForm.district || !orderForm.address || !orderForm.scheduledTime) {
+      toast.error('Заполните все обязательные поля');
       return;
     }
 
-    const data = await response.json();
-    setMedic(data);
-  } catch (err) {
-    console.error('Failed to load medic:', err);
-    router.push('/auth');
-  } finally {
-    setLoading(false);
-  }
-};
-  
+    setCreatingOrder(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      // 1️⃣ Создаём заказ
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            serviceType: medic.specialization,
+            city: orderForm.city,
+            district: orderForm.district,
+            address: orderForm.address,
+            scheduledTime: orderForm.scheduledTime,
+            comment: orderForm.comment,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to create order');
+      }
+
+      const order = await response.json();
+      console.log('✅ Order created:', order.id);
+
+      // 2️⃣ Назначаем медика на заказ (автопринятие)
+      const acceptResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/accept`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!acceptResponse.ok) {
+        console.warn('Failed to auto-accept, but order created');
+      }
+
+      toast.success('✅ Заказ создан! Открываем чат...');
+
+      // 3️⃣ Переходим в чат
+      setTimeout(() => {
+        router.push(`/chat/${order.id}`);
+      }, 500);
+
+    } catch (error: any) {
+      console.error('Create order error:', error);
+      toast.error('❌ Ошибка создания заказа');
+    } finally {
+      setCreatingOrder(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -101,7 +195,6 @@ const loadMedicProfile = async () => {
         <div className="max-w-5xl mx-auto px-4 py-3">
           <button
             onClick={() => {
-              // Проверяем есть ли сохраненный orderId для возврата
               const returnToOrder = sessionStorage.getItem('returnToOrder');
               if (returnToOrder) {
                 sessionStorage.removeItem('returnToOrder');
@@ -121,7 +214,7 @@ const loadMedicProfile = async () => {
       <div className="max-w-5xl mx-auto px-4 py-4 md:py-8">
         {/* Профиль */}
         <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-4 md:p-8 mb-4 md:mb-6">
-          {/* Мобильная версия - вертикальный layout */}
+          {/* Мобильная версия */}
           <div className="md:hidden">
             <div className="flex flex-col items-center text-center mb-4">
               {medic.avatar ? (
@@ -149,7 +242,7 @@ const loadMedicProfile = async () => {
             </div>
           </div>
 
-          {/* Десктопная версия - горизонтальный layout */}
+          {/* Десктопная версия */}
           <div className="hidden md:flex items-start justify-between mb-6">
             <div className="flex items-start space-x-4">
               {medic.avatar ? (
@@ -246,26 +339,47 @@ const loadMedicProfile = async () => {
               </div>
             </div>
           )}
-          {/* Кнопка возврата */}
-          <button
-            onClick={() => {
-              // Проверяем откуда пришёл пользователь
-              const returnToOrder = sessionStorage.getItem('returnToOrder');
-              
-              if (returnToOrder) {
-                // Пришли из чата/заказа - возвращаемся к заказу
-                sessionStorage.removeItem('returnToOrder');
-                router.push(`/client/orders/${returnToOrder}`);
-              } else {
-                // Пришли из каталога - возвращаемся в каталог
-                router.push('/client/medics');
-              }
-            }}
-            className="w-full py-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-semibold transition-all flex items-center justify-center"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            {sessionStorage.getItem('returnToOrder') ? 'Назад к заказу' : 'Назад к каталогу'}
-          </button>
+
+          {/* ✅ КНОПКИ ДЕЙСТВИЙ */}
+          <div className="space-y-3">
+            {sessionStorage.getItem('returnToOrder') ? (
+              // Из заказа - кнопка назад
+              <button
+                onClick={() => {
+                  const returnToOrder = sessionStorage.getItem('returnToOrder');
+                  sessionStorage.removeItem('returnToOrder');
+                  router.push(`/client/orders/${returnToOrder}`);
+                }}
+                className="w-full py-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-semibold transition-all flex items-center justify-center"
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Назад к заказу
+              </button>
+            ) : (
+              // Из каталога - кнопка создания заказа
+              <>
+                <button
+                  onClick={() => setShowOrderModal(true)}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg shadow-cyan-500/30 transition-all flex items-center justify-center text-lg"
+                >
+                  <MessageCircle className="w-6 h-6 mr-2" />
+                  Создать заказ с этим медиком
+                </button>
+                
+                <p className="text-center text-sm text-slate-400">
+                  После создания заказа откроется чат
+                </p>
+                
+                <button
+                  onClick={() => router.push('/client/medics')}
+                  className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-semibold transition-all flex items-center justify-center"
+                >
+                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  Назад к каталогу
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Распределение рейтингов */}
@@ -333,6 +447,124 @@ const loadMedicProfile = async () => {
           )}
         </div>
       </div>
+
+      {/* ✅ МОДАЛЬНОЕ ОКНО СОЗДАНИЯ ЗАКАЗА */}
+      {showOrderModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/20 p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold">Создать заказ</h3>
+              <button
+                onClick={() => setShowOrderModal(false)}
+                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Медик и услуга */}
+              <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+                <div className="text-sm text-slate-400 mb-1">Медик</div>
+                <div className="font-semibold">{medic.name}</div>
+                <div className="text-sm text-cyan-400 mt-1">{medic.specialization}</div>
+              </div>
+
+              {/* Город */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Город *</label>
+                <select
+                  value={orderForm.city}
+                  onChange={(e) => setOrderForm({ ...orderForm, city: e.target.value, district: '' })}
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white"
+                >
+                  {getCities().map(city => (
+                    <option key={city} value={city} className="bg-slate-900">{city}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Район */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Район *</label>
+                <select
+                  value={orderForm.district}
+                  onChange={(e) => setOrderForm({ ...orderForm, district: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white"
+                >
+                  <option value="">Выберите район</option>
+                  {getDistricts(orderForm.city).map(district => (
+                    <option key={district} value={district} className="bg-slate-900">{district}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Адрес */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Адрес *</label>
+                <input
+                  type="text"
+                  value={orderForm.address}
+                  onChange={(e) => setOrderForm({ ...orderForm, address: e.target.value })}
+                  placeholder="ул. Абая, 123, кв. 45"
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white"
+                />
+              </div>
+
+              {/* Дата и время */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Дата и время *</label>
+                <input
+                  type="datetime-local"
+                  value={orderForm.scheduledTime}
+                  onChange={(e) => setOrderForm({ ...orderForm, scheduledTime: e.target.value })}
+                  min={new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)}
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white"
+                />
+              </div>
+
+              {/* Комментарий */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Комментарий (необязательно)</label>
+                <textarea
+                  value={orderForm.comment}
+                  onChange={(e) => setOrderForm({ ...orderForm, comment: e.target.value })}
+                  placeholder="Дополнительная информация..."
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white resize-none"
+                />
+              </div>
+
+              {/* Кнопки */}
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => setShowOrderModal(false)}
+                  className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleCreateOrder}
+                  disabled={creatingOrder || !orderForm.district || !orderForm.address || !orderForm.scheduledTime}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 font-semibold transition-all flex items-center justify-center"
+                >
+                  {creatingOrder ? (
+                    <>
+                      <Loader className="w-5 h-5 mr-2 animate-spin" />
+                      Создание...
+                    </>
+                  ) : (
+                    <>
+                      <MessageCircle className="w-5 h-5 mr-2" />
+                      Создать и открыть чат
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

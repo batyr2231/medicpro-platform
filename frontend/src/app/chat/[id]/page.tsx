@@ -543,11 +543,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 <>
                   <button
                     onClick={() => {
-                      // Сохраняем данные медика для предзаполнения
-                      sessionStorage.setItem('preselectedMedicId', medicId);
-                      sessionStorage.setItem('preselectedMedicUserId', medic.userId);
-                      sessionStorage.setItem('preselectedSpecialty', medic.specialization);
-                      router.push('/client/orders/create');
+
                     }}
                     className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg shadow-cyan-500/30 transition-all flex items-center justify-center text-lg"
                   >
