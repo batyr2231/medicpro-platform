@@ -18,11 +18,10 @@ export default function MedicProfilePage() {
 
   // Форма быстрого заказа
   const [orderForm, setOrderForm] = useState({
-    city: 'Алматы',
-    district: '',
     address: '',
     scheduledTime: '',
     comment: '',
+    price: '', 
   });
 
   useEffect(() => {
@@ -87,7 +86,7 @@ export default function MedicProfilePage() {
 
   // ✅ СОЗДАНИЕ ЗАКАЗА
   const handleCreateOrder = async () => {
-    if (!orderForm.district || !orderForm.address || !orderForm.scheduledTime) {
+    if (!orderForm.address || !orderForm.scheduledTime) {
       toast.error('Заполните все обязательные поля');
       return;
     }
@@ -96,6 +95,10 @@ export default function MedicProfilePage() {
 
     try {
       const token = localStorage.getItem('token');
+      
+      // ✅ Используем город и район медика
+      const medicDistricts = medic.district.split(', ');
+      const medicCity = medic.city;
       
       // 1️⃣ Создаём заказ
       const response = await fetch(
@@ -108,11 +111,12 @@ export default function MedicProfilePage() {
           },
           body: JSON.stringify({
             serviceType: medic.specialization,
-            city: orderForm.city,
-            district: orderForm.district,
+            city: medicCity, // ✅ Город медика
+            district: medicDistricts[0], // ✅ Первый район медика
             address: orderForm.address,
             scheduledTime: orderForm.scheduledTime,
             comment: orderForm.comment,
+            price: orderForm.price ? parseInt(orderForm.price) : undefined, // ✅ ДОБАВЛЕНО
           }),
         }
       );
@@ -124,25 +128,9 @@ export default function MedicProfilePage() {
       const order = await response.json();
       console.log('✅ Order created:', order.id);
 
-      // 2️⃣ Назначаем медика на заказ (автопринятие)
-      const acceptResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/accept`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!acceptResponse.ok) {
-        console.warn('Failed to auto-accept, but order created');
-      }
-
       toast.success('✅ Заказ создан! Открываем чат...');
 
-      // 3️⃣ Переходим в чат
+      // 2️⃣ НЕ принимаем автоматически, просто идём в чат
       setTimeout(() => {
         router.push(`/chat/${order.id}`);
       }, 500);
@@ -468,36 +456,10 @@ export default function MedicProfilePage() {
                 <div className="text-sm text-slate-400 mb-1">Медик</div>
                 <div className="font-semibold">{medic.name}</div>
                 <div className="text-sm text-cyan-400 mt-1">{medic.specialization}</div>
+                <div className="text-xs text-slate-500 mt-1">📍 {medic.city}, {medic.district}</div>
               </div>
 
-              {/* Город */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Город *</label>
-                <select
-                  value={orderForm.city}
-                  onChange={(e) => setOrderForm({ ...orderForm, city: e.target.value, district: '' })}
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white"
-                >
-                  {getCities().map(city => (
-                    <option key={city} value={city} className="bg-slate-900">{city}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Район */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Район *</label>
-                <select
-                  value={orderForm.district}
-                  onChange={(e) => setOrderForm({ ...orderForm, district: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white"
-                >
-                  <option value="">Выберите район</option>
-                  {getDistricts(orderForm.city).map(district => (
-                    <option key={district} value={district} className="bg-slate-900">{district}</option>
-                  ))}
-                </select>
-              </div>
+              {/* ❌ УБРАНО: Город и Район */}
 
               {/* Адрес */}
               <div>
@@ -523,6 +485,21 @@ export default function MedicProfilePage() {
                 />
               </div>
 
+              {/* ✅ ДОБАВЛЕНО: Цена */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Предполагаемая цена (тг)</label>
+                <input
+                  type="number"
+                  value={orderForm.price}
+                  onChange={(e) => setOrderForm({ ...orderForm, price: e.target.value })}
+                  placeholder="Например: 5000"
+                  min="0"
+                  step="100"
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500"
+                />
+                <p className="text-xs text-slate-400 mt-1">Окончательная цена будет согласована с медиком</p>
+              </div>
+
               {/* Комментарий */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Комментарий (необязательно)</label>
@@ -545,7 +522,7 @@ export default function MedicProfilePage() {
                 </button>
                 <button
                   onClick={handleCreateOrder}
-                  disabled={creatingOrder || !orderForm.district || !orderForm.address || !orderForm.scheduledTime}
+                  disabled={creatingOrder || !orderForm.address || !orderForm.scheduledTime}
                   className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 font-semibold transition-all flex items-center justify-center"
                 >
                   {creatingOrder ? (
