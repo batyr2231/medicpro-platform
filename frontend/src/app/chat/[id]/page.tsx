@@ -181,34 +181,49 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       <header className="border-b border-white/10 backdrop-blur-xl bg-slate-900/50 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <button
-              onClick={() => {
-                const userStr = localStorage.getItem('user');
-                if (!userStr) {
-                  router.push('/auth');
+          <button
+            onClick={() => {
+              const userStr = localStorage.getItem('user');
+              if (!userStr) {
+                router.push('/auth');
+                return;
+              }
+              
+              try {
+                const user = JSON.parse(userStr);
+                
+                // ✅ ПРОВЕРЯЕМ: Пришли из персонального заказа?
+                const returnTo = sessionStorage.getItem('chatReturnTo');
+                const returnOrderId = sessionStorage.getItem('chatOrderId');
+                
+                if (returnTo === 'order' && returnOrderId === orderId) {
+                  // Очищаем флаги
+                  sessionStorage.removeItem('chatReturnTo');
+                  sessionStorage.removeItem('chatOrderId');
+                  // Редирект на детали заказа
+                  router.push(`/client/orders/${orderId}`);
                   return;
                 }
                 
-                try {
-                  const user = JSON.parse(userStr);
-                  if (user.role === 'MEDIC') {
-                    router.push('/medic/dashboard');
-                  } else if (user.role === 'CLIENT') {
-                    router.push('/client/orders');
-                  } else if (user.role === 'ADMIN') {
-                    router.push('/admin');
-                  } else {
-                    router.back();
-                  }
-                } catch (err) {
-                  console.error('Error parsing user:', err);
-                  router.push('/auth');
+                // ✅ Обычный возврат по роли
+                if (user.role === 'MEDIC') {
+                  router.push('/medic/dashboard');
+                } else if (user.role === 'CLIENT') {
+                  router.push('/client/orders');
+                } else if (user.role === 'ADMIN') {
+                  router.push('/admin');
+                } else {
+                  router.back();
                 }
-              }}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
+              } catch (err) {
+                console.error('Error parsing user:', err);
+                router.push('/auth');
+              }
+            }}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
 
             <div className="text-center flex-1">
               <div className="font-semibold">Чат с {orderInfo?.medic?.name || orderInfo?.client?.name || 'пользователем'}</div>

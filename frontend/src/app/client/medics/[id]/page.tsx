@@ -84,7 +84,6 @@ export default function MedicProfilePage() {
     }
   };
 
-  // ✅ СОЗДАНИЕ ЗАКАЗА
   const handleCreateOrder = async () => {
     if (!orderForm.address || !orderForm.scheduledTime) {
       toast.error('Заполните все обязательные поля');
@@ -96,7 +95,6 @@ export default function MedicProfilePage() {
     try {
       const token = localStorage.getItem('token');
       
-      // ✅ Используем город и район медика
       const medicDistricts = medic.district.split(', ');
       const medicCity = medic.city;
       
@@ -128,7 +126,7 @@ export default function MedicProfilePage() {
       const order = await response.json();
       console.log('✅ Order created:', order.id);
 
-      // 2️⃣ ✅ КРИТИЧНО: Назначаем медика и меняем статус на ACCEPTED
+      // 2️⃣ Назначаем медика
       const assignResponse = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/orders/${order.id}/assign-medic`,
         {
@@ -138,21 +136,24 @@ export default function MedicProfilePage() {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            medicUserId: medic.userId, // ✅ Передаём userId медика
+            medicUserId: medic.userId,
           }),
         }
       );
 
       if (!assignResponse.ok) {
         console.warn('Failed to assign medic, but order created');
-        // Не падаем, просто логируем
       } else {
         console.log('✅ Medic assigned to order');
       }
 
       toast.success('✅ Заказ создан! Открываем чат...');
 
-      // 3️⃣ Переходим в чат
+      // 3️⃣ ✅ КЛЮЧЕВОЕ: Сохраняем orderId для возврата
+      sessionStorage.setItem('chatReturnTo', 'order'); // Флаг что пришли из заказа
+      sessionStorage.setItem('chatOrderId', order.id); // ID заказа
+
+      // 4️⃣ Переходим в чат
       setTimeout(() => {
         router.push(`/chat/${order.id}`);
       }, 500);
