@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 export default function NotificationSound() {
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -150,7 +151,13 @@ export default function NotificationSound() {
     };
   }, [soundEnabled, isClient]);
 
-  if (!isClient) return null;
+  // ✅ ДОБАВЛЕНО: Получаем текущий путь
+  const pathname = usePathname();
+
+  // ✅ Скрываем кнопку в чатах
+  if (!isClient || pathname.startsWith('/chat/')) {
+    return null;
+  }
 
   return (
     <button
