@@ -495,9 +495,17 @@ export default function AdminDashboard() {
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex items-center space-x-4">
+                            {medic.avatar ? (
+                              <img
+                                src={medic.avatar}
+                                alt={medic.name}
+                                className="w-16 h-16 rounded-full object-cover border-2 border-cyan-500/30"
+                              />
+                            ) : (
                             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-2xl font-bold">
                               {medic.name[0]}
                             </div>
+                            )}
                             <div>
                               <div className="font-semibold text-lg">{medic.name}</div>
                               <div className="text-sm text-slate-400">{medic.phone}</div>
@@ -509,22 +517,82 @@ export default function AdminDashboard() {
                           </span>
                         </div>
 
+                        {/* ✅ РАСШИРЕННАЯ информация медика */}
                         <div className="grid sm:grid-cols-2 gap-4 mb-4">
+                          {/* Специализация */}
                           <div>
                             <div className="text-xs text-slate-400 mb-1">Специализация</div>
                             <div className="font-medium">{medic.specialization || 'Не указана'}</div>
                           </div>
+                          
+                          {/* Опыт */}
                           <div>
-                            <div className="text-xs text-slate-400 mb-1">Опыт</div>
-                            <div className="font-medium">{medic.experience || 'Не указан'}</div>
+                            <div className="text-xs text-slate-400 mb-1">Опыт работы</div>
+                            <div className="font-medium">{medic.experience || 0} лет</div>
                           </div>
+                          
+                          {/* Город */}
                           <div>
+                            <div className="text-xs text-slate-400 mb-1">Город</div>
+                            <div className="font-medium">{medic.city || 'Не указан'}</div>
+                          </div>
+                          
+                          {/* Районы */}
+                          <div>
+                            <div className="text-xs text-slate-400 mb-1">Районы обслуживания</div>
+                            <div className="font-medium text-sm">
+                              {medic.areas && medic.areas.length > 0 
+                                ? medic.areas.join(', ') 
+                                : 'Не указаны'}
+                            </div>
+                          </div>
+                          
+                          {/* Рейтинг */}
+                          <div>
+                            <div className="text-xs text-slate-400 mb-1">Рейтинг</div>
+                            <div className="font-medium flex items-center">
+                              {medic.ratingAvg > 0 ? (
+                                <>
+                                  <span className="text-yellow-400 text-lg">{medic.ratingAvg.toFixed(1)}</span>
+                                  <span className="text-yellow-400 ml-1">⭐</span>
+                                  <span className="text-slate-400 text-xs ml-2">
+                                    ({medic.reviewsCount} отзывов)
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-slate-500">Нет отзывов</span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* ✅ НОВОЕ: Telegram статус */}
+                          <div>
+                            <div className="text-xs text-slate-400 mb-1">Telegram бот</div>
+                            <div className="font-medium">
+                              {medic.telegramConnected ? (
+                                <span className="text-green-400 flex items-center">
+                                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                  Подключён
+                                </span>
+                              ) : (
+                                <span className="text-slate-500 flex items-center">
+                                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                  </svg>
+                                  Не подключён
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Образование */}
+                          <div className="sm:col-span-2">
                             <div className="text-xs text-slate-400 mb-1">Образование</div>
-                            <div className="font-medium text-sm">{medic.education || 'Не указано'}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-slate-400 mb-1">Районы</div>
-                            <div className="font-medium text-sm">{medic.areas?.join(', ') || 'Не указаны'}</div>
+                            <div className="font-medium text-sm text-slate-300">
+                              {medic.education || 'Не указано'}
+                            </div>
                           </div>
                         </div>
 
