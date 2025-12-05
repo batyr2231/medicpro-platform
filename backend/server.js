@@ -2835,7 +2835,7 @@ app.get('/api/admin/medics', authenticateToken, authenticateAdmin, async (req, r
       avatar: medic.avatar || null, // ← ДОБАВИТЬ аватар
       specialization: medic.specialty,
       experience: medic.experience,
-      education: medic.education || 'Не указано',
+      education: medic.description || 'Не указано',
       city: medic.city || 'Не указан',
       areas: medic.areas || [],
       birthDate: medic.birthDate || null, // ← ДОБАВИТЬ
