@@ -125,6 +125,11 @@ export default function MedicProfilePage() {
       return;
     }
 
+     if (!formData.education.trim()) {
+      toast.error('Укажите образование');
+      return;
+    }
+
     if (!formData.city) {
       toast.error('Выберите город');
       return;
