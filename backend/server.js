@@ -1752,13 +1752,18 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
       updateData.agreedToTermsAt = new Date();
     }
 
+    const currentMedic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
+    });
+
+    if (currentMedic && currentMedic.status === 'REJECTED') {
+      console.log(`✅ Medic ${currentMedic.id} resubmitting profile (was REJECTED)`);
+      updateData.status = 'PENDING'; // ← Возвращаем на модерацию!
+    }
+
     const medic = await prisma.medic.update({
       where: { userId: req.user.userId },
       data: updateData
-    });
-
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.userId }
     });
 
     console.log('✅ Medic profile updated successfully');
@@ -2833,6 +2838,8 @@ app.get('/api/admin/medics', authenticateToken, authenticateAdmin, async (req, r
       education: medic.education || 'Не указано',
       city: medic.city || 'Не указан',
       areas: medic.areas || [],
+      birthDate: medic.birthDate || null, // ← ДОБАВИТЬ
+      residenceAddress: medic.residenceAddress || null, // ← ДОБАВИТЬ
       status: medic.status,
       ratingAvg: medic.ratingAvg || 0,
       reviewsCount: medic.reviewsCount || 0,
