@@ -1761,10 +1761,14 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
       updateData.status = 'PENDING'; // ← Возвращаем на модерацию!
     }
 
-    const medic = await prisma.medic.update({
-      where: { userId: req.user.userId },
-      data: updateData
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId }
     });
+
+    if (!user) {
+      console.error('❌ User not found:', req.user.userId);
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     console.log('✅ Medic profile updated successfully');
 
@@ -1773,13 +1777,13 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
       name: user.name,
       phone: user.phone,
       specialization: medic.specialty,
-      experience: medic.experience.toString(),
-      education: medic.description,
-      city: medic.city,
-      areas: medic.areas,
-      birthDate: medic.birthDate,
-      residenceAddress: medic.residenceAddress,
-      agreedToTerms: medic.agreedToTerms, // ← ДОБАВИТЬ
+      experience: medic.experience?.toString() || '0', // ← Защита от null
+      education: medic.description || '',
+      city: medic.city || 'Алматы',
+      areas: medic.areas || [],
+      birthDate: medic.birthDate || null,
+      residenceAddress: medic.residenceAddress || '',
+      agreedToTerms: medic.agreedToTerms || false,
     });
   } catch (error) {
     console.error('❌ Update medic profile error:', error);
