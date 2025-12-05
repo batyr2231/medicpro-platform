@@ -715,14 +715,27 @@ export default function MedicProfilePage() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Специализация *
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.specialization}
                   onChange={(e) => handleChange('specialization', e.target.value)}
-                  placeholder="Например: Терапевт, Медсестра"
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors"
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white transition-colors appearance-none cursor-pointer"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 1rem center',
+                    backgroundSize: '1.5em 1.5em',
+                  }}
                   required
-                />
+                >
+                  <option value="" className="bg-slate-900">Выберите специализацию</option>
+                  <option value="Терапевт" className="bg-slate-900">Терапевт</option>
+                  <option value="Медсестра" className="bg-slate-900">Медсестра / Фельдшер</option>
+                  <option value="Педиатр" className="bg-slate-900">Педиатр</option>
+                  <option value="Врач общей практики" className="bg-slate-900">Врач общей практики</option>
+                </select>
+                <p className="text-xs text-slate-400 mt-2">
+                  💡 Выберите основную специализацию. Для фельдшеров → "Медсестра / Фельдшер"
+                </p>
               </div>
 
               <div>

@@ -586,6 +586,27 @@ export default function AdminDashboard() {
                               )}
                             </div>
                           </div>
+
+                            <div>
+                              <div className="text-xs text-slate-400 mb-1">Дата рождения</div>
+                              <div className="font-medium">
+                                {medic.birthDate 
+                                  ? new Date(medic.birthDate).toLocaleDateString('ru-RU', {
+                                      day: '2-digit',
+                                      month: 'long',
+                                      year: 'numeric'
+                                    })
+                                  : 'Не указана'}
+                              </div>
+                            </div>
+                            
+                            {/* ✅ НОВОЕ: Адрес проживания */}
+                            <div>
+                              <div className="text-xs text-slate-400 mb-1">Адрес проживания</div>
+                              <div className="font-medium text-sm">
+                                {medic.residenceAddress || 'Не указан'}
+                              </div>
+                            </div>
                           
                           {/* Образование */}
                           <div className="sm:col-span-2">
