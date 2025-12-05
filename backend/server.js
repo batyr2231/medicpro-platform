@@ -2824,15 +2824,19 @@ app.get('/api/admin/medics', authenticateToken, authenticateAdmin, async (req, r
 
     const result = medics.map(medic => ({
       id: medic.id,
+      userId: medic.user.id, // ← ДОБАВИТЬ userId
       name: medic.user.name,
       phone: medic.user.phone,
-      specialization: medic.specialty, // ← ИСПРАВЛЕНО
+      avatar: medic.avatar || null, // ← ДОБАВИТЬ аватар
+      specialization: medic.specialty,
       experience: medic.experience,
-      education: medic.education,
-      areas: medic.areas,
+      education: medic.education || 'Не указано',
+      city: medic.city || 'Не указан',
+      areas: medic.areas || [],
       status: medic.status,
-      ratingAvg: medic.ratingAvg,
-      reviewsCount: medic.reviewsCount,
+      ratingAvg: medic.ratingAvg || 0,
+      reviewsCount: medic.reviewsCount || 0,
+      telegramConnected: !!medic.telegramChatId, // ← ДОБАВИТЬ статус Telegram
       createdAt: medic.createdAt,
     }));
 
