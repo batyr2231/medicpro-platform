@@ -1774,7 +1774,7 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId }
     });
-    
+
     if (!user) {
       console.error('❌ User not found:', req.user.userId);
       return res.status(404).json({ error: 'User not found' });
@@ -2954,10 +2954,16 @@ app.get('/api/admin/medics/:medicId/documents', authenticateToken, authenticateA
     }
 
     const documents = medic.documents || [];
+    const identityDocument = medic.identityDocument || null; // ✅ ДОБАВИТЬ!
 
     console.log(`[ADMIN] Найдено документов: ${documents.length}`, documents);
+    console.log(`[ADMIN] Удостоверение личности:`, identityDocument);
 
-    res.json({ documents });
+    // ✅ ИСПРАВЛЕНО: Возвращаем ОБА поля!
+    res.json({ 
+      documents,
+      identityDocument 
+    });
 
   } catch (error) {
     console.error('[ADMIN] Get documents error:', error);
