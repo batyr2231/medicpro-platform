@@ -1756,15 +1756,25 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
       where: { userId: req.user.userId }
     });
 
-    if (currentMedic && currentMedic.status === 'REJECTED') {
-      console.log(`✅ Medic ${currentMedic.id} resubmitting profile (was REJECTED)`);
-      updateData.status = 'PENDING'; // ← Возвращаем на модерацию!
+    if (!currentMedic) {
+      return res.status(404).json({ error: 'Medic profile not found' });
     }
+
+    if (currentMedic.status === 'REJECTED') {
+      console.log(`✅ Medic ${currentMedic.id} resubmitting profile (was REJECTED)`);
+      updateData.status = 'PENDING';
+    }
+
+    // ✅ КРИТИЧНО: ДОБАВИТЬ ЭТУ СТРОКУ!
+    const medic = await prisma.medic.update({
+      where: { userId: req.user.userId },
+      data: updateData
+    });
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId }
     });
-
+    
     if (!user) {
       console.error('❌ User not found:', req.user.userId);
       return res.status(404).json({ error: 'User not found' });
