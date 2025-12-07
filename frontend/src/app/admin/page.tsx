@@ -219,74 +219,59 @@ export default function AdminDashboard() {
   };
 
   // Открыть модальное окно с документами
-  const viewDocuments = async (medicId: number | string, medicName: string) => {
-    setLoadingDocs(true);
-    setShowDocsModal(true);
+// ✅ ИСПРАВЛЕНО: Открыть модальное окно с документами
+const viewDocuments = async (medicId: number | string, medicName: string) => {
+  setLoadingDocs(true);
+  setShowDocsModal(true);
+  
+  try {
+    const token = localStorage.getItem('token');
     
-    try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        toast.error('Необходима авторизация');
+    if (!token) {
+      toast.error('Необходима авторизация');
+      router.push('/auth');
+      return;
+    }
+
+    // ✅ ДЕЛАЕМ ТОЛЬКО ОДИН ЗАПРОС!
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics/${medicId}/documents`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        toast.error('Сессия истекла');
         router.push('/auth');
         return;
       }
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics/${medicId}/documents`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          toast.error('Сессия истекла');
-          router.push('/auth');
-          return;
-        }
-        throw new Error('Ошибка загрузки документов');
-      }
-
-      const data = await res.json();
-      
-      // Получаем также identityDocument
-      const medicRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics`,
-        {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }
-      );
-      
-      if (medicRes.ok) {
-        const allMedics = await medicRes.json();
-        const medic = allMedics.find((m: any) => m.id === medicId);
-        
-        setSelectedMedicDocs({
-          medicId,
-          medicName,
-          identityDocument: medic?.identityDocument || null,
-          documents: data.documents || [],
-        });
-      } else {
-        setSelectedMedicDocs({
-          medicId,
-          medicName,
-          identityDocument: null,
-          documents: data.documents || [],
-        });
-      }
-
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || 'Ошибка загрузки документов');
-      setShowDocsModal(false);
-    } finally {
-      setLoadingDocs(false);
+      throw new Error('Ошибка загрузки документов');
     }
-  };
+
+    const data = await res.json();
+    
+    console.log('📄 Documents response:', data); // ← Для отладки
+    
+    // ✅ ИСПОЛЬЗУЕМ ДАННЫЕ ИЗ ОДНОГО ЗАПРОСА!
+    setSelectedMedicDocs({
+      medicId,
+      medicName,
+      identityDocument: data.identityDocument || null, // ← Берём из первого запроса!
+      documents: data.documents || [],
+    });
+
+  } catch (err: any) {
+    console.error('❌ viewDocuments error:', err);
+    toast.error(err.message || 'Ошибка загрузки документов');
+    setShowDocsModal(false);
+  } finally {
+    setLoadingDocs(false);
+  }
+};
 
   const clearDocuments = async (medicId: number | string) => {
     if (!confirm('Удалить все документы этого медика?')) return;
