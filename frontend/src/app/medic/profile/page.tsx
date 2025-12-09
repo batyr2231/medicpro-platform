@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import PhoneInput from '@/components/PhoneInput'; 
 import { getCities, getDistricts } from 'utils/cities';
+import ProcedureSelector from '@/components/ProcedureSelector';
+
 
 export default function MedicProfilePage() {
   const router = useRouter();
@@ -21,6 +23,8 @@ export default function MedicProfilePage() {
   
   const [uploading, setUploading] = useState(false);
   const [medicAvatar, setMedicAvatar] = useState<string | null>(null);
+  const [availableProcedures, setAvailableProcedures] = useState<string[]>([]);
+
   
   const [formData, setFormData] = useState({
     name: '',
@@ -53,6 +57,7 @@ export default function MedicProfilePage() {
   const loadProfile = async () => {
     try {
       const token = localStorage.getItem('token');
+      
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/profile`,
         {
@@ -63,6 +68,7 @@ export default function MedicProfilePage() {
       );
 
       const result = await response.json();
+      
 
       if (response.ok) {
         setFormData({
@@ -80,13 +86,15 @@ export default function MedicProfilePage() {
         setAgreedToTerms(result.agreedToTerms || false);
         setMedicStatus(result.status || 'PENDING');
         setMedicAvatar(result.avatar || null);
-        
+        setAvailableProcedures(result.availableProcedures || []);
+
         if (result.telegramChatId) {
           setTelegramConnected(true);
         }
 
         // Загружаем документы
         setIdentityDoc(result.identityDocument || null);
+        
         
         const docs = result.documents || [];
         const certs = docs.filter((d: any) => d.type === 'CERTIFICATE');
@@ -122,6 +130,11 @@ export default function MedicProfilePage() {
 
     if (!formData.experience || parseInt(formData.experience) === 0) {
       toast.error('Укажите опыт работы');
+      return;
+    }
+
+    if (availableProcedures.length === 0) {
+      toast.error('Выберите хотя бы одну процедуру, которую вы умеете выполнять');
       return;
     }
 
@@ -184,6 +197,7 @@ export default function MedicProfilePage() {
             birthDate: formData.birthDate,
             residenceAddress: formData.residenceAddress,
             agreedToTerms: agreedToTerms,
+            availableProcedures: availableProcedures,
           }),
         }
       );
@@ -769,6 +783,34 @@ export default function MedicProfilePage() {
                   rows={3}
                   className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors resize-none"
                 />
+              </div>
+            </div>
+          </div>
+
+           {/* ✅ НОВОЕ: Выполняемые процедуры */}
+          <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
+            <h2 className="text-xl font-bold mb-6 flex items-center">
+              <span className="text-2xl mr-2">💉</span>
+              Выполняемые процедуры
+            </h2>
+
+            <ProcedureSelector
+              selectedProcedures={availableProcedures}
+              onChange={setAvailableProcedures}
+              required={true}
+            />
+
+            <div className="mt-4 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+              <div className="flex items-start space-x-3">
+                <div className="text-2xl">💡</div>
+                <div className="text-sm text-cyan-300">
+                  <p className="font-medium mb-2">Укажите процедуры, которые вы умеете выполнять:</p>
+                  <ul className="list-disc list-inside space-y-1 text-cyan-400/80">
+                    <li>Выберите все процедуры из вашей практики</li>
+                    <li>Вы сможете принимать только те заказы, которые соответствуют вашим навыкам</li>
+                    <li>Можно обновить список в любое время</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>

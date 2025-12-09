@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Users, Package, AlertTriangle, TrendingUp, CheckCircle, XCircle, Eye, Loader, ArrowLeft, X, FileText, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { MEDICAL_PROCEDURES, getProcedureName, getProcedureIcon } from '@/utils/procedures';
+
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('medics');
@@ -602,6 +604,24 @@ const viewDocuments = async (medicId: number | string, medicName: string) => {
                           </div>
                         </div>
 
+                          {/* ✅ НОВОЕ: Выполняемые процедуры */}
+                          {medic.availableProcedures && medic.availableProcedures.length > 0 && (
+                            <div className="sm:col-span-2">
+                              <div className="text-xs text-slate-400 mb-2">Выполняемые процедуры</div>
+                              <div className="flex flex-wrap gap-2">
+                                {medic.availableProcedures.map((proc: string, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center space-x-1 px-3 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30"
+                                  >
+                                    <span className="text-lg">{getProcedureIcon(proc)}</span>
+                                    <span className="text-xs text-cyan-400">{getProcedureName(proc)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                         {/* Кнопка просмотра документов */}
                         <button
                           onClick={() => viewDocuments(medic.id, medic.name)}
@@ -678,6 +698,25 @@ const viewDocuments = async (medicId: number | string, medicName: string) => {
                           <div className="font-medium">{new Date(order.createdAt).toLocaleDateString('ru-RU')}</div>
                         </div>
                       </div>
+
+                      {/* ✅ НОВОЕ: Процедуры в заказе */}
+                      {order.procedures && order.procedures.length > 0 && (
+                        <div className="mt-4 p-3 rounded-xl bg-purple-500/10 border border-purple-500/30">
+                          <div className="text-xs text-purple-400 mb-2 font-medium">Процедуры:</div>
+                          <div className="flex flex-wrap gap-2">
+                            {order.procedures.map((proc: string, idx: number) => (
+                              <div
+                                key={idx}
+                                className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10"
+                              >
+                                <span>{getProcedureIcon(proc)}</span>
+                                <span className="text-xs">{getProcedureName(proc)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                     </div>
                   ))
                 )}

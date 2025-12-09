@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, MapPin, Star, Award, Briefcase, Users, Loader, Filter } from 'lucide-react';
 import { getCities, getDistricts } from 'utils/cities';
+import { MEDICAL_PROCEDURES } from '@/utils/procedures';
 
 const SPECIALIZATIONS = [
   'Медсестра',
@@ -20,10 +21,11 @@ export default function MedicsCatalogPage() {
   const [cityFilter, setCityFilter] = useState('');
   const [districtFilter, setDistrictFilter] = useState('');
   const [specializationFilter, setSpecializationFilter] = useState('');
+  const [procedureFilter, setProcedureFilter] = useState('');
 
   useEffect(() => {
     loadMedics();
-  }, [cityFilter, districtFilter, specializationFilter]);
+  }, [cityFilter, districtFilter, specializationFilter, procedureFilter]);
 
   const loadMedics = async () => {
     setLoading(true);
@@ -35,6 +37,7 @@ export default function MedicsCatalogPage() {
       if (districtFilter) params.append('district', districtFilter);
       if (specializationFilter) params.append('specialization', specializationFilter);
       if (searchQuery) params.append('search', searchQuery);
+      if (procedureFilter) params.append('procedure', procedureFilter);
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics?${params}`,
@@ -152,6 +155,20 @@ export default function MedicsCatalogPage() {
               {SPECIALIZATIONS.map(spec => (
                 <option key={spec} value={spec} className="bg-slate-900 text-white py-2">
                   {spec}
+                </option>
+              ))}
+            </select>
+            {/* ✅ НОВОЕ: Фильтр по процедурам */}
+            <select
+              value={procedureFilter}
+              onChange={(e) => setProcedureFilter(e.target.value)}
+              className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white appearance-none cursor-pointer"
+              style={selectStyle}
+            >
+              <option value="" className="bg-slate-900 text-white">Все процедуры</option>
+              {MEDICAL_PROCEDURES.map(proc => (
+                <option key={proc.id} value={proc.id} className="bg-slate-900 text-white py-2">
+                  {proc.icon} {proc.name}
                 </option>
               ))}
             </select>

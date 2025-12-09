@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, MapPin, Clock, User, Phone, FileText, CheckCircle, Loader, AlertCircle, MessageSquare, X, Star } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation'; 
 import { useOrders } from '../../../hooks/useOrders'; 
+import { MEDICAL_PROCEDURES } from '@/utils/procedures';
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -261,7 +262,7 @@ export default function OrderDetailPage() {
           <h2 className="text-xl font-bold mb-4">Информация о заказе</h2>
           
           <div className="space-y-4">
-            <div className="flex items-start space-x-3">
+             <div className="flex items-start space-x-3">
               <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center flex-shrink-0 text-2xl">
                 💉
               </div>
@@ -270,6 +271,29 @@ export default function OrderDetailPage() {
                 <div className="font-medium">{order.serviceType}</div>
               </div>
             </div>
+
+            {/* ✅ НОВОЕ: Процедуры */}
+            {order.procedures && order.procedures.length > 0 && (
+              <div className="flex items-start space-x-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0 text-2xl">
+                  📋
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm text-slate-400 mb-2">Процедуры</div>
+                  <div className="space-y-2">
+                    {order.procedures.map((proc: string, idx: number) => {
+                      const procedure = MEDICAL_PROCEDURES.find(p => p.id === proc);
+                      return (
+                        <div key={idx} className="flex items-center space-x-2 text-sm">
+                          <span className="text-lg">{procedure?.icon || '💊'}</span>
+                          <span className="font-medium">{procedure?.name || proc}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-start space-x-3">
               <MapPin className="w-10 h-10 p-2 rounded-lg bg-cyan-500/20 text-cyan-400 flex-shrink-0" />
