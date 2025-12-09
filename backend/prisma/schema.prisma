@@ -95,6 +95,8 @@ model Medic {
   identityDocument Json?
   avatar          String?
 
+  availableProcedures String[]
+
   city           String      @default("Алматы")
   areas          String[]
   schedule       Json?
@@ -123,6 +125,7 @@ model Order {
   clientId      String
   medicId       String?
   serviceType   String
+  procedures    String[]
   address       String
   city          String      @default("Алматы")
   district      String

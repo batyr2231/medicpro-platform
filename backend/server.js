@@ -457,14 +457,16 @@ setInterval(() => {
 
 // ==================== ORDER ROUTES ====================
 
+
 app.post('/api/orders', authenticateToken, async (req, res) => {
   try {
-    const { serviceType, address, city, district, scheduledTime, comment, price, isPersonalized } = req.body; // ← ДОБАВИТЬ isPersonalized
+    const { serviceType, address, city, district, scheduledTime, comment, price, isPersonalized, procedures } = req.body; // ← ДОБАВИТЬ isPersonalized
 
     const order = await prisma.order.create({
       data: {
         clientId: req.user.userId,
         serviceType,
+        procedures: procedures || [],
         address,
         city,
         district,
@@ -1673,6 +1675,7 @@ app.get('/api/medics/profile', authenticateToken, async (req, res) => {
       education: medic.description || '',
       city: medic.city || 'Алматы',
       areas: medic.areas || [],
+      availableProcedures: medic.availableProcedures || [],
       birthDate: medic.birthDate || null,
       residenceAddress: medic.residenceAddress || '',
       identityDocument: medic.identityDocument || null,
@@ -1706,7 +1709,8 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
       areas,
       birthDate,
       residenceAddress,
-      agreedToTerms // ← ДОБАВИТЬ
+      agreedToTerms, // ← ДОБАВИТЬ
+      availableProcedures
     } = req.body;
 
     console.log('📝 Updating medic profile');
@@ -1745,7 +1749,9 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
     if (areas && Array.isArray(areas)) updateData.areas = areas;
     if (birthDate) updateData.birthDate = new Date(birthDate);
     if (residenceAddress) updateData.residenceAddress = residenceAddress;
-    
+    if (availableProcedures && Array.isArray(availableProcedures)) {
+      updateData.availableProcedures = availableProcedures;
+    }
     // ← ДОБАВИТЬ:
     if (agreedToTerms === true) {
       updateData.agreedToTerms = true;
