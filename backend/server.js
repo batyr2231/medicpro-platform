@@ -459,7 +459,7 @@ setInterval(() => {
 
 app.post('/api/orders', authenticateToken, async (req, res) => {
   try {
-    const { serviceType, address, city, district, scheduledTime, comment, price, isPersonalized } = req.body; // ← ДОБАВИТЬ isPersonalized
+    const { serviceType, address, city, district, scheduledTime, comment, price, isPersonalized, procedures } = req.body; // ← ДОБАВИТЬ isPersonalized
 
     const order = await prisma.order.create({
       data: {
@@ -471,7 +471,8 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
         scheduledTime: new Date(scheduledTime),
         comment,
         price: price ? parseFloat(price) : null,
-        status: 'NEW'
+        status: 'NEW',
+        procedures: procedures || [],
       },
       include: {
         client: {
@@ -1682,6 +1683,7 @@ app.get('/api/medics/profile', authenticateToken, async (req, res) => {
       reviewsCount: medic.reviewsCount,
       telegramChatId: medic.telegramChatId,
       agreedToTerms: medic.agreedToTerms || false,
+      availableProcedures: medic.availableProcedures || [],
       createdAt: medic.createdAt,
     };
 
@@ -1745,6 +1747,7 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
     if (areas && Array.isArray(areas)) updateData.areas = areas;
     if (birthDate) updateData.birthDate = new Date(birthDate);
     if (residenceAddress) updateData.residenceAddress = residenceAddress;
+    if (availableProcedures && Array.isArray(availableProcedures)) updateData.availableProcedures = availableProcedures;
     
     // ← ДОБАВИТЬ:
     if (agreedToTerms === true) {
@@ -3373,6 +3376,7 @@ app.get('/api/medics', async (req, res) => {
         avgRating: parseFloat(avgRating),
         reviewCount: ratings.length,
         memberSince: medic.user.createdAt,
+        availableProcedures: medic.availableProcedures || [],
       };
     });
 
