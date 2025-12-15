@@ -97,6 +97,7 @@ model Medic {
 
   city           String      @default("Алматы")
   areas          String[]
+  availableProcedures String[] @default([])
   schedule       Json?
   status         MedicStatus @default(PENDING)
   ratingAvg      Float       @default(0)
@@ -128,6 +129,7 @@ model Order {
   district      String
   scheduledTime DateTime
   comment       String?
+  procedures    String[]    @default([])
   status        OrderStatus @default(NEW)
   paymentStatus Boolean     @default(false)
   confirmedByClient Boolean     @default(false)
