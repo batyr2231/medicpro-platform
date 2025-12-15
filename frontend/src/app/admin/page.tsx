@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Users, Package, AlertTriangle, TrendingUp, CheckCircle, XCircle, Eye, Loader, ArrowLeft, X, FileText, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import ProcedureList from '@/components/ProcedureList';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('medics');
@@ -616,6 +617,17 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                         </div>
+
+                        {/* ✅ НОВОЕ: Процедуры */}
+                        {medic.availableProcedures && medic.availableProcedures.length > 0 && (
+                          <div className="mb-4 p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
+                            <div className="text-sm font-semibold text-purple-400 mb-3 flex items-center">
+                              <span className="text-lg mr-2">💊</span>
+                              Умеет выполнять ({medic.availableProcedures.length} процедур)
+                            </div>
+                            <ProcedureList procedures={medic.availableProcedures} compact={true} />
+                          </div>
+                        )}
 
                         {/* Кнопка просмотра документов */}
                         <button
