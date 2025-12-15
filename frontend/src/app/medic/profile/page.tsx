@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import PhoneInput from '@/components/PhoneInput'; 
 import { getCities, getDistricts } from 'utils/cities';
+import ProcedureSelector from '@/components/ProcedureSelector';
+
 
 export default function MedicProfilePage() {
   const router = useRouter();
@@ -32,6 +34,7 @@ export default function MedicProfilePage() {
     areas: [] as string[],
     birthDate: '',
     residenceAddress: '',
+    availableProcedures: [] as string[],
   });
 
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -75,6 +78,7 @@ export default function MedicProfilePage() {
           areas: result.areas || [],
           birthDate: result.birthDate ? new Date(result.birthDate).toISOString().split('T')[0] : '',
           residenceAddress: result.residenceAddress || '',
+          availableProcedures: result.availableProcedures || [],
         });
         
         setAgreedToTerms(result.agreedToTerms || false);
@@ -140,6 +144,11 @@ export default function MedicProfilePage() {
       return;
     }
 
+    if (formData.availableProcedures.length === 0) {
+      toast.error('Выберите хотя бы одну процедуру');
+      return;
+    }
+
     if (!formData.birthDate) {
       toast.error('Укажите дату рождения');
       return;
@@ -184,6 +193,7 @@ export default function MedicProfilePage() {
             birthDate: formData.birthDate,
             residenceAddress: formData.residenceAddress,
             agreedToTerms: agreedToTerms,
+            availableProcedures: formData.availableProcedures,
           }),
         }
       );
@@ -770,6 +780,30 @@ export default function MedicProfilePage() {
                   className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-500 transition-colors resize-none"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Процедуры */}
+          <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
+            <h2 className="text-xl font-bold mb-6 flex items-center">
+              <span className="text-2xl mr-2">💊</span>
+              Медицинские процедуры
+            </h2>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-300 mb-3">
+                Какие процедуры вы можете выполнять? *
+              </label>
+              <p className="text-xs text-slate-400 mb-4">
+                💡 Выберите все процедуры, которые вы квалифицированы выполнять. 
+                Клиенты будут видеть это при выборе медика.
+              </p>
+              
+              <ProcedureSelector
+                selectedProcedures={formData.availableProcedures}
+                onChange={(procedures) => handleChange('availableProcedures', procedures)}
+                required={true}
+              />
             </div>
           </div>
 

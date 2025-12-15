@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import OrderSkeleton from '@/components/OrderSkeleton';
 import { io } from 'socket.io-client';
+import ProcedureList from '@/components/ProcedureList';
+
 
 export default function MedicDashboard() {
   const [activeTab, setActiveTab] = useState('available');
@@ -723,6 +725,21 @@ useEffect(() => {
                     </div>
                   )}
 
+                  {/* Процедуры */}
+                  {order.procedures && order.procedures.length > 0 && (
+                    <div className="mb-4 p-3 sm:p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
+                      <div className="flex items-start space-x-2 sm:space-x-3">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                          <span className="text-lg">📋</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-purple-400 font-semibold mb-2">Процедуры</div>
+                          <ProcedureList procedures={order.procedures} compact={true} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Кнопка принять */}
                   <button
                     onClick={() => handleAcceptOrder(order.id)}
@@ -814,6 +831,21 @@ useEffect(() => {
                         <span className="text-lg sm:text-xl font-bold text-emerald-400 whitespace-nowrap">
                           {parseInt(order.price).toLocaleString('ru-RU')} ₸
                         </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Процедуры */}
+                  {order.procedures && order.procedures.length > 0 && (
+                    <div className="mb-4 p-3 rounded-xl bg-purple-500/10 border border-purple-500/30">
+                      <div className="flex items-start space-x-2">
+                        <div className="w-7 h-7 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                          <span className="text-lg">📋</span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs text-purple-400 font-semibold mb-2">Процедуры</div>
+                          <ProcedureList procedures={order.procedures} compact={true} />
+                        </div>
                       </div>
                     </div>
                   )}

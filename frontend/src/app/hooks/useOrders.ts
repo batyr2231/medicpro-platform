@@ -22,6 +22,7 @@ export function useOrders() {
     scheduledTime: string;
     comment?: string;
     price?: number; 
+    procedures?: string[];
   }) => {
     setLoading(true);
     setError(null);

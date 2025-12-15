@@ -5,6 +5,7 @@ import { MapPin, Calendar, Clock, FileText, Heart, ChevronRight, ArrowLeft } fro
 import { useOrders } from '../../hooks/useOrders';
 import { useRouter } from 'next/navigation';
 import { getCities, getDistricts } from 'utils/cities';
+import ProcedureSelector from '@/components/ProcedureSelector';
 
 export default function CreateOrderPage() {
   const [step, setStep] = useState(1);
@@ -17,6 +18,7 @@ export default function CreateOrderPage() {
     time: '',
     comment: '',
     price: '',
+    procedures: [] as string[],
   });
 
   const { createOrder, loading: orderLoading, error: orderError } = useOrders();
@@ -64,6 +66,7 @@ export default function CreateOrderPage() {
         scheduledTime: scheduledDateTime,
         comment: formData.comment,
         price: formData.price ? parseInt(formData.price) : undefined, 
+        procedures: formData.procedures,
       });
 
       console.log('Order created:', result);
@@ -292,6 +295,17 @@ export default function CreateOrderPage() {
                     Окончательная цена будет согласована с медиком
                   </p>
                 </div>
+                {/* Процедуры */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-3">
+                    Какие процедуры нужны? <span className="text-red-400">*</span>
+                  </label>
+                  <ProcedureSelector
+                    selectedProcedures={formData.procedures}
+                    onChange={(procedures) => handleChange('procedures', procedures)}
+                    required={true}
+                  />
+                </div>
               </div>
 
               <div className="flex justify-between pt-4 max-w-2xl mx-auto">
@@ -323,6 +337,10 @@ export default function CreateOrderPage() {
                     }
                     if (!formData.time) {
                       alert('❌ Выберите время визита');
+                      return;
+                    }
+                    if (formData.procedures.length === 0) {
+                      alert('❌ Выберите хотя бы одну процедуру');
                       return;
                     }
                     setStep(3); // ← Переходим на Шаг 3
@@ -391,6 +409,32 @@ export default function CreateOrderPage() {
                       <div className="text-sm text-slate-400 mb-1">Предполагаемая цена</div>
                       <div className="font-medium text-green-400">
                         {parseInt(formData.price).toLocaleString('ru-RU')} тг
+                      </div>
+                    </div>
+                  )}
+                  {formData.procedures.length > 0 && (
+                    <div className="border-t border-white/10 pt-4">
+                      <div className="text-sm text-slate-400 mb-2">Процедуры</div>
+                      <div className="flex flex-wrap gap-2">
+                        {formData.procedures.map((procId, idx) => {
+                          const MEDICAL_PROCEDURES = [
+                            { id: 'injection', name: 'Укол', icon: '💉' },
+                            { id: 'iv_drip', name: 'Капельница', icon: '💧' },
+                            { id: 'enema', name: 'Клизма', icon: '🚿' },
+                            { id: 'dressing', name: 'Перевязки', icon: '🩹' },
+                            { id: 'alcohol_detox', name: 'Снятие алк. интоксикации', icon: '🍺' },
+                            { id: 'food_detox', name: 'Снятие пищ. интоксикации', icon: '🤢' },
+                            { id: 'catheter_change', name: 'Смена катетера', icon: '🔧' },
+                            { id: 'coding', name: 'Кодировка', icon: '🚫' },
+                          ];
+                          const proc = MEDICAL_PROCEDURES.find(p => p.id === procId);
+                          return (
+                            <div key={idx} className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-purple-500/20 border border-purple-500/30">
+                              <span className="text-lg">{proc?.icon || '💊'}</span>
+                              <span className="text-sm text-purple-300">{proc?.name || procId}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
