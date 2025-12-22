@@ -1708,7 +1708,8 @@ app.put('/api/medics/profile', authenticateToken, async (req, res) => {
       areas,
       birthDate,
       residenceAddress,
-      agreedToTerms // ← ДОБАВИТЬ
+      agreedToTerms,
+      availableProcedures
     } = req.body;
 
     console.log('📝 Updating medic profile');
