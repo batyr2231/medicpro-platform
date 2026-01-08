@@ -2858,6 +2858,8 @@ app.get('/api/admin/medics', authenticateToken, authenticateAdmin, async (req, r
       areas: medic.areas || [],
       birthDate: medic.birthDate || null, // ← ДОБАВИТЬ
       residenceAddress: medic.residenceAddress || null, // ← ДОБАВИТЬ
+      identityDocument: medic.identityDocument || null,
+      availableProcedures: medic.availableProcedures || [],
       status: medic.status,
       ratingAvg: medic.ratingAvg || 0,
       reviewsCount: medic.reviewsCount || 0,
