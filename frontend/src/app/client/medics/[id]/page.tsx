@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, MapPin, Star, Award, Briefcase, Users, Phone, Loader, GraduationCap, MessageCircle, Clock, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getCities, getDistricts } from 'utils/cities';
+import ProcedureList from '@/components/ProcedureList';
 
 export default function MedicProfilePage() {
   const params = useParams();
@@ -351,6 +352,17 @@ const handleCreateOrder = async () => {
                   </span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Процедуры */}
+          {medic.availableProcedures && medic.availableProcedures.length > 0 && (
+            <div className="mb-4 md:mb-6">
+              <h3 className="text-base md:text-lg font-semibold mb-3 flex items-center">
+                <span className="text-xl mr-2">💊</span>
+                Выполняет процедуры
+              </h3>
+              <ProcedureList procedures={medic.availableProcedures} compact={false} />
             </div>
           )}
 

@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, MapPin, Star, Award, Briefcase, Users, Loader, Filter } from 'lucide-react';
 import { getCities, getDistricts } from 'utils/cities';
+import ProcedureSelector from '@/components/ProcedureSelector';
+import ProcedureList from '@/components/ProcedureList';
 
 const SPECIALIZATIONS = [
   'Медсестра',
@@ -20,6 +22,7 @@ export default function MedicsCatalogPage() {
   const [cityFilter, setCityFilter] = useState('');
   const [districtFilter, setDistrictFilter] = useState('');
   const [specializationFilter, setSpecializationFilter] = useState('');
+  const [proceduresFilter, setProceduresFilter] = useState<string[]>([]);
 
   useEffect(() => {
     loadMedics();
@@ -35,6 +38,9 @@ export default function MedicsCatalogPage() {
       if (districtFilter) params.append('district', districtFilter);
       if (specializationFilter) params.append('specialization', specializationFilter);
       if (searchQuery) params.append('search', searchQuery);
+      if (proceduresFilter.length > 0) {
+        proceduresFilter.forEach(proc => params.append('procedures', proc));
+      }
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics?${params}`,
@@ -158,6 +164,33 @@ export default function MedicsCatalogPage() {
           </div>
         </div>
 
+        {/* Фильтр по процедурам */}
+          <div className="mt-4 rounded-xl bg-white/5 border border-white/10 p-4">
+            <h3 className="text-sm font-semibold mb-3 flex items-center">
+              <span className="text-lg mr-2">💊</span>
+              Фильтр по процедурам
+            </h3>
+            <ProcedureSelector
+              selectedProcedures={proceduresFilter}
+              onChange={(procedures) => {
+                setProceduresFilter(procedures);
+                loadMedics();
+              }}
+              required={false}
+            />
+            {proceduresFilter.length > 0 && (
+              <button
+                onClick={() => {
+                  setProceduresFilter([]);
+                  loadMedics();
+                }}
+                className="mt-3 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                ✕ Сбросить фильтр процедур
+              </button>
+            )}
+          </div>
+
         {/* Список медиков */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -226,8 +259,14 @@ export default function MedicsCatalogPage() {
                     <div className="text-lg font-bold">{medic.reviewCount || 0}</div>
                   </div>
                 </div>
-
-                {/* Кнопка */}
+                { /* Процедуры */}
+                {medic.availableProcedures && medic.availableProcedures.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <div className="text-xs text-slate-400 mb-2">Выполняет процедуры:</div>
+                    <ProcedureList procedures={medic.availableProcedures} compact={true} />
+                  </div>
+                )}
+                {/* Кнопка */}    
                 <button
                   className="w-full mt-4 py-3 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 font-semibold transition-all"
                 >
