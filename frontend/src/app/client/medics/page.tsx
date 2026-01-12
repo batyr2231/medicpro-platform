@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, MapPin, Star, Award, Briefcase, Users, Loader, Filter } from 'lucide-react';
 import { getCities, getDistricts } from 'utils/cities';
-import ProcedureSelector from '@/components/ProcedureSelector';
 import ProcedureList from '@/components/ProcedureList';
+import { MEDICAL_PROCEDURES } from 'utils/procedures';
 
 const SPECIALIZATIONS = [
   'Медсестра',
@@ -22,7 +22,7 @@ export default function MedicsCatalogPage() {
   const [cityFilter, setCityFilter] = useState('');
   const [districtFilter, setDistrictFilter] = useState('');
   const [specializationFilter, setSpecializationFilter] = useState('');
-  const [proceduresFilter, setProceduresFilter] = useState<string[]>([]);
+  const [procedureFilter, setProcedureFilter] = useState('');
 
   useEffect(() => {
     loadMedics();
@@ -38,9 +38,7 @@ export default function MedicsCatalogPage() {
       if (districtFilter) params.append('district', districtFilter);
       if (specializationFilter) params.append('specialization', specializationFilter);
       if (searchQuery) params.append('search', searchQuery);
-      if (proceduresFilter.length > 0) {
-        proceduresFilter.forEach(proc => params.append('procedures', proc));
-      }
+      if (procedureFilter) params.append('procedure', procedureFilter);
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics?${params}`,
@@ -113,7 +111,7 @@ export default function MedicsCatalogPage() {
           </div>
 
           {/* Фильтры */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <select
               value={cityFilter}
               onChange={(e) => {
@@ -161,35 +159,23 @@ export default function MedicsCatalogPage() {
                 </option>
               ))}
             </select>
+            <select
+              value={procedureFilter}
+              onChange={(e) => setProcedureFilter(e.target.value)}
+              className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white appearance-none cursor-pointer"
+              style={selectStyle}
+            >
+              <option value="" className="bg-slate-900 text-white">Все процедуры</option>
+              {MEDICAL_PROCEDURES.map(proc => (
+                <option key={proc.id} value={proc.id} className="bg-slate-900 text-white py-2">
+                  {proc.icon} {proc.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Фильтр по процедурам */}
-          <div className="mt-4 rounded-xl bg-white/5 border border-white/10 p-4">
-            <h3 className="text-sm font-semibold mb-3 flex items-center">
-              <span className="text-lg mr-2">💊</span>
-              Фильтр по процедурам
-            </h3>
-            <ProcedureSelector
-              selectedProcedures={proceduresFilter}
-              onChange={(procedures) => {
-                setProceduresFilter(procedures);
-                loadMedics();
-              }}
-              required={false}
-            />
-            {proceduresFilter.length > 0 && (
-              <button
-                onClick={() => {
-                  setProceduresFilter([]);
-                  loadMedics();
-                }}
-                className="mt-3 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
-              >
-                ✕ Сбросить фильтр процедур
-              </button>
-            )}
-          </div>
+  
 
         {/* Список медиков */}
         {loading ? (
