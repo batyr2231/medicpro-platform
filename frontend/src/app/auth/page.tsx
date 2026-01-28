@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { Heart, Phone, Lock, User, Eye, EyeOff, ArrowLeft, Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import Link from 'next/link';
@@ -11,6 +13,7 @@ import PhoneInput from '@/components/PhoneInput';
 
 export default function AuthPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState<'CLIENT' | 'MEDIC'>('CLIENT');
   const [showPassword, setShowPassword] = useState(false);
@@ -167,11 +170,16 @@ export default function AuthPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
+          {/* Переключатель языка */}
+          <div className="flex justify-end mb-4">
+            <LanguageSwitcher />
+          </div>
+          
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 mb-4 shadow-lg shadow-blue-500/50">
             <Heart className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">MedicPro</h1>
-          <p className="text-slate-400">Медицинская помощь на дому</p>
+          <p className="text-slate-400">{t('auth.welcome')}</p>
         </div>
 
         {/* Main Card */}
@@ -190,7 +198,7 @@ export default function AuthPage() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Вход
+              {t('auth.login')}
             </button>
             <button
               onClick={() => {
@@ -203,7 +211,7 @@ export default function AuthPage() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Регистрация
+              {t('auth.register')}
             </button>
           </div>
 
@@ -212,7 +220,7 @@ export default function AuthPage() {
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Телефон
+                  {t('auth.phone')}
                 </label>
                 <PhoneInput
                   value={formData.phone}
@@ -225,7 +233,7 @@ export default function AuthPage() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Пароль
+                   {t('auth.password')}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -252,11 +260,11 @@ export default function AuthPage() {
                 disabled={loading}
                 className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50"
               >
-                {loading ? 'Вход...' : 'Войти'}
+                {loading ? `${t('auth.login')}...` : t('auth.loginButton')}
               </button>
               <div className="text-center mt-4">
                 <Link href="/auth/forgot-password" className="text-cyan-400 hover:text-cyan-300 transition-colors text-sm">
-                  Забыли пароль?
+                  {t('auth.forgotPassword')}
                 </Link>
               </div>
             </form>
@@ -270,7 +278,7 @@ export default function AuthPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-3">
-                      Зарегистрироваться как:
+                      {t('auth.role')}:
                     </label>
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -282,7 +290,7 @@ export default function AuthPage() {
                             : 'border-white/10 text-slate-400 hover:border-white/20'
                         }`}
                       >
-                        👤 Пациент
+                        👤 {t('auth.client')}
                       </button>
                       <button
                         type="button"
@@ -293,14 +301,14 @@ export default function AuthPage() {
                             : 'border-white/10 text-slate-400 hover:border-white/20'
                         }`}
                       >
-                        💊 Медик
+                        💊 {t('auth.medic')}
                       </button>
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Телефон
+                      {t('auth.phone')}
                     </label>
                     <PhoneInput
                       value={formData.phone}
@@ -316,7 +324,7 @@ export default function AuthPage() {
                     disabled={loading}
                     className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50"
                   >
-                    {loading ? 'Отправка...' : 'Получить код'}
+                    {loading ? `${t('common.send')}...` : t('common.send') + ' код'}
                   </button>
                 </div>
               )}
@@ -330,7 +338,7 @@ export default function AuthPage() {
                     className="flex items-center text-slate-400 hover:text-white transition-colors mb-4"
                   >
                     <ArrowLeft className="w-5 h-5 mr-2" />
-                    Назад
+                    {t('common.back')}
                   </button>
 
                   <div className="text-center mb-6">
@@ -360,7 +368,7 @@ export default function AuthPage() {
                     disabled={loading || verificationCode.length !== 6}
                     className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50"
                   >
-                    {loading ? 'Проверка...' : 'Подтвердить'}
+                   {loading ? 'Проверка...' : t('common.confirm')}
                   </button>
 
                   <button
@@ -369,7 +377,7 @@ export default function AuthPage() {
                     disabled={timer > 0}
                     className="w-full py-3 text-sm text-slate-400 hover:text-white transition-colors disabled:opacity-50"
                   >
-                    {timer > 0 ? `Отправить повторно через ${timer}с` : 'Отправить код повторно'}
+                     {timer > 0 ? `Отправить повторно через ${timer}с` : 'Отправить код повторно'}
                   </button>
                 </div>
               )}
@@ -384,7 +392,7 @@ export default function AuthPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Имя
+                      {t('auth.name')}
                     </label>
                     <div className="relative">
                       <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -401,7 +409,7 @@ export default function AuthPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Пароль
+                      {t('auth.password')}
                     </label>
                     <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -428,7 +436,7 @@ export default function AuthPage() {
                     disabled={loading}
                     className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50"
                   >
-                    {loading ? 'Регистрация...' : 'Завершить регистрацию'}
+                    {loading ? `${t('auth.register')}...` : t('auth.registerButton')}
                   </button>
                 </form>
               )}

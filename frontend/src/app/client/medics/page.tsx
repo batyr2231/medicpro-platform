@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { Search, MapPin, Star, Award, Briefcase, Users, Loader, Filter } from 'lucide-react';
 import { getCities, getDistricts } from 'utils/cities';
 import ProcedureList from '@/components/ProcedureList';
@@ -16,6 +18,7 @@ const SPECIALIZATIONS = [
 
 export default function MedicsCatalogPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [medics, setMedics] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,13 +78,16 @@ export default function MedicsCatalogPage() {
       <header className="border-b border-white/10 backdrop-blur-xl bg-slate-900/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">🩺 Каталог медиков</h1>
-            <button
-              onClick={() => router.push('/client/orders')}
-              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-            >
-              Мои заказы
-            </button>
+            <h1 className="text-2xl font-bold">🩺 {t('catalog.title')}</h1>
+            <div className="flex items-center space-x-4">
+              <LanguageSwitcher />
+              <button
+                onClick={() => router.push('/client/orders')}
+                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+              >
+                {t('nav.myOrders')}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -98,7 +104,7 @@ export default function MedicsCatalogPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Поиск по имени или специализации..."
+                placeholder={t('catalog.searchPlaceholder')}
                 className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-400"
               />
             </div>
@@ -106,7 +112,7 @@ export default function MedicsCatalogPage() {
               onClick={handleSearch}
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all"
             >
-              Найти
+              {t('catalog.findButton')}
             </button>
           </div>
 
@@ -121,7 +127,7 @@ export default function MedicsCatalogPage() {
               className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white appearance-none cursor-pointer"
               style={selectStyle}
             >
-              <option value="" className="bg-slate-900 text-white">Все города</option>
+              <option value="" className="bg-slate-900 text-white">{t('catalog.allCities')}</option>
               {getCities().map(city => (
                 <option key={city} value={city} className="bg-slate-900 text-white py-2">
                   {city}
@@ -137,7 +143,7 @@ export default function MedicsCatalogPage() {
               style={selectStyle}
             >
               <option value="" className="bg-slate-900 text-white">
-                {cityFilter ? 'Все районы' : 'Сначала выберите город'}
+                {cityFilter ? t('catalog.allDistricts') : t('catalog.selectCityFirst')}
               </option>
               {cityFilter && getDistricts(cityFilter).map(district => (
                 <option key={district} value={district} className="bg-slate-900 text-white py-2">
@@ -152,7 +158,7 @@ export default function MedicsCatalogPage() {
               className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white appearance-none cursor-pointer"
               style={selectStyle}
             >
-              <option value="" className="bg-slate-900 text-white">Все специализации</option>
+              <option value="" className="bg-slate-900 text-white">{t('catalog.allSpecializations')}</option>
               {SPECIALIZATIONS.map(spec => (
                 <option key={spec} value={spec} className="bg-slate-900 text-white py-2">
                   {spec}
@@ -165,7 +171,7 @@ export default function MedicsCatalogPage() {
               className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white appearance-none cursor-pointer"
               style={selectStyle}
             >
-              <option value="" className="bg-slate-900 text-white">Все процедуры</option>
+              <option value="" className="bg-slate-900 text-white">{t('catalog.allProcedures')}</option>
               {MEDICAL_PROCEDURES.map(proc => (
                 <option key={proc.id} value={proc.id} className="bg-slate-900 text-white py-2">
                   {proc.icon} {proc.name}
@@ -185,8 +191,8 @@ export default function MedicsCatalogPage() {
         ) : medics.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-6xl mb-4">🔍</div>
-            <p className="text-slate-400 text-lg mb-2">Медики не найдены</p>
-            <p className="text-slate-500 text-sm">Попробуйте изменить фильтры поиска</p>
+            <p className="text-slate-400 text-lg mb-2">{t('medic.noMedicsFound')}</p>
+            <p className="text-slate-500 text-sm">{t('medic.tryChangeFilters')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -232,15 +238,15 @@ export default function MedicsCatalogPage() {
                   <div className="p-3 rounded-lg bg-white/5 border border-white/10">
                     <div className="flex items-center space-x-2 mb-1">
                       <Briefcase className="w-4 h-4 text-cyan-400" />
-                      <span className="text-xs text-slate-400">Опыт</span>
+                      <span className="text-xs text-slate-400">{t('medic.experience')}</span>
                     </div>
-                    <div className="text-lg font-bold">{medic.experience} лет</div>
+                    <div className="text-lg font-bold">{medic.experience} {t('medic.years')}</div>
                   </div>
 
                   <div className="p-3 rounded-lg bg-white/5 border border-white/10">
                     <div className="flex items-center space-x-2 mb-1">
                       <Users className="w-4 h-4 text-green-400" />
-                      <span className="text-xs text-slate-400">Отзывы</span>
+                      <span className="text-xs text-slate-400">{t('medic.reviews')}</span>
                     </div>
                     <div className="text-lg font-bold">{medic.reviewCount || 0}</div>
                   </div>
@@ -248,7 +254,7 @@ export default function MedicsCatalogPage() {
                 { /* Процедуры */}
                 {medic.availableProcedures && medic.availableProcedures.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-white/10">
-                    <div className="text-xs text-slate-400 mb-2">Выполняет процедуры:</div>
+                    <div className="text-xs text-slate-400 mb-2">{t('medic.availableProcedures')}:</div>
                     <ProcedureList procedures={medic.availableProcedures} compact={true} />
                   </div>
                 )}
@@ -256,7 +262,7 @@ export default function MedicsCatalogPage() {
                 <button
                   className="w-full mt-4 py-3 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 font-semibold transition-all"
                 >
-                  Посмотреть профиль
+                  {t('medic.viewProfile')}
                 </button>
               </div>
             ))}

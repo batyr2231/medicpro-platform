@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { Heart, MapPin, Clock, User, Phone, FileText, CheckCircle, Navigation, AlertCircle, Menu, Loader, Car, Play, DollarSign, MessageSquare } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
 import { useRouter } from 'next/navigation';
@@ -12,6 +14,7 @@ import ProcedureList from '@/components/ProcedureList';
 
 export default function MedicDashboard() {
   const [activeTab, setActiveTab] = useState('available');
+  const { t } = useTranslation();
   const [medicInfo, setMedicInfo] = useState<any>(null);
   
   const { getAvailableOrders, getMyOrders, acceptOrder, updateOrderStatus, markPaymentReceived, loading: ordersLoading } = useOrders();
@@ -294,11 +297,13 @@ useEffect(() => {
                 <Menu className="w-6 h-6" />
               </button>
 
+              <LanguageSwitcher />
+
               <button
                 onClick={handleLogout}
                 className="flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors"
               >
-                <span className="text-sm hidden sm:inline">Выйти</span>
+                <span className="text-sm hidden sm:inline">{t('common.logout')}</span>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
@@ -559,19 +564,19 @@ useEffect(() => {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-4">
             <div className="text-2xl font-bold text-cyan-400">{medicInfo?.ratingAvg?.toFixed(1) || '0.0'} ⭐</div>
-            <div className="text-xs text-slate-400 mt-1">Рейтинг</div>
+            <div className="text-xs text-slate-400 mt-1">{t('medic.rating')}</div>
           </div>
           <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-4">
             <div className="text-2xl font-bold text-blue-400">{medicInfo?.reviewsCount || 0}</div>
-            <div className="text-xs text-slate-400 mt-1">Отзывов</div>
+            <div className="text-xs text-slate-400 mt-1">{t('medic.reviews')}</div>
           </div>
           <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-4">
             <div className="text-2xl font-bold text-green-400">{myOrders.filter(o => o.status === 'PAID').length}</div>
-            <div className="text-xs text-slate-400 mt-1">Завершено</div>
+            <div className="text-xs text-slate-400 mt-1">{t('dashboard.completedOrders')}</div>
           </div>
           <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-4">
             <div className="text-2xl font-bold text-purple-400">{activeTab === 'available' ? realOrders.length : myOrders.length}</div>
-            <div className="text-xs text-slate-400 mt-1">{activeTab === 'available' ? 'Доступно' : 'Активных'}</div>
+            <div className="text-xs text-slate-400 mt-1">{activeTab === 'available' ? t('dashboard.availableOrders') : t('dashboard.activeOrders')}</div>
           </div>
         </div>
 
@@ -585,7 +590,7 @@ useEffect(() => {
                 : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
             }`}
           >
-            Доступные ({realOrders.length})
+            {t('dashboard.availableOrders')} ({realOrders.length})
           </button>
           <button
             onClick={() => setActiveTab('my')}
@@ -595,7 +600,7 @@ useEffect(() => {
                 : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
             }`}
           >
-            Мои заказы ({myOrders.length})
+            {t('nav.myOrders')} ({myOrders.length})
           </button>
         </div>
 
@@ -611,7 +616,7 @@ useEffect(() => {
             ) : realOrders.length === 0 ? (
               <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-12 text-center">
                 <AlertCircle className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Нет доступных заказов</h3>
+                <h3 className="text-xl font-semibold mb-2">{t('order.noOrders')}</h3>
                 <p className="text-slate-400">Новые заказы появятся здесь автоматически</p>
               </div>
             ) : (
@@ -659,7 +664,7 @@ useEffect(() => {
                           <User className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs text-slate-400 mb-0.5">Клиент</div>
+                          <div className="text-xs text-slate-400 mb-0.5">{t('order.client')}</div>
                           <div className="font-semibold text-sm sm:text-base truncate">{order.client?.name}</div>
                           <a 
                             href={`tel:${order.client?.phone}`}
@@ -680,7 +685,7 @@ useEffect(() => {
                             <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="text-xs text-slate-400 mb-0.5">Время</div>
+                            <div className="text-xs text-slate-400 mb-0.5">{t('order.scheduledTime')}</div>
                             <div className="font-semibold text-sm sm:text-base">
                               {new Date(order.scheduledTime).toLocaleString('ru-RU', {
                                 day: 'numeric',
@@ -700,7 +705,7 @@ useEffect(() => {
                             <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="text-xs text-slate-400 mb-0.5">Адрес</div>
+                            <div className="text-xs text-slate-400 mb-0.5">{t('order.address')}</div>
                             <div className="font-semibold text-xs sm:text-sm text-blue-400 truncate">{order.city}</div>
                             <div className="font-medium text-xs sm:text-sm truncate">{order.district}</div>
                             <div className="text-xs text-slate-300 mt-0.5 line-clamp-2">{order.address}</div>
@@ -718,7 +723,7 @@ useEffect(() => {
                           <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs text-yellow-400 font-semibold mb-1">Комментарий</div>
+                          <div className="text-xs text-yellow-400 font-semibold mb-1">{t('order.comment')}</div>
                           <div className="text-xs sm:text-sm text-slate-200 line-clamp-3">{order.comment}</div>
                         </div>
                       </div>
@@ -733,7 +738,7 @@ useEffect(() => {
                           <span className="text-lg">📋</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs text-purple-400 font-semibold mb-2">Процедуры</div>
+                          <div className="text-xs text-purple-400 font-semibold mb-2">{t('order.procedures')}</div>
                           <ProcedureList procedures={order.procedures} compact={true} />
                         </div>
                       </div>
@@ -746,7 +751,7 @@ useEffect(() => {
                     className="w-full py-3 sm:py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/30 transition-all flex items-center justify-center group active:scale-95"
                   >
                     <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 mr-2 group-hover:scale-110 transition-transform" />
-                    Принять заказ
+                    {t('order.createOrder')}
                   </button>
                 </div>
               ))
@@ -760,8 +765,8 @@ useEffect(() => {
             {myOrders.length === 0 ? (
               <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-12 text-center">
                 <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Нет активных заказов</h3>
-                <p className="text-slate-400">Принятые заказы появятся здесь</p>
+                <h3 className="text-xl font-semibold mb-2">{t('order.noOrders')}</h3>
+                <p className="text-slate-400">ПринПринятые заказы появятся здесь</p>
               </div>
             ) : (
               myOrders.map((order) => (
@@ -826,7 +831,7 @@ useEffect(() => {
                           <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
                             💰
                           </div>
-                          <span className="text-xs sm:text-sm text-slate-400">Цена</span>
+                          <span className="text-xs sm:text-sm text-slate-400">{t('order.price')}</span>
                         </div>
                         <span className="text-lg sm:text-xl font-bold text-emerald-400 whitespace-nowrap">
                           {parseInt(order.price).toLocaleString('ru-RU')} ₸
@@ -858,7 +863,7 @@ useEffect(() => {
                       className="w-full py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 font-semibold text-sm sm:text-base transition-all flex items-center justify-center relative"
                     >
                       <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                      Открыть чат
+                      {t('nav.chat')}
                       {order.unreadCount > 0 && (
                         <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center">
                           {order.unreadCount}

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { ArrowLeft, MapPin, Star, Award, Briefcase, Users, Phone, Loader, GraduationCap, MessageCircle, Clock, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getCities, getDistricts } from 'utils/cities';
@@ -11,6 +13,7 @@ export default function MedicProfilePage() {
   const params = useParams();
   const router = useRouter();
   const medicId = params.id as string;
+  const { t } = useTranslation();
 
   const [medic, setMedic] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -187,7 +190,7 @@ const handleCreateOrder = async () => {
             onClick={() => router.push('/client/medics')}
             className="px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400"
           >
-            Вернуться к каталогу
+            {t('common.back')} к каталогу
           </button>
         </div>
       </div>
@@ -208,21 +211,24 @@ const handleCreateOrder = async () => {
       {/* Header */}
       <header className="border-b border-white/10 backdrop-blur-xl bg-slate-900/50 sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 py-3">
-          <button
-            onClick={() => {
-              const returnToOrder = sessionStorage.getItem('returnToOrder');
-              if (returnToOrder) {
-                sessionStorage.removeItem('returnToOrder');
-                router.push(`/client/orders/${returnToOrder}`);
-              } else {
-                router.push('/client/medics');
-              }
-            }}
-            className="flex items-center space-x-2 text-slate-300 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="text-sm md:text-base">Назад</span>
-          </button>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => {
+                const returnToOrder = sessionStorage.getItem('returnToOrder');
+                if (returnToOrder) {
+                  sessionStorage.removeItem('returnToOrder');
+                  router.push(`/client/orders/${returnToOrder}`);
+                } else {
+                  router.push('/client/medics');
+                }
+              }}
+              className="flex items-center space-x-2 text-slate-300 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm md:text-base">{t('common.back')}</span>
+            </button>
+            <LanguageSwitcher />
+          </div>
         </div>
       </header>
 
@@ -295,7 +301,7 @@ const handleCreateOrder = async () => {
             <div className="p-3 md:p-4 rounded-xl bg-white/5 border border-white/10">
               <div className="flex flex-col md:flex-row items-center md:space-x-2 mb-1 md:mb-2">
                 <Briefcase className="w-4 h-4 md:w-5 md:h-5 text-cyan-400 mb-1 md:mb-0" />
-                <span className="text-xs md:text-sm text-slate-400">Опыт</span>
+                <span className="text-xs md:text-sm text-slate-400">{t('medic.experience')}</span>
               </div>
               <div className="text-lg md:text-2xl font-bold text-center md:text-left">
                 {medic.experience} {medic.experience === 1 ? 'год' : medic.experience < 5 ? 'года' : 'лет'}
@@ -305,7 +311,7 @@ const handleCreateOrder = async () => {
             <div className="p-3 md:p-4 rounded-xl bg-white/5 border border-white/10">
               <div className="flex flex-col md:flex-row items-center md:space-x-2 mb-1 md:mb-2">
                 <Users className="w-4 h-4 md:w-5 md:h-5 text-green-400 mb-1 md:mb-0" />
-                <span className="text-xs md:text-sm text-slate-400">Заказов</span>
+                <span className="text-xs md:text-sm text-slate-400">{t('order.orders')}</span>
               </div>
               <div className="text-lg md:text-2xl font-bold text-center md:text-left">{medic.completedOrders}</div>
             </div>
@@ -313,7 +319,7 @@ const handleCreateOrder = async () => {
             <div className="p-3 md:p-4 rounded-xl bg-white/5 border border-white/10">
               <div className="flex flex-col md:flex-row items-center md:space-x-2 mb-1 md:mb-2">
                 <Award className="w-4 h-4 md:w-5 md:h-5 text-purple-400 mb-1 md:mb-0" />
-                <span className="text-xs md:text-sm text-slate-400">Отзывов</span>
+                <span className="text-xs md:text-sm text-slate-400">{t('medic.reviews')}</span>
               </div>
               <div className="text-lg md:text-2xl font-bold text-center md:text-left">{medic.reviewCount}</div>
             </div>
@@ -322,7 +328,7 @@ const handleCreateOrder = async () => {
           {/* О себе */}
           {medic.bio && (
             <div className="mb-4 md:mb-6">
-              <h3 className="text-base md:text-lg font-semibold mb-2">О себе</h3>
+              <h3 className="text-base md:text-lg font-semibold mb-2">{t('medic.aboutMe')}</h3>
               <p className="text-sm md:text-base text-slate-300">{medic.bio}</p>
             </div>
           )}
@@ -332,7 +338,7 @@ const handleCreateOrder = async () => {
             <div className="mb-4 md:mb-6">
               <div className="flex items-center space-x-2 mb-2">
                 <GraduationCap className="w-4 h-4 md:w-5 md:h-5 text-cyan-400" />
-                <h3 className="text-base md:text-lg font-semibold">Образование</h3>
+                <h3 className="text-base md:text-lg font-semibold">{t('medic.education')}</h3>
               </div>
               <p className="text-sm md:text-base text-slate-300">{medic.education}</p>
             </div>
@@ -341,7 +347,7 @@ const handleCreateOrder = async () => {
           {/* Услуги */}
           {medic.services && medic.services.length > 0 && (
             <div className="mb-4 md:mb-6">
-              <h3 className="text-base md:text-lg font-semibold mb-3">Услуги</h3>
+              <h3 className="text-base md:text-lg font-semibold mb-3">{t('medic.services')}</h3>
               <div className="flex flex-wrap gap-2">
                 {medic.services.map((service: string, index: number) => (
                   <span
@@ -360,7 +366,7 @@ const handleCreateOrder = async () => {
             <div className="mb-4 md:mb-6">
               <h3 className="text-base md:text-lg font-semibold mb-3 flex items-center">
                 <span className="text-xl mr-2">💊</span>
-                Выполняет процедуры
+                {t('medic.availableProcedures')}
               </h3>
               <ProcedureList procedures={medic.availableProcedures} compact={false} />
             </div>
@@ -379,7 +385,7 @@ const handleCreateOrder = async () => {
                 className="w-full py-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-semibold transition-all flex items-center justify-center"
               >
                 <ArrowLeft className="w-5 h-5 mr-2" />
-                Назад к заказу
+                 {t('common.back')} к заказу
               </button>
             ) : (
               // Из каталога - кнопка создания заказа
@@ -392,7 +398,7 @@ const handleCreateOrder = async () => {
                   <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
                   
                   <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 mr-2 relative z-10" />
-                  <span className="relative z-10">Создать заказ</span>
+                  <span className="relative z-10">{t('order.createOrder')}</span>
                 </button>
 
                 <p className="text-center text-xs sm:text-sm text-slate-400 mt-2">
@@ -404,7 +410,7 @@ const handleCreateOrder = async () => {
                   className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-semibold transition-all flex items-center justify-center"
                 >
                   <ArrowLeft className="w-5 h-5 mr-2" />
-                  Назад к каталогу
+                  На{t('common.back')}
                 </button>
               </>
             )}
@@ -413,7 +419,7 @@ const handleCreateOrder = async () => {
 
         {/* Распределение рейтингов */}
         <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-4 md:p-6 mb-4 md:mb-6">
-          <h2 className="text-lg md:text-xl font-bold mb-3 md:mb-4">Распределение рейтингов</h2>
+          <h2 className="text-lg md:text-xl font-bold mb-3 md:mb-4">{t('medic.rating')}</h2>
           {[5, 4, 3, 2, 1].map((star) => (
             <div key={star} className="flex items-center gap-2 md:gap-3 mb-2">
               <div className="flex items-center space-x-1 w-12 md:w-20">
@@ -438,7 +444,7 @@ const handleCreateOrder = async () => {
         {/* Отзывы */}
         <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-4 md:p-6">
           <h2 className="text-lg md:text-xl font-bold mb-3 md:mb-4">
-            Отзывы ({medic.reviewCount})
+             {t('medic.reviews')} ({medic.reviewCount})
           </h2>
 
           {medic.reviews.length === 0 ? (
@@ -482,7 +488,7 @@ const handleCreateOrder = async () => {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
           <div className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/20 p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold">Создать заказ</h3>
+              <h3 className="text-2xl font-bold">{t('order.createOrder')}</h3>
               <button
                 onClick={() => setShowOrderModal(false)}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
@@ -494,7 +500,7 @@ const handleCreateOrder = async () => {
             <div className="space-y-4">
               {/* Медик и услуга */}
               <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
-                <div className="text-sm text-slate-400 mb-1">Медик</div>
+                <div className="text-sm text-slate-400 mb-1">{t('order.medic')}</div>
                 <div className="font-semibold">{medic.name}</div>
                 <div className="text-sm text-cyan-400 mt-1">{medic.specialization}</div>
                 <div className="text-xs text-slate-500 mt-1">📍 {medic.city}, {medic.district}</div>
@@ -504,7 +510,7 @@ const handleCreateOrder = async () => {
 
               {/* Адрес */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Адрес *</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('order.address')} *</label>
                 <input
                   type="text"
                   value={orderForm.address}
@@ -516,7 +522,7 @@ const handleCreateOrder = async () => {
 
               {/* Дата и время */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Дата и время *</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('order.scheduledTime')} *</label>
                 <input
                   type="datetime-local"
                   value={orderForm.scheduledTime}
@@ -528,7 +534,7 @@ const handleCreateOrder = async () => {
 
               {/* ✅ ДОБАВЛЕНО: Цена */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Предполагаемая цена (тг)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('order.price')} (тг)</label>
                 <input
                   type="number"
                   value={orderForm.price}
@@ -543,7 +549,7 @@ const handleCreateOrder = async () => {
 
               {/* Комментарий */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Комментарий (необязательно)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('order.comment')} (необязательно)</label>
                 <textarea
                   value={orderForm.comment}
                   onChange={(e) => setOrderForm({ ...orderForm, comment: e.target.value })}
@@ -559,7 +565,7 @@ const handleCreateOrder = async () => {
                   onClick={() => setShowOrderModal(false)}
                   className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
                 >
-                  Отмена
+                   {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleCreateOrder}

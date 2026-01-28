@@ -1,13 +1,22 @@
+'use client';
+
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
 import CookieConsent from '@/components/CookieConsent';
 import NotificationSound from '@/components/NotificationSound';
+import { useEffect } from 'react';
+import '../../i18n';
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  useEffect(() => {
+    // Инициализация i18n при загрузке приложения
+    import('../../i18n');
+  }, []);
+
   return (
     <html lang="ru">
       <body>

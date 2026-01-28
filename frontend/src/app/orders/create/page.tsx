@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { MapPin, Calendar, Clock, FileText, Heart, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
 import { useRouter } from 'next/navigation';
@@ -9,6 +11,7 @@ import ProcedureSelector from '@/components/ProcedureSelector';
 
 export default function CreateOrderPage() {
   const [step, setStep] = useState(1);
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     serviceType: '',
     city: '',
@@ -91,7 +94,7 @@ export default function CreateOrderPage() {
               className="flex items-center space-x-2 text-slate-300 hover:text-white transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
-              <span>Назад</span>
+              <span>{t('common.back')}</span>
             </button>
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
@@ -99,7 +102,7 @@ export default function CreateOrderPage() {
               </div>
               <span className="font-bold text-lg">MedicPro</span>
             </div>
-            <div className="w-20"></div>
+            <LanguageSwitcher />
           </div>
         </div>
       </header>
@@ -130,7 +133,7 @@ export default function CreateOrderPage() {
           {step === 1 && (
             <div className="space-y-6 animate-slide-in">
               <div className="text-center space-y-2 mb-8">
-                <h1 className="text-3xl sm:text-4xl font-bold">Выберите услугу</h1>
+                <h1 className="text-3xl sm:text-4xl font-bold">{t('order.serviceType')}</h1>
                 <p className="text-slate-400">Какой специалист вам нужен?</p>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -164,7 +167,7 @@ export default function CreateOrderPage() {
           {step === 2 && (
             <div className="space-y-6 animate-slide-in">
               <div className="text-center space-y-2 mb-8">
-                <h1 className="text-3xl sm:text-4xl font-bold">Адрес и время</h1>
+                <h1 className="text-3xl sm:text-4xl font-bold">{t('order.address')}</h1>
                 <p className="text-slate-400">Когда и куда приехать медику?</p>
               </div>
 
@@ -172,7 +175,7 @@ export default function CreateOrderPage() {
               {/* Выбор города */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Город <span className="text-red-400">*</span>
+                  {t('order.city')} <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -188,7 +191,7 @@ export default function CreateOrderPage() {
                     className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-cyan-500 transition-colors appearance-none"
                     required
                   >
-                    <option value="" className="bg-slate-900">Выберите город</option>
+                    <option value="" className="bg-slate-900">{t('catalog.allCities')}</option>
                     {getCities().map(city => (
                       <option key={city} value={city} className="bg-slate-900">
                         {city}
@@ -202,7 +205,7 @@ export default function CreateOrderPage() {
               {formData.city && (
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Район <span className="text-red-400">*</span>
+                    {t('order.district')} <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
                     <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -212,7 +215,7 @@ export default function CreateOrderPage() {
                       className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-cyan-500 transition-colors appearance-none"
                       required
                     >
-                      <option value="" className="bg-slate-900">Выберите район</option>
+                      <option value="" className="bg-slate-900">{t('catalog.allDistricts')}</option>
                       {getDistricts(formData.city).map(district => (
                         <option key={district} value={district} className="bg-slate-900">
                           {district}
@@ -227,7 +230,7 @@ export default function CreateOrderPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
                     <MapPin className="w-4 h-4 mr-2" />
-                    Полный адрес
+                     {t('order.address')}
                   </label>
                   <input
                     type="text"
@@ -243,7 +246,7 @@ export default function CreateOrderPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
                     <Calendar className="w-4 h-4 mr-2" />
-                    Дата <span className="text-red-400 ml-1">*</span>
+                    {t('order.scheduledTime')} <span className="text-red-400 ml-1">*</span>
                   </label>
                   <input
                     type="date"
@@ -280,7 +283,7 @@ export default function CreateOrderPage() {
                 {/* Price */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
-                    💰 Предполагаемая цена (тг)
+                     💰 {t('order.price')} (тг)
                   </label>
                   <input
                     type="number"
@@ -298,7 +301,7 @@ export default function CreateOrderPage() {
                 {/* Процедуры */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-3">
-                    Какие процедуры нужны? <span className="text-red-400">*</span>
+                      {t('order.proceduresRequired')} <span className="text-red-400">*</span>
                   </label>
                   <ProcedureSelector
                     selectedProcedures={formData.procedures}
@@ -314,7 +317,7 @@ export default function CreateOrderPage() {
                   onClick={() => setStep(1)}
                   className="px-8 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 font-semibold transition-all"
                 >
-                  Назад
+                  {t('common.back')}
                 </button>
                 <button
                   type="button"
@@ -348,7 +351,7 @@ export default function CreateOrderPage() {
                   disabled={!formData.city || !formData.district || !formData.address || !formData.date || !formData.time}
                   className="px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg shadow-blue-500/30 transition-all flex items-center"
                 >
-                  Далее
+                  {t('common.next')}
                   <ChevronRight className="ml-2 w-5 h-5" />
                 </button>
               </div>
@@ -359,7 +362,7 @@ export default function CreateOrderPage() {
           {step === 3 && (
             <div className="space-y-6 animate-slide-in">
               <div className="text-center space-y-2 mb-8">
-                <h1 className="text-3xl sm:text-4xl font-bold">Подтверждение</h1>
+                <h1 className="text-3xl sm:text-4xl font-bold">{t('common.confirm')}</h1>
                 <p className="text-slate-400">Проверьте данные заказа</p>
               </div>
 
@@ -368,7 +371,7 @@ export default function CreateOrderPage() {
                 <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6 space-y-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="text-sm text-slate-400 mb-1">Услуга</div>
+                      <div className="text-sm text-slate-400 mb-1">{t('order.serviceType')}</div>
                       <div className="font-semibold">
                         {services.find(s => s.id === formData.serviceType)?.name}
                       </div>
@@ -383,7 +386,7 @@ export default function CreateOrderPage() {
                   </div>
 
                   <div className="border-t border-white/10 pt-4">
-                    <div className="text-sm text-slate-400 mb-2">Адрес</div>
+                    <div className="text-sm text-slate-400 mb-2">{t('order.address')}</div>
                     <div className="font-medium">
                       {formData.district}, {formData.address}
                     </div>
@@ -391,7 +394,7 @@ export default function CreateOrderPage() {
 
                   <div className="border-t border-white/10 pt-4 flex items-center justify-between">
                     <div>
-                      <div className="text-sm text-slate-400 mb-1">Дата и время</div>
+                      <div className="text-sm text-slate-400 mb-1">{t('order.scheduledTime')}</div>
                       <div className="font-medium">
                         {new Date(formData.date).toLocaleDateString('ru-RU')} в {formData.time}
                       </div>
@@ -406,7 +409,7 @@ export default function CreateOrderPage() {
                   </div>
                   {formData.price && (
                     <div className="border-t border-white/10 pt-4">
-                      <div className="text-sm text-slate-400 mb-1">Предполагаемая цена</div>
+                      <div className="text-sm text-slate-400 mb-1">{t('order.price')}</div>
                       <div className="font-medium text-green-400">
                         {parseInt(formData.price).toLocaleString('ru-RU')} тг
                       </div>
@@ -414,7 +417,7 @@ export default function CreateOrderPage() {
                   )}
                   {formData.procedures.length > 0 && (
                     <div className="border-t border-white/10 pt-4">
-                      <div className="text-sm text-slate-400 mb-2">Процедуры</div>
+                      <div className="text-sm text-slate-400 mb-2">{t('order.procedures')}</div>
                       <div className="flex flex-wrap gap-2">
                         {formData.procedures.map((procId, idx) => {
                           const MEDICAL_PROCEDURES = [
@@ -444,7 +447,7 @@ export default function CreateOrderPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center">
                     <FileText className="w-4 h-4 mr-2" />
-                    Комментарий (необязательно)
+                     {t('order.comment')} (необязательно)
                   </label>
                   <textarea
                     value={formData.comment}
@@ -495,7 +498,7 @@ export default function CreateOrderPage() {
                   onClick={() => setStep(2)}
                   className="px-8 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 font-semibold transition-all"
                 >
-                  Назад
+                  {t('common.back')}
                 </button>
                 <button
                   type="button"
@@ -503,8 +506,8 @@ export default function CreateOrderPage() {
                   disabled={orderLoading}
                   className="px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50"
                 >
-                  {orderLoading ? 'Создаём...' : 'Создать заказ'}
-                </button>
+                 {orderLoading ? `${t('order.createOrder')}...` : t('order.createOrder')}
+                </button> 
               </div>
             </div>
           )}

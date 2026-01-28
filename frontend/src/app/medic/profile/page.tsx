@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { User, Phone, MapPin, Award, Save, Loader, ArrowLeft, Upload, X, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -12,6 +14,7 @@ import ProcedureSelector from '@/components/ProcedureSelector';
 export default function MedicProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   
@@ -489,10 +492,10 @@ export default function MedicProfilePage() {
               className="flex items-center space-x-2 text-slate-300 hover:text-white transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
-              <span>Назад</span>
+              <span>{t('common.back')}</span>
             </button>
-            <h1 className="text-xl font-bold">Мой профиль</h1>
-            <div className="w-20"></div>
+            <h1 className="text-xl font-bold">{t('profile.myProfile')}</h1>
+            <LanguageSwitcher />
           </div>
         </div>
       </header>
@@ -505,7 +508,7 @@ export default function MedicProfilePage() {
               <CheckCircle className="w-7 h-7 text-green-400" />
             </div>
             <div>
-              <div className="font-bold text-green-400 text-lg">✅ Профиль верифицирован</div>
+              <div className="font-bold text-green-400 text-lg">✅ {t('admin.approved')}</div>
               <div className="text-sm text-slate-400">Ваши документы проверены администрацией</div>
             </div>
           </div>
@@ -517,7 +520,7 @@ export default function MedicProfilePage() {
               <Loader className="w-7 h-7 text-yellow-400 animate-spin" />
             </div>
             <div>
-              <div className="font-bold text-yellow-400 text-lg">⏳ На модерации</div>
+              <div className="font-bold text-yellow-400 text-lg">⏳ {t('admin.pending')}</div>
               <div className="text-sm text-slate-400">Ваш профиль проверяется администрацией</div>
             </div>
           </div>
@@ -527,7 +530,7 @@ export default function MedicProfilePage() {
       {/* Фото профиля */}
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4">📸 Фото профиля</h2>
+          <h2 className="text-xl font-bold mb-4">📸 {t('profile.photo')}</h2>
           
           <div className="flex flex-col sm:flex-row items-center gap-6">
             {/* Аватар */}
@@ -660,12 +663,12 @@ export default function MedicProfilePage() {
           <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
             <h2 className="text-xl font-bold mb-6 flex items-center">
               <User className="w-6 h-6 mr-2 text-cyan-400" />
-              Личная информация
+              {t('profile.personalInfo')}
             </h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  ФИО *
+                  {t('profile.name')} *
                 </label>
                 <input
                   type="text"
@@ -678,7 +681,7 @@ export default function MedicProfilePage() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Телефон
+                  {t('auth.phone')}
                 </label>
                 <PhoneInput
                   value={formData.phone}
@@ -691,7 +694,7 @@ export default function MedicProfilePage() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Дата рождения *
+                  {t('profile.birthDate')} *
                 </label>
                 <input
                   type="date"
@@ -704,7 +707,7 @@ export default function MedicProfilePage() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Фактический адрес проживания *
+                  {t('profile.residenceAddress')} *
                 </label>
                 <input
                   type="text"
@@ -722,13 +725,13 @@ export default function MedicProfilePage() {
           <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
             <h2 className="text-xl font-bold mb-6 flex items-center">
               <Award className="w-6 h-6 mr-2 text-cyan-400" />
-              Профессиональная информация
+              {t('profile.professionalInfo')}
             </h2>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Специализация *
+                  {t('profile.specialization')} *
                 </label>
                 <select
                   value={formData.specialization}
@@ -755,7 +758,7 @@ export default function MedicProfilePage() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Опыт работы (лет) *
+                  {t('profile.experience')} *
                 </label>
                 <input
                   type="number"
@@ -770,7 +773,7 @@ export default function MedicProfilePage() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Образование
+                  {t('profile.education')}
                 </label>
                 <textarea
                   value={formData.education}
@@ -787,7 +790,7 @@ export default function MedicProfilePage() {
           <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
             <h2 className="text-xl font-bold mb-6 flex items-center">
               <span className="text-2xl mr-2">💊</span>
-              Медицинские процедуры
+              {t('medic.procedures')}
             </h2>
 
             <div className="mb-4">
@@ -811,7 +814,7 @@ export default function MedicProfilePage() {
           <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
             <h2 className="text-xl font-bold mb-6 flex items-center">
               <MapPin className="w-6 h-6 mr-2 text-cyan-400" />
-              Город работы
+              {t('order.city')}
             </h2>
 
             <div>
@@ -851,7 +854,7 @@ export default function MedicProfilePage() {
             <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-6">
               <h2 className="text-xl font-bold mb-6 flex items-center">
                 <MapPin className="w-6 h-6 mr-2 text-cyan-400" />
-                Районы обслуживания *
+                {t('medic.districts')} *
               </h2>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1196,12 +1199,12 @@ export default function MedicProfilePage() {
             {saving ? (
               <>
                 <Loader className="w-5 h-5 mr-2 animate-spin" />
-                Сохранение...
+                {t('profile.saveProfile')}...
               </>
             ) : (
               <>
                 <Save className="w-5 h-5 mr-2" />
-                Сохранить профиль
+                {t('profile.saveProfile')}
               </>
             )}
           </button>
@@ -1217,7 +1220,7 @@ export default function MedicProfilePage() {
                 <CheckCircle className="w-10 h-10 text-green-400" />
               </div>
               <h3 className="text-2xl font-bold text-white mb-2">
-                ✅ Отправлено на одобрение!
+                ✅ {t('profile.profileSaved')}!
               </h3>
               <p className="text-slate-300 mb-6">
                 Ваш профиль успешно сохранён и отправлен на модерацию. 
