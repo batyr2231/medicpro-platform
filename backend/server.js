@@ -883,6 +883,7 @@ app.post('/api/orders/:orderId/accept', authenticateToken, async (req, res) => {
 });
 
 // ✅ НОВЫЙ ENDPOINT: Назначить медика на заказ (для персонализированных заказов)
+// ✅ НОВЫЙ ENDPOINT: Назначить медика на заказ (для персонализированных заказов)
 app.post('/api/orders/:orderId/assign-medic', authenticateToken, async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -892,7 +893,16 @@ app.post('/api/orders/:orderId/assign-medic', authenticateToken, async (req, res
 
     // Проверяем заказ
     const order = await prisma.order.findUnique({
-      where: { id: orderId }
+      where: { id: orderId },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
+        }
+      }
     });
 
     if (!order) {
@@ -911,21 +921,45 @@ app.post('/api/orders/:orderId/assign-medic', authenticateToken, async (req, res
 
     // Проверяем что медик существует
     const medic = await prisma.medic.findUnique({
-      where: { userId: medicUserId }
+      where: { userId: medicUserId },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        telegramChatId: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
+        }
+      }
     });
 
     if (!medic || medic.status !== 'APPROVED') {
       return res.status(400).json({ error: 'Invalid medic' });
     }
 
-    // Назначаем медика и меняем статус на ACCEPTED
+    // ✅ ИСПРАВЛЕНО: Автоматическое подтверждение для персональных заказов!
+    const updateData = {
+      medicId: medicUserId,
+      status: 'ACCEPTED',
+      acceptedAt: new Date()
+    };
+
+    // Если заказ персональный - автоматически подтверждаем
+    if (order.isPersonalized) {
+      updateData.confirmedByClient = true;
+      updateData.confirmedAt = new Date();
+      updateData.status = 'CONFIRMED';
+      console.log(`✅ Personalized order - auto-confirming`);
+    }
+
+    // Назначаем медика
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
-      data: {
-        medicId: medicUserId,
-        status: 'ACCEPTED',
-        acceptedAt: new Date()
-      },
+      data: updateData,
       include: {
         client: {
           select: {
@@ -938,23 +972,39 @@ app.post('/api/orders/:orderId/assign-medic', authenticateToken, async (req, res
     });
 
     console.log(`✅ Medic ${medicUserId} assigned to order ${orderId}`);
+    if (order.isPersonalized) {
+      console.log(`✅ Status automatically changed to CONFIRMED`);
+    }
 
-    // Уведомляем медика
-    io.to(`user:${medicUserId}`).emit('order-accepted', updatedOrder);
+    // Уведомляем медика через WebSocket
+    io.to(`user:${medicUserId}`).emit('order-assigned', updatedOrder);
 
-    // Telegram уведомление медику
+    // ✅ УЛУЧШЕННОЕ Telegram уведомление медику
     try {
       if (medic.telegramChatId) {
+        const statusText = order.isPersonalized 
+          ? '✅ *Вас выбрал клиент!*\n📋 Заказ автоматически подтверждён'
+          : '📋 *Новый персональный заказ*';
+
+        const proceduresText = order.procedures && order.procedures.length > 0
+          ? `\n\n💊 *Процедуры:*\n${order.procedures.map(p => `  • ${p}`).join('\n')}`
+          : '';
+
         await sendTelegramMessage(
           medic.telegramChatId,
-          `✅ *Клиент выбрал вас!*\n\n` +
+          `${statusText}\n\n` +
           `📋 Заказ #${orderId.substring(0, 8)}\n` +
           `👤 Клиент: ${order.client?.name || 'Клиент'}\n` +
+          `📞 Телефон: ${order.client?.phone || 'не указан'}\n` +
           `📍 ${order.city}, ${order.district}\n` +
+          `📌 Адрес: ${order.address}\n` +
           `💉 ${order.serviceType}\n` +
-          `📅 ${new Date(order.scheduledTime).toLocaleString('ru-RU')}\n\n` +
-          `Откройте приложение для связи с клиентом.`
+          `📅 ${new Date(order.scheduledTime).toLocaleString('ru-RU')}` +
+          proceduresText +
+          (order.price ? `\n💰 Цена: ${parseInt(order.price).toLocaleString('ru-RU')} тг` : '') +
+          `\n\n${order.isPersonalized ? '🚗 Можете выезжать к клиенту!' : '⏳ Ожидайте подтверждения клиента'}`
         );
+        console.log(`📱 Telegram notification sent to medic`);
       }
     } catch (telegramError) {
       console.error('❌ Telegram notification error:', telegramError);
