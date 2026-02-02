@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { Package, Clock, MapPin, User, Phone, MessageSquare, Star, Plus, Search, ChevronRight, Loader, LogOut, Menu, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useOrders } from '../../hooks/useOrders';
@@ -8,6 +10,7 @@ import OrderSkeleton from '@/components/OrderSkeleton';
 
 export default function ClientOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
+  const { t } = useTranslation();
   const [showMenu, setShowMenu] = useState(false);
   const { getMyOrders, loading } = useOrders();
   const router = useRouter();
@@ -62,14 +65,15 @@ export default function ClientOrdersPage() {
           className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center space-x-2"
         >
           <Search className="w-5 h-5" />
-          <span>Каталог</span>
+          <span>{t('catalog.title')}</span>
         </button>
+        <LanguageSwitcher />
         <button
           onClick={() => router.push('/orders/create')}
           className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold transition-all flex items-center space-x-2"
         >
           <Plus className="w-5 h-5" />
-          <span>Новый заказ</span>
+          <span>{t('order.createOrder')}</span>
         </button>
         <button
           onClick={handleLogout}
@@ -156,7 +160,7 @@ export default function ClientOrdersPage() {
                 className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left"
               >
                 <User className="w-5 h-5" />
-                <span>Профиль</span>
+                <span>{t('profile.title')}</span>
               </button>
               <button
                 onClick={() => {
@@ -166,7 +170,7 @@ export default function ClientOrdersPage() {
                 className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-left"
               >
                 <Search className="w-5 h-5" />
-                <span>Каталог медиков</span>
+                <span>{t('catalog.title')}</span>
               </button>
               <button
                 onClick={() => {
@@ -176,7 +180,7 @@ export default function ClientOrdersPage() {
                 className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all text-left"
               >
                 <LogOut className="w-5 h-5" />
-                <span>Выйти</span>
+                <span>{t('common.logout')}</span>
               </button>
             </div>
           </div>
@@ -187,13 +191,13 @@ export default function ClientOrdersPage() {
         {orders.length === 0 ? (
           <div className="text-center py-20">
             <Package className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Нет заказов</h2>
+          <h2 className="text-2xl font-bold mb-2">{t('order.noOrders')}</h2>
             <p className="text-slate-400 mb-6">Создайте свой первый заказ</p>
             <button
               onClick={() => router.push('/orders/create')} 
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold shadow-lg transition-all"
             >
-              Создать заказ
+              {t('order.createOrder')}
             </button>
           </div>
         ) : (
@@ -302,13 +306,13 @@ export default function ClientOrdersPage() {
                         className="w-full py-2.5 md:py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 font-semibold shadow-lg transition-all flex items-center justify-center text-sm md:text-base"
                       >
                         <Star className="w-4 h-4 md:w-5 md:h-5 mr-2" />
-                        Оставить отзыв
+                        {t('medic.review')}
                       </button>
                     )
                   )}
 
                   <div className="flex items-center justify-end mt-4 text-cyan-400 text-xs md:text-sm font-medium">
-                    Подробнее
+                    {t('order.orderDetails')}
                     <ChevronRight className="w-3 h-3 md:w-4 md:h-4 ml-1" />
                   </div>
                 </div>
