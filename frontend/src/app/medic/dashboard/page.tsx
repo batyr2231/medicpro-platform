@@ -766,7 +766,7 @@ useEffect(() => {
               <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-12 text-center">
                 <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">{t('order.noOrders')}</h3>
-                <p className="text-slate-400">ПринПринятые заказы появятся здесь</p>
+                <p className="text-slate-400">Принятые заказы появятся здесь</p>
               </div>
             ) : (
               myOrders.map((order) => (
@@ -939,8 +939,8 @@ useEffect(() => {
             )}
           </div>
         )}
-      </div> {/* <-- Этот div закрывает <div className="max-w-7xl mx-auto px-4 py-8"> */}
+      </div> 
       
-    </div> /* <-- ИСПРАВЛЕНИЕ: Этот недостающий </div> закрывает корневой <div className="min-h-screen..."> */
+    </div> 
   );
 }

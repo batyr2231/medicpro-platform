@@ -1,71 +1,62 @@
-// Медицинские процедуры
-export interface MedicalProcedure {
-  id: string;
-  name: string;
-  icon: string;
-  description?: string;
+"use client";
+
+import React from 'react';
+import { getProcedureById, getProcedureNames } from 'utils/procedures';
+import { useTranslation } from 'react-i18next';
+
+interface ProcedureListProps {
+  procedures: string[];
+  compact?: boolean;
 }
 
-export const MEDICAL_PROCEDURES: MedicalProcedure[] = [
-  {
-    id: 'injection',
-    name: 'Укол (внутримышечный/внутривенный)',
-    icon: '💉',
-    description: 'Внутримышечные и внутривенные инъекции'
-  },
-  {
-    id: 'iv_drip',
-    name: 'Капельница',
-    icon: '💧',
-    description: 'Внутривенное капельное введение препаратов'
-  },
-  {
-    id: 'enema',
-    name: 'Клизма',
-    icon: '🚿',
-    description: 'Очистительная или лечебная клизма'
-  },
-  {
-    id: 'dressing',
-    name: 'Перевязки',
-    icon: '🩹',
-    description: 'Обработка ран и смена повязок'
-  },
-  {
-    id: 'alcohol_detox',
-    name: 'Снятие алкогольной интоксикации',
-    icon: '🍺',
-    description: 'Детоксикация при алкогольном отравлении'
-  },
-  {
-    id: 'food_detox',
-    name: 'Снятие пищевой интоксикации',
-    icon: '🤢',
-    description: 'Детоксикация при пищевом отравлении'
-  },
-  {
-    id: 'catheter_change',
-    name: 'Смена катетера',
-    icon: '🔧',
-    description: 'Замена мочевого катетера'
-  },
-  {
-    id: 'coding',
-    name: 'Кодировка',
-    icon: '🚫',
-    description: 'Медикаментозное кодирование от алкоголизма'
+export default function ProcedureList({ procedures, compact = false }: ProcedureListProps) {
+  const { t } = useTranslation();
+
+  if (!procedures || procedures.length === 0) {
+    return null;
   }
-];
 
-// Получить процедуру по ID
-export function getProcedureById(id: string): MedicalProcedure | undefined {
-  return MEDICAL_PROCEDURES.find(p => p.id === id);
-}
+  return (
+    <div className={compact ? 'flex flex-wrap gap-2' : 'space-y-2'}>
+      {procedures.map((procId, idx) => {
+        const procedure = getProcedureById(procId);
+        
+        if (!procedure) {
+          return (
+            <div 
+              key={idx} 
+              className="px-3 py-1 rounded-lg bg-slate-500/20 border border-slate-500/30"
+            >
+              <span className="text-xs text-slate-400">{procId}</span>
+            </div>
+          );
+        }
 
-// Получить названия процедур по ID
-export function getProcedureNames(ids: string[]): string[] {
-  return ids.map(id => {
-    const proc = getProcedureById(id);
-    return proc ? proc.name : id;
-  });
+        // Получаем переведённое название процедуры
+        const translatedName = procedure.nameKey ? t(procedure.nameKey) : procedure.name;
+
+        if (compact) {
+          return (
+            <div 
+              key={idx} 
+              className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30"
+            >
+              <span className="text-sm">{procedure.icon}</span>
+              <span className="text-xs text-purple-300">{translatedName}</span>
+            </div>
+          );
+        }
+
+        return (
+          <div 
+            key={idx} 
+            className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/30"
+          >
+            <span className="text-xl">{procedure.icon}</span>
+            <span className="font-medium text-purple-300">{translatedName}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }

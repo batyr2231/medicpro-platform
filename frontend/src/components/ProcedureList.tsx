@@ -1,7 +1,8 @@
 "use client";
 
 import React from 'react';
-import { getProcedureById } from 'utils/procedures';
+import { getProcedureById, getProcedureNames } from 'utils/procedures';
+import { useTranslation } from 'react-i18next';
 
 interface ProcedureListProps {
   procedures: string[];
@@ -9,6 +10,8 @@ interface ProcedureListProps {
 }
 
 export default function ProcedureList({ procedures, compact = false }: ProcedureListProps) {
+  const { t } = useTranslation();
+
   if (!procedures || procedures.length === 0) {
     return null;
   }
@@ -29,6 +32,9 @@ export default function ProcedureList({ procedures, compact = false }: Procedure
           );
         }
 
+        // Получаем переведённое название процедуры
+        const translatedName = procedure.nameKey ? t(procedure.nameKey) : procedure.name;
+
         if (compact) {
           return (
             <div 
@@ -36,7 +42,7 @@ export default function ProcedureList({ procedures, compact = false }: Procedure
               className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30"
             >
               <span className="text-sm">{procedure.icon}</span>
-              <span className="text-xs text-purple-300">{procedure.name}</span>
+              <span className="text-xs text-purple-300">{translatedName}</span>
             </div>
           );
         }
@@ -47,7 +53,7 @@ export default function ProcedureList({ procedures, compact = false }: Procedure
             className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/30"
           >
             <span className="text-xl">{procedure.icon}</span>
-            <span className="font-medium text-purple-300">{procedure.name}</span>
+            <span className="font-medium text-purple-300">{translatedName}</span>
           </div>
         );
       })}
