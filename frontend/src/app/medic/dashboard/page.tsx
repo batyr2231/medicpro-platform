@@ -840,6 +840,21 @@ useEffect(() => {
                     </div>
                   )}
 
+                 {/* Комментарий */}
+                  {order.comment && (
+                    <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30">
+                      <div className="flex items-start space-x-2">
+                        <div className="w-7 h-7 rounded-lg bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-3.5 h-3.5 text-yellow-400" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs text-yellow-400 font-semibold mb-1">{t('order.comment')}</div>
+                          <div className="text-xs sm:text-sm text-slate-200 line-clamp-3">{order.comment}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )} 
+
                   {/* Процедуры */}
                   {order.procedures && order.procedures.length > 0 && (
                     <div className="mb-4 p-3 rounded-xl bg-purple-500/10 border border-purple-500/30">

@@ -1,62 +1,88 @@
-"use client";
-
-import React from 'react';
-import { getProcedureById, getProcedureNames } from 'utils/procedures';
-import { useTranslation } from 'react-i18next';
-
-interface ProcedureListProps {
-  procedures: string[];
-  compact?: boolean;
+// Медицинские процедуры
+export interface MedicalProcedure {
+  id: string;
+  name: string;
+  nameKey: string; // ← ключ для переводов
+  icon: string;
+  description?: string;
 }
 
-export default function ProcedureList({ procedures, compact = false }: ProcedureListProps) {
-  const { t } = useTranslation();
-
-  if (!procedures || procedures.length === 0) {
-    return null;
+export const MEDICAL_PROCEDURES: MedicalProcedure[] = [
+  {
+    id: 'injection',
+    name: 'Укол (внутримышечный/внутривенный)',
+    nameKey: 'procedures.injection',
+    icon: '💉',
+    description: 'Внутримышечные и внутривенные инъекции'
+  },
+  {
+    id: 'iv_drip',
+    name: 'Капельница',
+    nameKey: 'procedures.ivDrip',
+    icon: '💧',
+    description: 'Внутривенное капельное введение препаратов'
+  },
+  {
+    id: 'enema',
+    name: 'Клизма',
+    nameKey: 'procedures.enema',
+    icon: '🚿',
+    description: 'Очистительная или лечебная клизма'
+  },
+  {
+    id: 'dressing',
+    name: 'Перевязки',
+    nameKey: 'procedures.dressing',
+    icon: '🩹',
+    description: 'Обработка ран и смена повязок'
+  },
+  {
+    id: 'alcohol_detox',
+    name: 'Снятие алкогольной интоксикации',
+    nameKey: 'procedures.alcoholDetox',
+    icon: '🍺',
+    description: 'Детоксикация при алкогольном отравлении'
+  },
+  {
+    id: 'food_detox',
+    name: 'Снятие пищевой интоксикации',
+    nameKey: 'procedures.foodDetox',
+    icon: '🤢',
+    description: 'Детоксикация при пищевом отравлении'
+  },
+  {
+    id: 'catheter_change',
+    name: 'Смена катетера',
+    nameKey: 'procedures.catheterChange',
+    icon: '🔧',
+    description: 'Замена мочевого катетера'
+  },
+  {
+    id: 'coding',
+    name: 'Кодировка',
+    nameKey: 'procedures.coding',
+    icon: '🚫',
+    description: 'Медикаментозное кодирование от алкоголизма'
   }
+];
 
-  return (
-    <div className={compact ? 'flex flex-wrap gap-2' : 'space-y-2'}>
-      {procedures.map((procId, idx) => {
-        const procedure = getProcedureById(procId);
-        
-        if (!procedure) {
-          return (
-            <div 
-              key={idx} 
-              className="px-3 py-1 rounded-lg bg-slate-500/20 border border-slate-500/30"
-            >
-              <span className="text-xs text-slate-400">{procId}</span>
-            </div>
-          );
-        }
+// Получить процедуру по ID
+export function getProcedureById(id: string): MedicalProcedure | undefined {
+  return MEDICAL_PROCEDURES.find(p => p.id === id);
+}
 
-        // Получаем переведённое название процедуры
-        const translatedName = procedure.nameKey ? t(procedure.nameKey) : procedure.name;
-
-        if (compact) {
-          return (
-            <div 
-              key={idx} 
-              className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30"
-            >
-              <span className="text-sm">{procedure.icon}</span>
-              <span className="text-xs text-purple-300">{translatedName}</span>
-            </div>
-          );
-        }
-
-        return (
-          <div 
-            key={idx} 
-            className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/30"
-          >
-            <span className="text-xl">{procedure.icon}</span>
-            <span className="font-medium text-purple-300">{translatedName}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
+// Получить названия процедур по ID (с поддержкой переводов)
+export function getProcedureNames(ids: string[], t?: (key: string) => string): string[] {
+  return ids.map(id => {
+    const proc = getProcedureById(id);
+    if (!proc) return id;
+    
+    // Если есть функция перевода - используем её
+    if (t && proc.nameKey) {
+      return t(proc.nameKey);
+    }
+    
+    // Иначе возвращаем русское название
+    return proc.name;
+  });
 }
