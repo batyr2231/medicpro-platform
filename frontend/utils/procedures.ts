@@ -2,7 +2,7 @@
 export interface MedicalProcedure {
   id: string;
   name: string;
-  nameKey: string; // ← ключ для переводов
+  nameKey: string;
   icon: string;
   description?: string;
 }
@@ -66,23 +66,19 @@ export const MEDICAL_PROCEDURES: MedicalProcedure[] = [
   }
 ];
 
-// Получить процедуру по ID
 export function getProcedureById(id: string): MedicalProcedure | undefined {
   return MEDICAL_PROCEDURES.find(p => p.id === id);
 }
 
-// Получить названия процедур по ID (с поддержкой переводов)
 export function getProcedureNames(ids: string[], t?: (key: string) => string): string[] {
   return ids.map(id => {
     const proc = getProcedureById(id);
     if (!proc) return id;
     
-    // Если есть функция перевода - используем её
     if (t && proc.nameKey) {
       return t(proc.nameKey);
     }
     
-    // Иначе возвращаем русское название
     return proc.name;
   });
 }
