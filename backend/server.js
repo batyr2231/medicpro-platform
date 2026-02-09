@@ -1370,6 +1370,7 @@ app.post('/api/orders/:orderId/payment-received', authenticateToken, async (req,
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    // Обновляем заказ
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: {
@@ -1377,6 +1378,24 @@ app.post('/api/orders/:orderId/payment-received', authenticateToken, async (req,
         status: 'PAID'
       }
     });
+
+    // ✅ СОЗДАЁМ ТРАНЗАКЦИЮ
+    const amount = parseFloat(order.price || 0);
+    const commission = amount * 0.5; // 50% комиссия
+    const netAmount = amount - commission;
+
+    await prisma.transaction.create({
+      data: {
+        orderId: orderId,
+        medicId: order.medicId,
+        amount: amount,
+        commission: commission,
+        netAmount: netAmount,
+        status: 'PENDING'
+      }
+    });
+
+    console.log(`✅ Transaction created: Order ${orderId.substring(0, 8)} - Медику: ${netAmount} тг`);
 
     io.to(`order-${orderId}`).emit('payment-received', updatedOrder);
 
@@ -2875,6 +2894,65 @@ app.use('/api/admin/*', (req, res, next) => {
   next();
 });
 
+// ==================== TRANSACTIONS (BALANCE) ====================
+
+// Получить баланс медика
+app.get('/api/medics/balance', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'MEDIC') {
+      return res.status(403).json({ error: 'Only for medics' });
+    }
+
+    const transactions = await prisma.transaction.findMany({
+      where: { medicId: req.user.userId },
+      include: {
+        order: {
+          select: {
+            id: true,
+            serviceType: true,
+            createdAt: true,
+            completedAt: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const totalEarned = transactions.reduce((sum, t) => sum + t.amount, 0);
+    const totalPaid = transactions
+      .filter(t => t.status === 'PAID')
+      .reduce((sum, t) => sum + t.netAmount, 0);
+    const pending = transactions
+      .filter(t => t.status === 'PENDING')
+      .reduce((sum, t) => sum + t.netAmount, 0);
+
+    console.log(`💰 Balance for medic ${req.user.userId}: Total=${totalEarned}, Paid=${totalPaid}, Pending=${pending}`);
+
+    res.json({
+      totalEarned: Math.round(totalEarned),
+      totalPaid: Math.round(totalPaid),
+      pending: Math.round(pending),
+      totalCommission: Math.round(totalEarned - totalPaid - pending),
+      transactions: transactions.map(t => ({
+        id: t.id,
+        orderId: t.orderId,
+        orderNumber: t.order.id.substring(0, 8),
+        serviceType: t.order.serviceType,
+        amount: t.amount,
+        commission: t.commission,
+        netAmount: t.netAmount,
+        status: t.status,
+        paidAt: t.paidAt,
+        createdAt: t.createdAt,
+        completedAt: t.order.completedAt
+      }))
+    });
+  } catch (error) {
+    console.error('Get balance error:', error);
+    res.status(500).json({ error: 'Failed to get balance' });
+  }
+});
+
 // ==================== ADMIN ENDPOINTS ====================
 
 // Получение всех медиков
@@ -3095,6 +3173,107 @@ app.get('/api/admin/complaints', authenticateToken, authenticateAdmin, async (re
   } catch (error) {
     console.error('Get complaints error:', error);
     res.status(500).json({ error: 'Failed to get complaints' });
+  }
+});
+
+// ==================== ADMIN TRANSACTIONS ====================
+
+// Получить все транзакции (админ)
+app.get('/api/admin/transactions', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    let whereClause = {};
+    if (status && status !== 'ALL') {
+      whereClause.status = status;
+    }
+
+    const transactions = await prisma.transaction.findMany({
+      where: whereClause,
+      include: {
+        order: {
+          select: {
+            id: true,
+            serviceType: true,
+            createdAt: true,
+            completedAt: true
+          }
+        },
+        medic: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    console.log(`📊 Admin fetched ${transactions.length} transactions (filter: ${status || 'ALL'})`);
+
+    res.json(transactions);
+  } catch (error) {
+    console.error('Get transactions error:', error);
+    res.status(500).json({ error: 'Failed to get transactions' });
+  }
+});
+
+// Отметить транзакцию как выплаченную (админ)
+app.post('/api/admin/transactions/:transactionId/mark-paid', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    const { notes } = req.body;
+
+    const transaction = await prisma.transaction.update({
+      where: { id: transactionId },
+      data: {
+        status: 'PAID',
+        paidAt: new Date(),
+        paidBy: req.user.userId,
+        notes: notes || null
+      },
+      include: {
+        medic: {
+          select: {
+            name: true,
+            phone: true
+          }
+        }
+      }
+    });
+
+    console.log(`✅ Transaction ${transactionId.substring(0, 8)} marked as PAID by admin ${req.user.userId}`);
+    console.log(`💰 Medic ${transaction.medic.name} received ${transaction.netAmount} тг`);
+
+    res.json(transaction);
+  } catch (error) {
+    console.error('Mark paid error:', error);
+    res.status(500).json({ error: 'Failed to mark as paid' });
+  }
+});
+
+// Отменить транзакцию (админ)
+app.post('/api/admin/transactions/:transactionId/cancel', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    const { notes } = req.body;
+
+    const transaction = await prisma.transaction.update({
+      where: { id: transactionId },
+      data: {
+        status: 'CANCELLED',
+        notes: notes || null,
+        updatedAt: new Date()
+      }
+    });
+
+    console.log(`❌ Transaction ${transactionId.substring(0, 8)} cancelled by admin`);
+
+    res.json(transaction);
+  } catch (error) {
+    console.error('Cancel transaction error:', error);
+    res.status(500).json({ error: 'Failed to cancel transaction' });
   }
 });
 

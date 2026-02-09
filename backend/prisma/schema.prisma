@@ -53,6 +53,12 @@ enum NotificationStatus {
   FAILED
 }
 
+enum TransactionStatus {
+  PENDING   // Ожидает выплаты
+  PAID      // Выплачено
+  CANCELLED // Отменено
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String?  @unique
@@ -76,6 +82,7 @@ model User {
   reviews       Review[]       @relation("ClientReviews")
   medicReviews  Review[]       @relation("MedicReviews")
   notifications Notification[]
+  transactions  Transaction[]  @relation("MedicTransactions")
 
   @@index([email])
   @@index([phone])
@@ -146,6 +153,7 @@ model Order {
   medic    User?     @relation("MedicOrders", fields: [medicId], references: [id])
   messages Message[]
   review   Review?
+  transaction Transaction?
 
   @@index([clientId])
   @@index([medicId])
@@ -272,4 +280,29 @@ model Client {
   updatedAt       DateTime  @updatedAt
 
   @@index([userId])
+}
+
+model Transaction {
+  id          String            @id @default(cuid())
+  orderId     String            @unique
+  order       Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  medicId     String
+  medic       User              @relation("MedicTransactions", fields: [medicId], references: [id], onDelete: Cascade)
+  
+  amount      Float             // Полная сумма заказа
+  commission  Float             // Комиссия платформы (50%)
+  netAmount   Float             // Что получит медик (amount - commission)
+  
+  status      TransactionStatus @default(PENDING)
+  paidAt      DateTime?         // Когда выплачено
+  paidBy      String?           // Кто выплатил (admin userId)
+  
+  notes       String?           // Заметки админа
+  
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([medicId])
+  @@index([status])
+  @@index([createdAt])
 }
