@@ -26,6 +26,9 @@ export default function MedicProfilePage() {
   
   const [uploading, setUploading] = useState(false);
   const [medicAvatar, setMedicAvatar] = useState<string | null>(null);
+  // Баланс медика
+  const [balance, setBalance] = useState<any>(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -54,6 +57,7 @@ export default function MedicProfilePage() {
 
   useEffect(() => {
     loadProfile();
+    loadBalance();
   }, []);
 
   const loadProfile = async () => {
@@ -105,6 +109,30 @@ export default function MedicProfilePage() {
     } catch (err) {
       console.error('Failed to load profile:', err);
       toast.error('Не удалось загрузить профиль');
+    }
+  };
+
+  const loadBalance = async () => {
+    try {
+      setLoadingBalance(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/balance`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        setBalance(result);
+      }
+    } catch (err) {
+      console.error('Failed to load balance:', err);
+    } finally {
+      setLoadingBalance(false);
     }
   };
 
@@ -655,6 +683,143 @@ export default function MedicProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Баланс медика */}
+      {medicStatus === 'APPROVED' && (
+        <div className="max-w-4xl mx-auto px-4 pb-8">
+          <div className="rounded-2xl bg-gradient-to-br from-emerald-500/10 to-green-500/10 backdrop-blur-xl border-2 border-emerald-500/30 p-6">
+            <h2 className="text-2xl font-bold mb-6 flex items-center">
+              <span className="text-3xl mr-3">💰</span>
+              Баланс и выплаты
+            </h2>
+
+            {loadingBalance ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader className="w-8 h-8 animate-spin text-emerald-400" />
+              </div>
+            ) : balance ? (
+              <div className="space-y-6">
+                {/* Карточки статистики */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Всего заработано */}
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30">
+                    <div className="text-sm text-blue-300 mb-1">Всего заработано</div>
+                    <div className="text-2xl font-bold text-white">
+                      {balance.totalEarned.toLocaleString('ru-RU')} ₸
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">
+                      {balance.transactions?.length || 0} заказов
+                    </div>
+                  </div>
+
+                  {/* К выплате */}
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
+                    <div className="text-sm text-yellow-300 mb-1">К выплате</div>
+                    <div className="text-2xl font-bold text-white">
+                      {balance.pending.toLocaleString('ru-RU')} ₸
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">Ожидает выплаты</div>
+                  </div>
+
+                  {/* Выплачено */}
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/20 to-green-500/20 border border-emerald-500/30">
+                    <div className="text-sm text-emerald-300 mb-1">Выплачено</div>
+                    <div className="text-2xl font-bold text-white">
+                      {balance.totalPaid.toLocaleString('ru-RU')} ₸
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">Получено на руки</div>
+                  </div>
+                </div>
+
+                {/* История транзакций */}
+                {balance.transactions && balance.transactions.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold mb-4 flex items-center">
+                      <span className="mr-2">📋</span>
+                      История выплат
+                    </h3>
+                    
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {balance.transactions.slice(0, 10).map((tx: any) => (
+                        <div
+                          key={tx.id}
+                          className="p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-lg">💉</span>
+                              <div>
+                                <div className="font-medium text-sm">
+                                  {tx.serviceType}
+                                </div>
+                                <div className="text-xs text-slate-400">
+                                  Заказ #{tx.orderNumber}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="text-right">
+                              <div className="font-bold text-emerald-400">
+                                +{tx.netAmount.toLocaleString('ru-RU')} ₸
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                -{tx.commission.toLocaleString('ru-RU')} ₸ комиссия
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="text-slate-400">
+                              {new Date(tx.createdAt).toLocaleDateString('ru-RU')}
+                            </div>
+                            <div>
+                              {tx.status === 'PAID' ? (
+                                <span className="px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                  ✓ Выплачено
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                                  ⏳ Ожидает
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {balance.transactions.length > 10 && (
+                      <div className="mt-3 text-center text-sm text-slate-400">
+                        Показано 10 из {balance.transactions.length} транзакций
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Информация о комиссии */}
+                <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+                  <div className="flex items-start space-x-3">
+                    <div className="text-2xl">ℹ️</div>
+                    <div className="text-sm text-cyan-300">
+                      <p className="font-medium mb-2">Как работают выплаты:</p>
+                      <ul className="list-disc list-inside space-y-1 text-cyan-400/80">
+                        <li>Комиссия платформы: 50%</li>
+                        <li>Выплаты производятся администратором вручную</li>
+                        <li>Обычно в течение 1-3 рабочих дней после завершения заказа</li>
+                        <li>Выплаты на вашу банковскую карту через Kaspi</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-400">
+                <p>Нет данных о балансе</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Основная форма */}
       <div className="max-w-4xl mx-auto px-4 pb-8">

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, Package, AlertTriangle, TrendingUp, CheckCircle, XCircle, Eye, Loader, ArrowLeft, X, FileText, MessageSquare } from 'lucide-react';
+import { Shield, Users, Package, AlertTriangle, TrendingUp, CheckCircle, XCircle, Eye, Loader, ArrowLeft, X, FileText, MessageSquare, DollarSign } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import ProcedureList from '@/components/ProcedureList';
@@ -23,11 +23,14 @@ export default function AdminDashboard() {
 
   const router = useRouter();
 
+  const [transactions, setTransactions] = useState([]);
+  const [transactionFilter, setTransactionFilter] = useState('ALL');
+
   useEffect(() => {
     loadData();
-  }, [activeTab, complaintFilter]);
+  }, [activeTab, complaintFilter, transactionFilter]);
 
-  const loadData = () => {
+const loadData = () => {
     if (activeTab === 'medics') {
       loadMedics();
     } else if (activeTab === 'orders') {
@@ -36,8 +39,10 @@ export default function AdminDashboard() {
       loadComplaints();
     } else if (activeTab === 'stats') {
       loadStats();
-    } else if (activeTab === 'chats') { // ← ДОБАВИТЬ
+    } else if (activeTab === 'chats') {
       loadChats();
+    } else if (activeTab === 'transactions') {
+      loadTransactions();
     }
   };
 
@@ -165,6 +170,60 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   }; 
+
+  const loadTransactions = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/transactions`;
+      
+      if (transactionFilter && transactionFilter !== 'ALL') {
+        url += `?status=${transactionFilter}`;
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        setTransactions(result);
+      }
+    } catch (err) {
+      toast.error('Ошибка загрузки транзакций');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markTransactionAsPaid = async (transactionId: string, notes?: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/transactions/${transactionId}/mark-paid`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ notes })
+        }
+      );
+
+      if (response.ok) {
+        toast.success('✅ Транзакция отмечена как выплаченная!');
+        loadTransactions();
+      } else {
+        throw new Error('Failed to mark as paid');
+      }
+    } catch (err) {
+      toast.error('Ошибка обновления транзакции');
+    }
+  };
 
   const handleApproveMedic = async (medicId: string) => {
     try {
@@ -403,7 +462,7 @@ export default function AdminDashboard() {
 
         {/* Navigation Tabs */}
         <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-2 mb-6">
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
             <button
               onClick={() => setActiveTab('medics')}
               className={`py-3 px-4 rounded-xl font-medium transition-all ${
@@ -463,6 +522,17 @@ export default function AdminDashboard() {
             >
               <TrendingUp className="w-5 h-5 mx-auto mb-1" />
               <span className="text-sm">Статистика</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('transactions')}
+              className={`py-3 px-4 rounded-xl font-medium transition-all ${
+                activeTab === 'transactions'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg'
+                  : 'hover:bg-white/10'
+              }`}
+            >
+              <DollarSign className="w-5 h-5 mx-auto mb-1" />
+              <span className="text-sm">Выплаты</span>
             </button>
           </div>
         </div>
@@ -931,6 +1001,180 @@ export default function AdminDashboard() {
                     <div className="text-sm text-slate-400">Отзывов</div>
                   </div>
                 </div>
+              </div>
+            )}
+            {/* Transactions Tab */}
+            {activeTab === 'transactions' && (
+              <div className="space-y-4">
+                {/* Фильтры */}
+                <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                  <button
+                    onClick={() => setTransactionFilter('ALL')}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
+                      transactionFilter === 'ALL' 
+                        ? 'bg-cyan-500 shadow-lg' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
+                  >
+                    Все транзакции
+                  </button>
+                  <button
+                    onClick={() => setTransactionFilter('PENDING')}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
+                      transactionFilter === 'PENDING' 
+                        ? 'bg-yellow-500 shadow-lg' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
+                  >
+                    Ожидают выплаты
+                  </button>
+                  <button
+                    onClick={() => setTransactionFilter('PAID')}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
+                      transactionFilter === 'PAID' 
+                        ? 'bg-green-500 shadow-lg' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
+                  >
+                    Выплачено
+                  </button>
+                </div>
+
+                {/* Список транзакций */}
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold">
+                    Транзакции ({transactions.length})
+                  </h2>
+                  {transactionFilter === 'PENDING' && transactions.length > 0 && (
+                    <div className="text-right">
+                      <div className="text-sm text-slate-400">К выплате:</div>
+                      <div className="text-2xl font-bold text-yellow-400">
+                        {transactions
+                          .filter((t: any) => t.status === 'PENDING')
+                          .reduce((sum: number, t: any) => sum + t.netAmount, 0)
+                          .toLocaleString('ru-RU')} ₸
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {transactions.length === 0 ? (
+                  <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-12 text-center">
+                    <DollarSign className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                    <p className="text-slate-400">Нет транзакций</p>
+                  </div>
+                ) : (
+                  transactions.map((tx: any) => (
+                    <div
+                      key={tx.id}
+                      className={`rounded-2xl backdrop-blur-xl border p-6 ${
+                        tx.status === 'PENDING'
+                          ? 'bg-gradient-to-br from-yellow-500/10 to-orange-500/5 border-yellow-500/30'
+                          : 'bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-green-500/30'
+                      }`}
+                    >
+                      {/* Header */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                            tx.status === 'PENDING' ? 'bg-yellow-500/20' : 'bg-green-500/20'
+                          }`}>
+                            <DollarSign className={`w-6 h-6 ${
+                              tx.status === 'PENDING' ? 'text-yellow-400' : 'text-green-400'
+                            }`} />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-lg">
+                              {tx.medic.name}
+                            </div>
+                            <div className="text-sm text-slate-400">
+                              {tx.medic.phone}
+                            </div>
+                          </div>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                          tx.status === 'PENDING'
+                            ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400'
+                            : 'bg-green-500/20 border-green-500/30 text-green-400'
+                        }`}>
+                          {tx.status === 'PENDING' ? '⏳ Ожидает' : '✓ Выплачено'}
+                        </span>
+                      </div>
+
+                      {/* Детали заказа */}
+                      <div className="mb-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <div className="text-xs text-slate-400">Заказ</div>
+                            <div className="font-medium">
+                              {tx.order.serviceType}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              #{tx.order.id.substring(0, 8)}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-slate-400">Дата</div>
+                            <div className="font-medium text-sm">
+                              {new Date(tx.createdAt).toLocaleDateString('ru-RU')}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Суммы */}
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="text-center p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                          <div className="text-xs text-blue-300 mb-1">Сумма заказа</div>
+                          <div className="text-lg font-bold text-white">
+                            {tx.amount.toLocaleString('ru-RU')} ₸
+                          </div>
+                        </div>
+                        <div className="text-center p-3 rounded-xl bg-red-500/10 border border-red-500/30">
+                          <div className="text-xs text-red-300 mb-1">Комиссия (50%)</div>
+                          <div className="text-lg font-bold text-white">
+                            -{tx.commission.toLocaleString('ru-RU')} ₸
+                          </div>
+                        </div>
+                        <div className="text-center p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                          <div className="text-xs text-emerald-300 mb-1">К выплате</div>
+                          <div className="text-lg font-bold text-emerald-400">
+                            {tx.netAmount.toLocaleString('ru-RU')} ₸
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Кнопка выплаты */}
+                      {tx.status === 'PENDING' && (
+                        <button
+                          onClick={() => {
+                            if (confirm(`Подтвердить выплату ${tx.netAmount.toLocaleString('ru-RU')} ₸ медику ${tx.medic.name}?`)) {
+                              markTransactionAsPaid(tx.id);
+                            }
+                          }}
+                          className="w-full py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-semibold shadow-lg transition-all flex items-center justify-center"
+                        >
+                          <CheckCircle className="w-5 h-5 mr-2" />
+                          Отметить как выплачено
+                        </button>
+                      )}
+
+                      {/* Информация о выплате */}
+                      {tx.status === 'PAID' && tx.paidAt && (
+                        <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-green-300">
+                              ✓ Выплачено
+                            </span>
+                            <span className="text-slate-400">
+                              {new Date(tx.paidAt).toLocaleString('ru-RU')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </>
