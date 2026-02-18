@@ -213,12 +213,6 @@ const handleStatusChange = async (orderId: string, newStatus: string) => {
         )
       );
 
-      // ✅ Если заказ завершён - загружаем долг и показываем модалку
-      if (newStatus === 'COMPLETED') {
-        setTimeout(() => {
-          loadPendingCommission();
-        }, 1000);
-      }
       
     } catch (err: any) {
       toast.error('Ошибка обновления: ' + err.message);
@@ -227,11 +221,18 @@ const handleStatusChange = async (orderId: string, newStatus: string) => {
 
 
 
-  const handlePaymentReceived = async (orderId: string) => {
+const handlePaymentReceived = async (orderId: string) => {
     try {
       await markPaymentReceived(orderId);
       toast.success('✅ Оплата получена!');
       loadMyOrders();
+      
+      // ✅ Показываем модалку оплаты комиссии
+      console.log('💰 Payment received! Loading commission modal...');
+      setTimeout(() => {
+        loadPendingCommission();
+      }, 2000);
+      
     } catch (err) {
       toast.error('❌ Ошибка при отметке оплаты');
     }
