@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
-import { User, Phone, MapPin, Award, Save, Loader, ArrowLeft, Upload, X, CheckCircle } from 'lucide-react';
+import { User, Phone, MapPin, Award, Save, Loader, ArrowLeft, Upload, X, CheckCircle, DollarSign, Copy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import PhoneInput from '@/components/PhoneInput'; 
@@ -29,6 +29,10 @@ export default function MedicProfilePage() {
   // Баланс медика
   const [balance, setBalance] = useState<any>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
+
+  // Модалка оплаты
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [pendingCommission, setPendingCommission] = useState<any>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -133,6 +137,60 @@ export default function MedicProfilePage() {
       console.error('Failed to load balance:', err);
     } finally {
       setLoadingBalance(false);
+    }
+  };
+
+  const loadPendingCommission = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/pending-commission`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        setPendingCommission(result);
+        setShowPaymentModal(true);
+      }
+    } catch (err) {
+      console.error('Failed to load pending commission:', err);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/confirm-payment`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            amount: pendingCommission.pendingCommission
+          })
+        }
+      );
+
+      if (response.ok) {
+        toast.success('✅ Спасибо! Проверим платёж в течение 24 часов', {
+          duration: 5000
+        });
+        setShowPaymentModal(false);
+        setPendingCommission(null);
+        loadBalance(); // Обновляем баланс
+      } else {
+        throw new Error('Failed to confirm payment');
+      }
+    } catch (err) {
+      toast.error('❌ Ошибка подтверждения оплаты');
     }
   };
 
@@ -731,6 +789,19 @@ export default function MedicProfilePage() {
                   </div>
                 </div>
 
+ {/* Кнопка оплаты комиссии */}
+                {balance.pending > 0 && (
+                  <div className="mt-6">
+                    <button
+                      onClick={loadPendingCommission}
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 font-bold text-lg shadow-lg transition-all animate-pulse flex items-center justify-center"
+                    >
+                      <DollarSign className="w-6 h-6 mr-2" />
+                      💰 Оплатить комиссию {balance.pending.toLocaleString('ru-RU')} ₸
+                    </button>
+                  </div>
+                )}
+
                 {/* История транзакций */}
                 {balance.transactions && balance.transactions.length > 0 && (
                   <div className="mt-6">
@@ -803,10 +874,10 @@ export default function MedicProfilePage() {
                     <div className="text-sm text-cyan-300">
                       <p className="font-medium mb-2">Как работают выплаты:</p>
                       <ul className="list-disc list-inside space-y-1 text-cyan-400/80">
-                        <li>Комиссия платформы: 50%</li>
-                        <li>Выплаты производятся администратором вручную</li>
-                        <li>Обычно в течение 1-3 рабочих дней после завершения заказа</li>
-                        <li>Выплаты на вашу банковскую карту через Kaspi</li>
+                         <li>Комиссия платформы: 10%</li>
+                        <li>Клиент платит вам наличными всю сумму</li>
+                        <li>Вы переводите комиссию платформе через Kaspi</li>
+                        <li>Оплата проверяется администратором в течение 24 часов</li>
                       </ul>
                     </div>
                   </div>
@@ -1340,7 +1411,7 @@ export default function MedicProfilePage() {
                 />
                 <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
                   Я прочитал(а) и согласен(на) с условиями <strong className="text-white">Договора-оферты</strong>, 
-                  в том числе с выплатой комиссии <strong className="text-yellow-400">10%</strong> от суммы заказа в том числе с выплатой комиссии <strong className="text-yellow-400">50%</strong> от суммы заказа
+                  в том числе с выплатой комиссии <strong className="text-yellow-400">10%</strong>
                 </span>
               </label>
 
@@ -1400,6 +1471,173 @@ export default function MedicProfilePage() {
               >
                 Перейти в дашборд
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+             {/* ✅ МОДАЛЬНОЕ ОКНО ОПЛАТЫ */}
+      {showPaymentModal && pendingCommission && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-white/20 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            
+            {/* Header */}
+            <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-6">
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center mx-auto mb-4">
+                  <DollarSign className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2">💰 Оплата комиссии</h2>
+                <p className="text-sm text-slate-400">
+                  Переведите комиссию платформе через Kaspi
+                </p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              
+              {/* Накопленный долг */}
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/30">
+                <div className="text-center">
+                  <div className="text-sm text-yellow-300 mb-2">Комиссия к оплате (10%)</div>
+                  <div className="text-5xl font-bold text-white mb-1">
+                    {pendingCommission.pendingCommission.toLocaleString('ru-RU')} ₸
+                  </div>
+                  <div className="text-xs text-yellow-400">
+                    {pendingCommission.ordersCount} завершённых заказов
+                  </div>
+                </div>
+              </div>
+
+              {/* Детализация */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="text-xs text-slate-400 mb-3">💡 Как считается:</div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-300">Вы получили от клиентов:</span>
+                    <span className="font-bold text-white">
+                      {pendingCommission.totalReceived.toLocaleString('ru-RU')} ₸
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-300">Комиссия (10%):</span>
+                    <span className="font-bold text-yellow-400">
+                      -{pendingCommission.pendingCommission.toLocaleString('ru-RU')} ₸
+                    </span>
+                  </div>
+                  <div className="border-t border-white/10 pt-2 flex justify-between">
+                    <span className="text-slate-300">Ваш чистый доход:</span>
+                    <span className="font-bold text-green-400">
+                      {pendingCommission.netIncome.toLocaleString('ru-RU')} ₸
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* QR КОД */}
+              <div>
+                <div className="text-center mb-3">
+                  <div className="text-sm font-semibold text-cyan-400 mb-2">
+                    📱 Способ 1: Отсканируйте QR-код
+                  </div>
+                </div>
+                
+                <div className="p-6 rounded-2xl bg-white flex items-center justify-center">
+                  <img 
+                    src="https://cdn-icons-png.flaticon.com/512/4108/4108690.png" 
+                    alt="Kaspi QR" 
+                    className="w-48 h-48"
+                  />
+                </div>
+                
+                <p className="text-xs text-center text-slate-400 mt-3">
+                  Откройте камеру в Kaspi и отсканируйте код
+                </p>
+              </div>
+
+              {/* РАЗДЕЛИТЕЛЬ */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-slate-900 text-slate-400">или</span>
+                </div>
+              </div>
+
+              {/* НОМЕР ТЕЛЕФОНА */}
+              <div>
+                <div className="text-center mb-3">
+                  <div className="text-sm font-semibold text-cyan-400 mb-2">
+                    💳 Способ 2: Перевод по номеру телефона
+                  </div>
+                </div>
+                
+                <div className="p-6 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border-2 border-cyan-500/30">
+                  <div className="text-center">
+                    <div className="text-xs text-slate-400 mb-2">Номер телефона Kaspi:</div>
+                    <div className="font-mono text-3xl font-bold text-cyan-400 mb-3">
+                      +7 707 123 45 67
+                    </div>
+                    <div className="text-sm text-slate-300 mb-1">На имя:</div>
+                    <div className="text-lg font-semibold text-white">MedicPro Platform</div>
+                  </div>
+                  
+                  {/* Кнопка копирования */}
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText('+77071234567');
+                      toast.success('📋 Номер скопирован!');
+                    }}
+                    className="w-full mt-4 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-cyan-400 text-sm font-medium transition-all flex items-center justify-center"
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Скопировать номер
+                  </button>
+                </div>
+              </div>
+
+              {/* ИНСТРУКЦИЯ */}
+              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                <div className="flex items-start space-x-3">
+                  <div className="text-2xl">📋</div>
+                  <div className="text-sm text-blue-300">
+                    <p className="font-semibold mb-2">Как оплатить:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-blue-400/90">
+                      <li>Откройте Kaspi на телефоне</li>
+                      <li>Выберите "Переводы" или отсканируйте QR</li>
+                      <li>Введите сумму: <strong>{pendingCommission.pendingCommission.toLocaleString('ru-RU')} ₸</strong></li>
+                      <li>Отправьте перевод</li>
+                      <li>Нажмите "Я оплатил" ниже</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+
+              {/* КНОПКИ */}
+              <div className="space-y-3">
+                <button
+                  onClick={handleConfirmPayment}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-bold text-lg shadow-lg transition-all flex items-center justify-center"
+                >
+                  <CheckCircle className="w-6 h-6 mr-2" />
+                  ✓ Я оплатил комиссию
+                </button>
+                
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 font-medium transition-all"
+                >
+                  Оплачу позже
+                </button>
+              </div>
+
+              {/* ПРЕДУПРЕЖДЕНИЕ */}
+              <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                <p className="text-xs text-yellow-300 text-center">
+                  ⚠️ Без оплаты комиссии вы не сможете получать новые заказы
+                </p>
+              </div>
             </div>
           </div>
         </div>
