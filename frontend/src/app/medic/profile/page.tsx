@@ -1340,7 +1340,7 @@ export default function MedicProfilePage() {
                 />
                 <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
                   Я прочитал(а) и согласен(на) с условиями <strong className="text-white">Договора-оферты</strong>, 
-                  в том числе с выплатой комиссии <strong className="text-yellow-400">50%</strong> от суммы заказа
+                  в том числе с выплатой комиссии <strong className="text-yellow-400">10%</strong> от суммы заказа в том числе с выплатой комиссии <strong className="text-yellow-400">50%</strong> от суммы заказа
                 </span>
               </label>
 
