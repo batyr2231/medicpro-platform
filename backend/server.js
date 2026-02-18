@@ -732,6 +732,33 @@ app.get('/api/orders/available', authenticateToken, async (req, res) => {
   }
 });
 
+// ✅ ПРОВЕРКА БЛОКИРОВКИ ЗА НЕОПЛАТУ
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const unpaidCommission = await prisma.transaction.findMany({
+      where: {
+        medicId: req.user.userId,
+        status: 'PENDING',
+        createdAt: {
+          lt: today // Созданы ДО сегодняшнего дня
+        }
+      }
+    });
+
+    if (unpaidCommission.length > 0) {
+      const totalUnpaid = unpaidCommission.reduce((sum, t) => sum + t.commission, 0);
+      
+      console.log(`🚫 Medic ${req.user.userId} blocked: unpaid commission ${totalUnpaid} тг`);
+      
+      return res.json({
+        blocked: true,
+        reason: 'UNPAID_COMMISSION',
+        amount: totalUnpaid,
+        message: 'Оплатите комиссию за вчерашние заказы чтобы получать новые'
+      });
+    }
+
 
 // Получение одного заказа по ID
 // Получение одного заказа по ID
@@ -2930,6 +2957,7 @@ app.get('/api/medics/balance', authenticateToken, async (req, res) => {
 
     res.json({
       totalEarned: Math.round(totalEarned),
+      totalCommission: Math.round(totalCommission),
       totalPaid: Math.round(totalPaid),
       pending: Math.round(pending),
       totalCommission: Math.round(totalEarned - totalPaid - pending),
