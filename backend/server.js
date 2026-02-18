@@ -1381,7 +1381,7 @@ app.post('/api/orders/:orderId/payment-received', authenticateToken, async (req,
 
     // ✅ СОЗДАЁМ ТРАНЗАКЦИЮ
     const amount = parseFloat(order.price || 0);
-    const commission = amount * 0.5; // 50% комиссия
+    const commission = amount * 0.1; // 10% комиссия
     const netAmount = amount - commission;
 
     await prisma.transaction.create({
@@ -2950,6 +2950,115 @@ app.get('/api/medics/balance', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get balance error:', error);
     res.status(500).json({ error: 'Failed to get balance' });
+  }
+});
+
+// Получить накопленную неоплаченную комиссию
+app.get('/api/medics/pending-commission', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'MEDIC') {
+      return res.status(403).json({ error: 'Only for medics' });
+    }
+
+    // Все неоплаченные транзакции
+    const pendingTransactions = await prisma.transaction.findMany({
+      where: { 
+        medicId: req.user.userId,
+        status: 'PENDING'
+      },
+      include: {
+        order: {
+          select: {
+            id: true,
+            serviceType: true,
+            price: true,
+            completedAt: true,
+            createdAt: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const totalCommission = pendingTransactions.reduce((sum, t) => sum + t.commission, 0);
+    const totalReceived = pendingTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const netIncome = totalReceived - totalCommission;
+
+    console.log(`💰 Pending commission for medic ${req.user.userId}: ${totalCommission} тг`);
+
+    res.json({
+      pendingCommission: Math.round(totalCommission),
+      totalReceived: Math.round(totalReceived),
+      netIncome: Math.round(netIncome),
+      ordersCount: pendingTransactions.length,
+      transactions: pendingTransactions.map(t => ({
+        id: t.id,
+        orderId: t.orderId,
+        orderNumber: t.order.id.substring(0, 8),
+        serviceType: t.order.serviceType,
+        amount: t.amount,
+        commission: t.commission,
+        completedAt: t.order.completedAt,
+        createdAt: t.createdAt
+      }))
+    });
+
+  } catch (error) {
+    console.error('Get pending commission error:', error);
+    res.status(500).json({ error: 'Failed to get pending commission' });
+  }
+});
+
+// Медик подтверждает что оплатил комиссию
+app.post('/api/medics/confirm-payment', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'MEDIC') {
+      return res.status(403).json({ error: 'Only for medics' });
+    }
+
+    const { amount } = req.body;
+
+    // Получаем все неоплаченные транзакции медика
+    const pendingTransactions = await prisma.transaction.findMany({
+      where: { 
+        medicId: req.user.userId,
+        status: 'PENDING'
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    if (pendingTransactions.length === 0) {
+      return res.status(400).json({ error: 'No pending transactions' });
+    }
+
+    // Создаём уведомление для админа
+    await prisma.notification.create({
+      data: {
+        userId: req.user.userId, // Для истории
+        channel: 'WEB_PUSH',
+        type: 'commission_payment_claimed',
+        title: 'Медик подтвердил оплату комиссии',
+        body: `Медик заявил об оплате ${amount} тг. Требуется проверка админа.`,
+        data: {
+          medicId: req.user.userId,
+          amount: amount,
+          transactionIds: pendingTransactions.map(t => t.id)
+        }
+      }
+    });
+
+    console.log(`✅ Medic ${req.user.userId} confirmed payment of ${amount} тг`);
+    console.log(`📋 Admin needs to verify ${pendingTransactions.length} transactions`);
+
+    res.json({ 
+      success: true, 
+      message: 'Спасибо! Платёж будет проверен администратором в течение 24 часов',
+      pendingCount: pendingTransactions.length
+    });
+
+  } catch (error) {
+    console.error('Confirm payment error:', error);
+    res.status(500).json({ error: 'Failed to confirm payment' });
   }
 });
 
