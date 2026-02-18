@@ -770,13 +770,13 @@ export default function MedicProfilePage() {
                     </div>
                   </div>
 
-                  {/* К выплате */}
+{/* Комиссия к оплате */}
                   <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
-                    <div className="text-sm text-yellow-300 mb-1">К выплате</div>
+                    <div className="text-sm text-yellow-300 mb-1">Комиссия к оплате</div>
                     <div className="text-2xl font-bold text-white">
-                      {balance.pending.toLocaleString('ru-RU')} ₸
+                      {balance.totalCommission.toLocaleString('ru-RU')} ₸
                     </div>
-                    <div className="text-xs text-slate-400 mt-1">Ожидает выплаты</div>
+                    <div className="text-xs text-slate-400 mt-1">Необходимо перевести</div>
                   </div>
 
                   {/* Выплачено */}
@@ -790,14 +790,14 @@ export default function MedicProfilePage() {
                 </div>
 
  {/* Кнопка оплаты комиссии */}
-                {balance.pending > 0 && (
+                {balance.totalCommission > 0 && (
                   <div className="mt-6">
                     <button
                       onClick={loadPendingCommission}
                       className="w-full py-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 font-bold text-lg shadow-lg transition-all animate-pulse flex items-center justify-center"
                     >
                       <DollarSign className="w-6 h-6 mr-2" />
-                      💰 Оплатить комиссию {balance.pending.toLocaleString('ru-RU')} ₸
+                      💰 Оплатить комиссию {balance.totalCommission.toLocaleString('ru-RU')} ₸
                     </button>
                   </div>
                 )}
@@ -1634,8 +1634,11 @@ export default function MedicProfilePage() {
 
               {/* ПРЕДУПРЕЖДЕНИЕ */}
               <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-                <p className="text-xs text-yellow-300 text-center">
-                  ⚠️ Без оплаты комиссии вы не сможете получать новые заказы
+                <p className="text-xs text-yellow-300 text-center mb-2">
+                  ⚠️ Оплатите комиссию до <strong>00:00 сегодня</strong>
+                </p>
+                <p className="text-xs text-yellow-400/80 text-center">
+                  Иначе завтра вы не сможете получать новые заказы
                 </p>
               </div>
             </div>

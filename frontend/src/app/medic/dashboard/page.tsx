@@ -165,9 +165,26 @@ useEffect(() => {
     }
   };
 
-  const loadAvailableOrders = async () => {
+const loadAvailableOrders = async () => {
     try {
       const orders = await getAvailableOrders();
+      
+      // ✅ Проверка блокировки
+      if (orders.blocked) {
+        setRealOrders([]);
+        toast.error(
+          `🚫 ${orders.message}\nСумма: ${orders.amount.toLocaleString('ru-RU')} тг`,
+          { duration: 10000 }
+        );
+        
+        // Показываем модалку оплаты
+        setTimeout(() => {
+          loadPendingCommission();
+        }, 2000);
+        
+        return;
+      }
+      
       setRealOrders(orders);
     } catch (err) {
       // Ошибка загрузки доступных заказов
