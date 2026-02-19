@@ -656,8 +656,16 @@ app.get('/api/orders/available', authenticateToken, async (req, res) => {
       id: medic.id,
       specialty: medic.specialty,
       areas: medic.areas,
-      status: medic.status
+      status: medic.status,
+      balance: medic.balance,
+      minBalance: medic.minBalance
     });
+
+    // ✅ БЛОКИРОВКА ПРИ НИЗКОМ БАЛАНСЕ (ДОБАВИТЬ СЮДА!)
+    if (medic.balance < medic.minBalance) {
+      console.log(`🚫 Medic ${req.user.userId} blocked: balance ${medic.balance} < ${medic.minBalance}`);
+      return res.json([]); // Возвращаем пустой массив
+    }
 
     if (medic.status !== 'APPROVED') {
       console.log('⚠️ Medic not approved, status:', medic.status);
@@ -731,19 +739,6 @@ app.get('/api/orders/available', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch orders' });
   }
 });
-
-
-// ✅ БЛОКИРОВКА ПРИ НИЗКОМ БАЛАНСЕ
-    const medic = await prisma.medic.findUnique({
-      where: { userId: req.user.userId }
-    });
-
-    if (medic && medic.balance < medic.minBalance) {
-      console.log(`🚫 Medic ${req.user.userId} blocked: balance ${medic.balance} < ${medic.minBalance}`);
-      
-      return res.json([]);  // Возвращаем пустой массив заказов
-    }
-
 
 
 // Получение одного заказа по ID
