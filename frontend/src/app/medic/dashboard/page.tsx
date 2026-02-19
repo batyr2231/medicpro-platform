@@ -21,10 +21,11 @@ export default function MedicDashboard() {
   const [realOrders, setRealOrders] = useState<any[]>([]);
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
-  // Модалка оплаты
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [pendingCommission, setPendingCommission] = useState<any>(null);
-  const [loadingCommission, setLoadingCommission] = useState(false);
+
+  // Баланс медика
+  const [balance, setBalance] = useState<any>(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+
   const [profileProgress, setProfileProgress] = useState({
     hasSpecialization: false,
     hasExperience: false,
@@ -35,9 +36,10 @@ export default function MedicDashboard() {
   });
   const router = useRouter();
 
-  useEffect(() => {
+useEffect(() => {
     loadMedicInfo();
     loadOrders();
+    loadBalance(); // ← ДОБАВИЛИ
     
     const interval = setInterval(() => {
       if (activeTab === 'available') {
@@ -157,6 +159,30 @@ useEffect(() => {
     }
   };
 
+  const loadBalance = async () => {
+    try {
+      setLoadingBalance(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/balance`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        setBalance(result);
+      }
+    } catch (err) {
+      console.error('Failed to load balance:', err);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
+
   const loadOrders = () => {
     if (activeTab === 'available') {
       loadAvailableOrders();
@@ -168,26 +194,9 @@ useEffect(() => {
 const loadAvailableOrders = async () => {
     try {
       const orders = await getAvailableOrders();
-      
-      // ✅ Проверка блокировки
-      if (orders.blocked) {
-        setRealOrders([]);
-        toast.error(
-          `🚫 ${orders.message}\nСумма: ${orders.amount.toLocaleString('ru-RU')} тг`,
-          { duration: 10000 }
-        );
-        
-        // Показываем модалку оплаты
-        setTimeout(() => {
-          loadPendingCommission();
-        }, 2000);
-        
-        return;
-      }
-      
       setRealOrders(orders);
     } catch (err) {
-      // Ошибка загрузки доступных заказов
+      console.error('Failed to load available orders:', err);
     }
   };
 
@@ -241,77 +250,11 @@ const handleStatusChange = async (orderId: string, newStatus: string) => {
 const handlePaymentReceived = async (orderId: string) => {
     try {
       await markPaymentReceived(orderId);
-      toast.success('✅ Оплата получена!');
+      toast.success('✅ Оплата получена! Комиссия списана с баланса');
       loadMyOrders();
-      
-      // ✅ Показываем модалку оплаты комиссии
-      console.log('💰 Payment received! Loading commission modal...');
-      setTimeout(() => {
-        loadPendingCommission();
-      }, 2000);
-      
+      loadBalance(); // Обновляем баланс
     } catch (err) {
       toast.error('❌ Ошибка при отметке оплаты');
-    }
-  };
-
-  const loadPendingCommission = async () => {
-    try {
-      setLoadingCommission(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/pending-commission`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        setPendingCommission(result);
-        
-        // Показываем модалку если есть долг
-        if (result.pendingCommission > 0) {
-          setShowPaymentModal(true);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load pending commission:', err);
-    } finally {
-      setLoadingCommission(false);
-    }
-  };
-
-  const handleConfirmPayment = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/confirm-payment`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            amount: pendingCommission.pendingCommission
-          })
-        }
-      );
-
-      if (response.ok) {
-        toast.success('✅ Спасибо! Проверим платёж в течение 24 часов', {
-          duration: 5000
-        });
-        setShowPaymentModal(false);
-        setPendingCommission(null);
-      } else {
-        throw new Error('Failed to confirm payment');
-      }
-    } catch (err) {
-      toast.error('❌ Ошибка подтверждения оплаты');
     }
   };
 
@@ -408,6 +351,53 @@ const handlePaymentReceived = async (orderId: string) => {
         Этот div (max-w-7xl) оборачивает и Онбординг, и Stats, и Tabs 
       */}
       <div className="max-w-7xl mx-auto px-4 py-8">
+
+        
+      {/* ⚠️ БАННЕР НИЗКОГО БАЛАНСА */}
+        {balance && balance.balance < balance.minBalance && (
+          <div className="mb-6 rounded-2xl bg-gradient-to-r from-red-500/20 to-orange-500/20 border-2 border-red-500/30 p-4 backdrop-blur-xl animate-pulse">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-full bg-red-500/30 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-6 h-6 text-red-400" />
+                </div>
+                <div>
+                  <div className="font-bold text-white text-lg">
+                    ⚠️ Низкий баланс: {balance.balance.toLocaleString('ru-RU')} ₸
+                  </div>
+                  <div className="text-sm text-red-300">
+                    Пополните минимум на {(balance.minBalance - balance.balance).toLocaleString('ru-RU')} ₸ для получения новых заказов
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => router.push('/medic/profile')}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-400 hover:to-orange-500 font-bold transition-all shadow-lg whitespace-nowrap"
+              >
+                Пополнить баланс
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ БАННЕР PENDING ПОПОЛНЕНИЙ */}
+        {balance && balance.pendingDeposits > 0 && (
+          <div className="mb-6 rounded-2xl bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/30 p-4 backdrop-blur-xl">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-full bg-yellow-500/30 flex items-center justify-center flex-shrink-0">
+                <Loader className="w-6 h-6 text-yellow-400 animate-spin" />
+              </div>
+              <div>
+                <div className="font-bold text-white text-lg">
+                  ⏳ Пополнение на {balance.pendingDeposits.toLocaleString('ru-RU')} ₸ проверяется
+                </div>
+                <div className="text-sm text-yellow-300">
+                  Администратор проверит ваш платёж в течение 1-2 часов
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Онбординг блок */}
         {!onboardingComplete && (
@@ -1046,175 +1036,7 @@ const handlePaymentReceived = async (orderId: string) => {
           </div>
         )}
       </div> 
-
-       {/* ✅ МОДАЛЬНОЕ ОКНО ОПЛАТЫ */}
-      {showPaymentModal && pendingCommission && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-white/20 max-w-md w-full max-h-[90vh] overflow-y-auto">
-            
-            {/* Header */}
-            <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-6">
-              <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center mx-auto mb-4">
-                  <DollarSign className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold mb-2">💰 Оплата комиссии</h2>
-                <p className="text-sm text-slate-400">
-                  Переведите комиссию платформе через Kaspi
-                </p>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              
-              {/* Накопленный долг */}
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/30">
-                <div className="text-center">
-                  <div className="text-sm text-yellow-300 mb-2">Комиссия к оплате (10%)</div>
-                  <div className="text-5xl font-bold text-white mb-1">
-                    {pendingCommission.pendingCommission.toLocaleString('ru-RU')} ₸
-                  </div>
-                  <div className="text-xs text-yellow-400">
-                    {pendingCommission.ordersCount} завершённых заказов
-                  </div>
-                </div>
-              </div>
-
-              {/* Детализация */}
-              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                <div className="text-xs text-slate-400 mb-3">💡 Как считается:</div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-300">Вы получили от клиентов:</span>
-                    <span className="font-bold text-white">
-                      {pendingCommission.totalReceived.toLocaleString('ru-RU')} ₸
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-300">Комиссия (10%):</span>
-                    <span className="font-bold text-yellow-400">
-                      -{pendingCommission.pendingCommission.toLocaleString('ru-RU')} ₸
-                    </span>
-                  </div>
-                  <div className="border-t border-white/10 pt-2 flex justify-between">
-                    <span className="text-slate-300">Ваш чистый доход:</span>
-                    <span className="font-bold text-green-400">
-                      {pendingCommission.netIncome.toLocaleString('ru-RU')} ₸
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* QR КОД */}
-              <div>
-                <div className="text-center mb-3">
-                  <div className="text-sm font-semibold text-cyan-400 mb-2">
-                    📱 Способ 1: Отсканируйте QR-код
-                  </div>
-                </div>
-                
-                <div className="p-6 rounded-2xl bg-white flex items-center justify-center">
-                  <img 
-                    src="https://cdn-icons-png.flaticon.com/512/4108/4108690.png" 
-                    alt="Kaspi QR" 
-                    className="w-48 h-48"
-                  />
-                </div>
-                
-                <p className="text-xs text-center text-slate-400 mt-3">
-                  Откройте камеру в Kaspi и отсканируйте код
-                </p>
-              </div>
-
-              {/* РАЗДЕЛИТЕЛЬ */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/10"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-slate-900 text-slate-400">или</span>
-                </div>
-              </div>
-
-              {/* НОМЕР ТЕЛЕФОНА */}
-              <div>
-                <div className="text-center mb-3">
-                  <div className="text-sm font-semibold text-cyan-400 mb-2">
-                    💳 Способ 2: Перевод по номеру телефона
-                  </div>
-                </div>
-                
-                <div className="p-6 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border-2 border-cyan-500/30">
-                  <div className="text-center">
-                    <div className="text-xs text-slate-400 mb-2">Номер телефона Kaspi:</div>
-                    <div className="font-mono text-3xl font-bold text-cyan-400 mb-3">
-                      +7 707 123 45 67
-                    </div>
-                    <div className="text-sm text-slate-300 mb-1">На имя:</div>
-                    <div className="text-lg font-semibold text-white">MedicPro Platform</div>
-                  </div>
-                  
-                  {/* Кнопка копирования */}
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText('+77071234567');
-                      toast.success('📋 Номер скопирован!');
-                    }}
-                    className="w-full mt-4 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-cyan-400 text-sm font-medium transition-all flex items-center justify-center"
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Скопировать номер
-                  </button>
-                </div>
-              </div>
-
-              {/* ИНСТРУКЦИЯ */}
-              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                <div className="flex items-start space-x-3">
-                  <div className="text-2xl">📋</div>
-                  <div className="text-sm text-blue-300">
-                    <p className="font-semibold mb-2">Как оплатить:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-blue-400/90">
-                      <li>Откройте Kaspi на телефоне</li>
-                      <li>Выберите "Переводы" или отсканируйте QR</li>
-                      <li>Введите сумму: <strong>{pendingCommission.pendingCommission.toLocaleString('ru-RU')} ₸</strong></li>
-                      <li>Отправьте перевод</li>
-                      <li>Нажмите "Я оплатил" ниже</li>
-                    </ol>
-                  </div>
-                </div>
-              </div>
-
-              {/* КНОПКИ */}
-              <div className="space-y-3">
-                <button
-                  onClick={handleConfirmPayment}
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-bold text-lg shadow-lg transition-all flex items-center justify-center"
-                >
-                  <CheckCircle className="w-6 h-6 mr-2" />
-                  ✓ Я оплатил комиссию
-                </button>
-                
-                <button
-                  onClick={() => setShowPaymentModal(false)}
-                  className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 font-medium transition-all"
-                >
-                  Оплачу позже
-                </button>
-              </div>
-
-              {/* ПРЕДУПРЕЖДЕНИЕ */}
-              <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-                <p className="text-xs text-yellow-300 text-center">
-                  ⚠️ Без оплаты комиссии вы не сможете получать новые заказы
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
     </div> 
   );
 }
+
