@@ -29,10 +29,14 @@ export default function AdminDashboard() {
   const [selectedMedicHistory, setSelectedMedicHistory] = useState<any>(null);
 
   useEffect(() => {
-      if (activeTab === 'deposits') {
-        loadDeposits();
-      }
+      loadData(); // ← Вызываем общую функцию loadData
     }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'complaints') {
+      loadComplaints();
+    }
+  }, [complaintFilter]); // ← Перезагружать жалобы при смене фильтра
 
 const loadData = () => {
     if (activeTab === 'medics') {
@@ -45,7 +49,7 @@ const loadData = () => {
       loadStats();
     } else if (activeTab === 'chats') {
       loadChats();
-    } else if (activeTab === 'transactions') {
+    } else if (activeTab === 'deposits') {  // ← ИСПРАВЛЕНО
       loadDeposits();
     }
   };
