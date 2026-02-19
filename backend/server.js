@@ -732,35 +732,20 @@ app.get('/api/orders/available', authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ ПРОВЕРКА БЛОКИРОВКИ ЗА НЕОПЛАТУ
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    const unpaidCommission = await prisma.transaction.findMany({
-      where: {
-        medicId: req.user.userId,
-        status: 'PENDING',
-        createdAt: {
-          lt: today // Созданы ДО сегодняшнего дня
-        }
-      }
+// ✅ БЛОКИРОВКА ПРИ НИЗКОМ БАЛАНСЕ
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
     });
 
-    if (unpaidCommission.length > 0) {
-      const totalUnpaid = unpaidCommission.reduce((sum, t) => sum + t.commission, 0);
+    if (medic && medic.balance < medic.minBalance) {
+      console.log(`🚫 Medic ${req.user.userId} blocked: balance ${medic.balance} < ${medic.minBalance}`);
       
-      console.log(`🚫 Medic ${req.user.userId} blocked: unpaid commission ${totalUnpaid} тг`);
-      
-      return res.json({
-        blocked: true,
-        reason: 'UNPAID_COMMISSION',
-        amount: totalUnpaid,
-        message: 'Оплатите комиссию за вчерашние заказы чтобы получать новые'
-      });
+      return res.json([]);  // Возвращаем пустой массив заказов
     }
 
 
-// Получение одного заказа по ID
+
 // Получение одного заказа по ID
 app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
   try {
@@ -1384,20 +1369,25 @@ app.patch('/api/orders/:orderId/price', authenticateToken, async (req, res) => {
   }
 });
 
-// Отметка "оплата получена"
+// Отметка "оплата получена" + автоматическое списание комиссии
 app.post('/api/orders/:orderId/payment-received', authenticateToken, async (req, res) => {
   try {
     const { orderId } = req.params;
 
     const order = await prisma.order.findUnique({
-      where: { id: orderId }
+      where: { id: orderId },
+      include: { 
+        medic: { 
+          include: { medic: true } 
+        } 
+      }
     });
 
     if (!order || order.medicId !== req.user.userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Обновляем заказ
+    // Обновляем статус заказа
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: {
@@ -1406,27 +1396,48 @@ app.post('/api/orders/:orderId/payment-received', authenticateToken, async (req,
       }
     });
 
-    // ✅ СОЗДАЁМ ТРАНЗАКЦИЮ
-    const amount = parseFloat(order.price || 0);
-    const commission = amount * 0.1; // 10% комиссия
-    const netAmount = amount - commission;
+    // ✅ АВТОМАТИЧЕСКОЕ СПИСАНИЕ КОМИССИИ
+    const orderAmount = parseFloat(order.price || 0);
+    const commission = orderAmount * 0.1; // 10%
+    const medicEarning = orderAmount - commission;
 
-    await prisma.transaction.create({
+    const medic = order.medic.medic;
+
+    // Списываем комиссию с баланса
+    const updatedMedic = await prisma.medic.update({
+      where: { userId: order.medicId },
       data: {
-        orderId: orderId,
-        medicId: order.medicId,
-        amount: amount,
-        commission: commission,
-        netAmount: netAmount,
-        status: 'PENDING'
+        balance: { decrement: commission },
+        totalEarned: { increment: medicEarning },
+        totalSpent: { increment: commission }
       }
     });
 
-    console.log(`✅ Transaction created: Order ${orderId.substring(0, 8)} - Медику: ${netAmount} тг`);
+    // Создаём запись о списании
+    await prisma.balanceTransaction.create({
+      data: {
+        medicId: order.medicId,
+        type: 'COMMISSION',
+        amount: -commission,
+        status: 'APPROVED',
+        orderId: orderId,
+        orderAmount: orderAmount,
+        description: `Комиссия 10% за заказ: ${order.serviceType}`
+      }
+    });
+
+    console.log(`✅ Commission deducted: -${commission} тг from medic ${order.medicId}`);
+    console.log(`💰 New balance: ${updatedMedic.balance} тг`);
+
+    // Проверяем баланс
+    if (updatedMedic.balance < updatedMedic.minBalance) {
+      console.log(`⚠️ Low balance warning for medic ${order.medicId}: ${updatedMedic.balance} < ${updatedMedic.minBalance}`);
+    }
 
     io.to(`order-${orderId}`).emit('payment-received', updatedOrder);
 
     res.json(updatedOrder);
+
   } catch (error) {
     console.error('Payment received error:', error);
     res.status(500).json({ error: 'Failed to update payment status' });
@@ -2923,122 +2934,67 @@ app.use('/api/admin/*', (req, res, next) => {
 
 // ==================== TRANSACTIONS (BALANCE) ====================
 
-// Получить баланс медика
+// ==================== BALANCE SYSTEM (NEW) ====================
+
+// Получить баланс и историю транзакций медика
 app.get('/api/medics/balance', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'MEDIC') {
       return res.status(403).json({ error: 'Only for medics' });
     }
 
-    const transactions = await prisma.transaction.findMany({
-      where: { medicId: req.user.userId },
-      include: {
-        order: {
-          select: {
-            id: true,
-            serviceType: true,
-            createdAt: true,
-            completedAt: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
+    // Получаем медика
+    const medic = await prisma.medic.findUnique({
+      where: { userId: req.user.userId }
     });
 
-    const totalEarned = transactions.reduce((sum, t) => sum + t.amount, 0);
-    const totalPaid = transactions
-      .filter(t => t.status === 'PAID')
-      .reduce((sum, t) => sum + t.netAmount, 0);
-    const pending = transactions
-      .filter(t => t.status === 'PENDING')
-      .reduce((sum, t) => sum + t.netAmount, 0);
+    if (!medic) {
+      return res.status(404).json({ error: 'Medic not found' });
+    }
 
-    console.log(`💰 Balance for medic ${req.user.userId}: Total=${totalEarned}, Paid=${totalPaid}, Pending=${pending}`);
+    // Получаем историю транзакций (последние 100)
+    const transactions = await prisma.balanceTransaction.findMany({
+      where: { medicId: req.user.userId },
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    });
+
+    // Считаем pending пополнения
+    const pendingDeposits = transactions.filter(t => t.type === 'DEPOSIT' && t.status === 'PENDING');
+    const totalPending = pendingDeposits.reduce((sum, t) => sum + t.amount, 0);
+
+    console.log(`💰 Balance for medic ${req.user.userId}: ${medic.balance} тг`);
 
     res.json({
-      totalEarned: Math.round(totalEarned),
-      totalCommission: Math.round(totalCommission),
-      totalPaid: Math.round(totalPaid),
-      pending: Math.round(pending),
-      totalCommission: Math.round(totalEarned - totalPaid - pending),
+      balance: Math.round(medic.balance),
+      minBalance: Math.round(medic.minBalance),
+      totalEarned: Math.round(medic.totalEarned),
+      totalSpent: Math.round(medic.totalSpent),
+      pendingDeposits: Math.round(totalPending),
+      isBlocked: medic.balance < medic.minBalance,
       transactions: transactions.map(t => ({
         id: t.id,
-        orderId: t.orderId,
-        orderNumber: t.order.id.substring(0, 8),
-        serviceType: t.order.serviceType,
+        type: t.type,
         amount: t.amount,
-        commission: t.commission,
-        netAmount: t.netAmount,
         status: t.status,
-        paidAt: t.paidAt,
+        description: t.description,
+        orderId: t.orderId,
+        orderAmount: t.orderAmount,
         createdAt: t.createdAt,
-        completedAt: t.order.completedAt
+        approvedAt: t.approvedAt,
+        rejectedAt: t.rejectedAt,
+        rejectReason: t.rejectReason
       }))
     });
+
   } catch (error) {
     console.error('Get balance error:', error);
     res.status(500).json({ error: 'Failed to get balance' });
   }
 });
 
-// Получить накопленную неоплаченную комиссию
-app.get('/api/medics/pending-commission', authenticateToken, async (req, res) => {
-  try {
-    if (req.user.role !== 'MEDIC') {
-      return res.status(403).json({ error: 'Only for medics' });
-    }
-
-    // Все неоплаченные транзакции
-    const pendingTransactions = await prisma.transaction.findMany({
-      where: { 
-        medicId: req.user.userId,
-        status: 'PENDING'
-      },
-      include: {
-        order: {
-          select: {
-            id: true,
-            serviceType: true,
-            price: true,
-            completedAt: true,
-            createdAt: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    const totalCommission = pendingTransactions.reduce((sum, t) => sum + t.commission, 0);
-    const totalReceived = pendingTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const netIncome = totalReceived - totalCommission;
-
-    console.log(`💰 Pending commission for medic ${req.user.userId}: ${totalCommission} тг`);
-
-    res.json({
-      pendingCommission: Math.round(totalCommission),
-      totalReceived: Math.round(totalReceived),
-      netIncome: Math.round(netIncome),
-      ordersCount: pendingTransactions.length,
-      transactions: pendingTransactions.map(t => ({
-        id: t.id,
-        orderId: t.orderId,
-        orderNumber: t.order.id.substring(0, 8),
-        serviceType: t.order.serviceType,
-        amount: t.amount,
-        commission: t.commission,
-        completedAt: t.order.completedAt,
-        createdAt: t.createdAt
-      }))
-    });
-
-  } catch (error) {
-    console.error('Get pending commission error:', error);
-    res.status(500).json({ error: 'Failed to get pending commission' });
-  }
-});
-
-// Медик подтверждает что оплатил комиссию
-app.post('/api/medics/confirm-payment', authenticateToken, async (req, res) => {
+// Создать заявку на пополнение баланса
+app.post('/api/medics/balance/deposit', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'MEDIC') {
       return res.status(403).json({ error: 'Only for medics' });
@@ -3046,49 +3002,35 @@ app.post('/api/medics/confirm-payment', authenticateToken, async (req, res) => {
 
     const { amount } = req.body;
 
-    // Получаем все неоплаченные транзакции медика
-    const pendingTransactions = await prisma.transaction.findMany({
-      where: { 
-        medicId: req.user.userId,
-        status: 'PENDING'
-      },
-      orderBy: { createdAt: 'asc' }
-    });
-
-    if (pendingTransactions.length === 0) {
-      return res.status(400).json({ error: 'No pending transactions' });
+    if (!amount || amount < 1000) {
+      return res.status(400).json({ error: 'Минимальная сумма пополнения: 1,000 тг' });
     }
 
-    // Создаём уведомление для админа
-    await prisma.notification.create({
+    // Создаём заявку на пополнение
+    const transaction = await prisma.balanceTransaction.create({
       data: {
-        userId: req.user.userId, // Для истории
-        channel: 'WEB_PUSH',
-        type: 'commission_payment_claimed',
-        title: 'Медик подтвердил оплату комиссии',
-        body: `Медик заявил об оплате ${amount} тг. Требуется проверка админа.`,
-        data: {
-          medicId: req.user.userId,
-          amount: amount,
-          transactionIds: pendingTransactions.map(t => t.id)
-        }
+        medicId: req.user.userId,
+        type: 'DEPOSIT',
+        amount: parseFloat(amount),
+        status: 'PENDING',
+        description: `Пополнение баланса на ${amount} тг`
       }
     });
 
-    console.log(`✅ Medic ${req.user.userId} confirmed payment of ${amount} тг`);
-    console.log(`📋 Admin needs to verify ${pendingTransactions.length} transactions`);
+    console.log(`💰 Deposit request created: ${amount} тг from medic ${req.user.userId}`);
 
     res.json({ 
       success: true, 
-      message: 'Спасибо! Платёж будет проверен администратором в течение 24 часов',
-      pendingCount: pendingTransactions.length
+      message: 'Заявка создана. Переведите деньги через Kaspi и ожидайте подтверждения.',
+      transaction 
     });
 
   } catch (error) {
-    console.error('Confirm payment error:', error);
-    res.status(500).json({ error: 'Failed to confirm payment' });
+    console.error('Deposit request error:', error);
+    res.status(500).json({ error: 'Failed to create deposit request' });
   }
 });
+
 
 // ==================== ADMIN ENDPOINTS ====================
 
@@ -3315,102 +3257,153 @@ app.get('/api/admin/complaints', authenticateToken, authenticateAdmin, async (re
 
 // ==================== ADMIN TRANSACTIONS ====================
 
-// Получить все транзакции (админ)
-app.get('/api/admin/transactions', authenticateToken, authenticateAdmin, async (req, res) => {
+// ==================== ADMIN BALANCE MANAGEMENT ====================
+
+// Получить все заявки на пополнение (pending)
+app.get('/api/admin/balance/pending', authenticateToken, authenticateAdmin, async (req, res) => {
   try {
-    const { status } = req.query;
-
-    let whereClause = {};
-    if (status && status !== 'ALL') {
-      whereClause.status = status;
-    }
-
-    const transactions = await prisma.transaction.findMany({
-      where: whereClause,
+    const pendingDeposits = await prisma.balanceTransaction.findMany({
+      where: {
+        type: 'DEPOSIT',
+        status: 'PENDING'
+      },
       include: {
-        order: {
-          select: {
-            id: true,
-            serviceType: true,
-            createdAt: true,
-            completedAt: true
-          }
-        },
         medic: {
           select: {
             id: true,
             name: true,
-            phone: true
+            phone: true,
+            medic: {
+              select: {
+                balance: true,
+                minBalance: true
+              }
+            }
           }
         }
       },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    console.log(`📋 Admin: ${pendingDeposits.length} pending deposits`);
+
+    res.json(pendingDeposits);
+
+  } catch (error) {
+    console.error('Get pending deposits error:', error);
+    res.status(500).json({ error: 'Failed to get pending deposits' });
+  }
+});
+
+// Одобрить пополнение
+app.post('/api/admin/balance/:transactionId/approve', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+
+    const transaction = await prisma.balanceTransaction.findUnique({
+      where: { id: transactionId }
+    });
+
+    if (!transaction || transaction.type !== 'DEPOSIT' || transaction.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Invalid transaction' });
+    }
+
+    // Одобряем транзакцию
+    await prisma.balanceTransaction.update({
+      where: { id: transactionId },
+      data: {
+        status: 'APPROVED',
+        approvedBy: req.user.userId,
+        approvedAt: new Date()
+      }
+    });
+
+    // Пополняем баланс медика
+    await prisma.medic.update({
+      where: { userId: transaction.medicId },
+      data: {
+        balance: { increment: transaction.amount }
+      }
+    });
+
+    console.log(`✅ Deposit approved: +${transaction.amount} тг for medic ${transaction.medicId}`);
+
+    res.json({ success: true, message: 'Пополнение одобрено' });
+
+  } catch (error) {
+    console.error('Approve deposit error:', error);
+    res.status(500).json({ error: 'Failed to approve deposit' });
+  }
+});
+
+// Отклонить пополнение
+app.post('/api/admin/balance/:transactionId/reject', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    const { reason } = req.body;
+
+    const transaction = await prisma.balanceTransaction.findUnique({
+      where: { id: transactionId }
+    });
+
+    if (!transaction || transaction.type !== 'DEPOSIT' || transaction.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Invalid transaction' });
+    }
+
+    await prisma.balanceTransaction.update({
+      where: { id: transactionId },
+      data: {
+        status: 'REJECTED',
+        rejectedAt: new Date(),
+        rejectReason: reason || 'Платёж не найден'
+      }
+    });
+
+    console.log(`❌ Deposit rejected: transaction ${transactionId}`);
+
+    res.json({ success: true, message: 'Пополнение отклонено' });
+
+  } catch (error) {
+    console.error('Reject deposit error:', error);
+    res.status(500).json({ error: 'Failed to reject deposit' });
+  }
+});
+
+// Получить историю баланса медика
+app.get('/api/admin/medics/:medicId/balance-history', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { medicId } = req.params;
+
+    const medic = await prisma.medic.findUnique({
+      where: { userId: medicId },
+      include: { user: true }
+    });
+
+    if (!medic) {
+      return res.status(404).json({ error: 'Medic not found' });
+    }
+
+    const transactions = await prisma.balanceTransaction.findMany({
+      where: { medicId: medicId },
       orderBy: { createdAt: 'desc' }
     });
 
-    console.log(`📊 Admin fetched ${transactions.length} transactions (filter: ${status || 'ALL'})`);
-
-    res.json(transactions);
-  } catch (error) {
-    console.error('Get transactions error:', error);
-    res.status(500).json({ error: 'Failed to get transactions' });
-  }
-});
-
-// Отметить транзакцию как выплаченную (админ)
-app.post('/api/admin/transactions/:transactionId/mark-paid', authenticateToken, authenticateAdmin, async (req, res) => {
-  try {
-    const { transactionId } = req.params;
-    const { notes } = req.body;
-
-    const transaction = await prisma.transaction.update({
-      where: { id: transactionId },
-      data: {
-        status: 'PAID',
-        paidAt: new Date(),
-        paidBy: req.user.userId,
-        notes: notes || null
+    res.json({
+      medic: {
+        id: medic.userId,
+        name: medic.user.name,
+        phone: medic.user.phone,
+        balance: medic.balance,
+        minBalance: medic.minBalance,
+        totalEarned: medic.totalEarned,
+        totalSpent: medic.totalSpent
       },
-      include: {
-        medic: {
-          select: {
-            name: true,
-            phone: true
-          }
-        }
-      }
+      transactions
     });
 
-    console.log(`✅ Transaction ${transactionId.substring(0, 8)} marked as PAID by admin ${req.user.userId}`);
-    console.log(`💰 Medic ${transaction.medic.name} received ${transaction.netAmount} тг`);
-
-    res.json(transaction);
   } catch (error) {
-    console.error('Mark paid error:', error);
-    res.status(500).json({ error: 'Failed to mark as paid' });
-  }
-});
-
-// Отменить транзакцию (админ)
-app.post('/api/admin/transactions/:transactionId/cancel', authenticateToken, authenticateAdmin, async (req, res) => {
-  try {
-    const { transactionId } = req.params;
-    const { notes } = req.body;
-
-    const transaction = await prisma.transaction.update({
-      where: { id: transactionId },
-      data: {
-        status: 'CANCELLED',
-        notes: notes || null,
-        updatedAt: new Date()
-      }
-    });
-
-    console.log(`❌ Transaction ${transactionId.substring(0, 8)} cancelled by admin`);
-
-    res.json(transaction);
-  } catch (error) {
-    console.error('Cancel transaction error:', error);
-    res.status(500).json({ error: 'Failed to cancel transaction' });
+    console.error('Get balance history error:', error);
+    res.status(500).json({ error: 'Failed to get balance history' });
   }
 });
 

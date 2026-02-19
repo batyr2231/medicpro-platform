@@ -53,12 +53,6 @@ enum NotificationStatus {
   FAILED
 }
 
-enum TransactionStatus {
-  PENDING   // Ожидает выплаты
-  PAID      // Выплачено
-  CANCELLED // Отменено
-}
-
 model User {
   id        String   @id @default(cuid())
   email     String?  @unique
@@ -82,7 +76,7 @@ model User {
   reviews       Review[]       @relation("ClientReviews")
   medicReviews  Review[]       @relation("MedicReviews")
   notifications Notification[]
-  transactions  Transaction[]  @relation("MedicTransactions")
+  balanceTransactions BalanceTransaction[] @relation("MedicBalanceTransactions")
 
   @@index([email])
   @@index([phone])
@@ -119,6 +113,12 @@ model Medic {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
+    // ✅ НОВЫЕ ПОЛЯ ДЛЯ БАЛАНСА
+  balance        Float       @default(0)      // Текущий баланс
+  minBalance     Float       @default(1000)   // Минимум для работы
+  totalEarned    Float       @default(0)      // Всего заработал
+  totalSpent     Float       @default(0)      // Всего комиссий
+
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -153,7 +153,6 @@ model Order {
   medic    User?     @relation("MedicOrders", fields: [medicId], references: [id])
   messages Message[]
   review   Review?
-  transaction Transaction?
 
   @@index([clientId])
   @@index([medicId])
@@ -282,27 +281,47 @@ model Client {
   @@index([userId])
 }
 
-model Transaction {
-  id          String            @id @default(cuid())
-  orderId     String            @unique
-  order       Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  medicId     String
-  medic       User              @relation("MedicTransactions", fields: [medicId], references: [id], onDelete: Cascade)
-  
-  amount      Float             // Полная сумма заказа
-  commission  Float             // Комиссия платформы (50%)
-  netAmount   Float             // Что получит медик (amount - commission)
-  
-  status      TransactionStatus @default(PENDING)
-  paidAt      DateTime?         // Когда выплачено
-  paidBy      String?           // Кто выплатил (admin userId)
-  
-  notes       String?           // Заметки админа
-  
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
 
+// ✅ НОВАЯ МОДЕЛЬ - ЗАМЕНЯЕТ Transaction
+model BalanceTransaction {
+  id          String   @id @default(cuid())
+  medicId     String
+  medic       User     @relation("MedicBalanceTransactions", fields: [medicId], references: [id], onDelete: Cascade)
+  
+  type        BalanceTransactionType  // DEPOSIT (пополнение) или COMMISSION (списание)
+  amount      Float                    // Сумма (+ для пополнения, - для комиссии)
+  
+  status      BalanceStatus @default(PENDING)
+  
+  // Для пополнений:
+  proofImage  String?   // Скриншот чека
+  approvedBy  String?   // Admin ID
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+  rejectReason String?
+  
+  // Для комиссий:
+  orderId     String?   // Связь с заказом
+  orderAmount Float?    // Сумма заказа
+  
+  description String?   // Описание
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
   @@index([medicId])
+  @@index([type])
   @@index([status])
   @@index([createdAt])
+}
+
+enum BalanceTransactionType {
+  DEPOSIT     // Пополнение баланса
+  COMMISSION  // Списание комиссии
+}
+
+enum BalanceStatus {
+  PENDING     // Ожидает одобрения (только для пополнений)
+  APPROVED    // Одобрено
+  REJECTED    // Отклонено (только для пополнений)
 }
