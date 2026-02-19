@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, Package, AlertTriangle, TrendingUp, CheckCircle, XCircle, Eye, Loader, ArrowLeft, X, FileText, MessageSquare, DollarSign } from 'lucide-react';
+import { Shield, Users, Package, AlertTriangle, TrendingUp, CheckCircle, XCircle, Eye, Loader, ArrowLeft, X, FileText, MessageSquare, DollarSign, Clock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import ProcedureList from '@/components/ProcedureList';
@@ -23,12 +23,16 @@ export default function AdminDashboard() {
 
   const router = useRouter();
 
-  const [transactions, setTransactions] = useState([]);
-  const [transactionFilter, setTransactionFilter] = useState('ALL');
+// Пополнения (новая система)
+  const [deposits, setDeposits] = useState<any[]>([]);
+  const [loadingDeposits, setLoadingDeposits] = useState(false);
+  const [selectedMedicHistory, setSelectedMedicHistory] = useState<any>(null);
 
   useEffect(() => {
-    loadData();
-  }, [activeTab, complaintFilter, transactionFilter]);
+      if (activeTab === 'deposits') {
+        loadDeposits();
+      }
+    }, [activeTab]);
 
 const loadData = () => {
     if (activeTab === 'medics') {
@@ -42,7 +46,7 @@ const loadData = () => {
     } else if (activeTab === 'chats') {
       loadChats();
     } else if (activeTab === 'transactions') {
-      loadTransactions();
+      loadDeposits();
     }
   };
 
@@ -171,31 +175,102 @@ const loadData = () => {
     }
   }; 
 
-  const loadTransactions = async () => {
-    setLoading(true);
+const loadDeposits = async () => {
     try {
+      setLoadingDeposits(true);
       const token = localStorage.getItem('token');
-      
-      let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/transactions`;
-      
-      if (transactionFilter && transactionFilter !== 'ALL') {
-        url += `?status=${transactionFilter}`;
-      }
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+       `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/balance/pending`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
 
-      const result = await response.json();
       if (response.ok) {
-        setTransactions(result);
+        const result = await response.json();
+        setDeposits(result);
+        console.log(`📋 Loaded ${result.length} pending deposits`);
       }
     } catch (err) {
-      toast.error('Ошибка загрузки транзакций');
+      console.error('Failed to load deposits:', err);
+      toast.error('Ошибка загрузки пополнений');
     } finally {
-      setLoading(false);
+      setLoadingDeposits(false);
+    }
+  };
+
+  const handleApproveDeposit = async (transactionId: string) => {
+    if (!confirm('Вы уверены что хотите одобрить это пополнение?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/balance/pending`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+
+      if (response.ok) {
+        toast.success('✅ Пополнение одобрено!');
+        loadDeposits();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Ошибка одобрения');
+      }
+    } catch (err: any) {
+      toast.error('❌ ' + err.message);
+    }
+  };
+
+  const handleRejectDeposit = async (transactionId: string) => {
+    const reason = prompt('Причина отклонения (опционально):');
+    if (reason === null) return; // Отменили
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/balance/pending`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ reason: reason || 'Не указана' })
+        }
+      );
+
+      if (response.ok) {
+        toast.success('❌ Пополнение отклонено');
+        loadDeposits();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Ошибка отклонения');
+      }
+    } catch (err: any) {
+      toast.error('❌ ' + err.message);
+    }
+  };
+
+  const loadMedicBalanceHistory = async (medicId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/balance/pending`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        setSelectedMedicHistory(result);
+      }
+    } catch (err) {
+      console.error('Failed to load medic history:', err);
+      toast.error('Ошибка загрузки истории');
     }
   };
 
@@ -216,7 +291,7 @@ const loadData = () => {
 
       if (response.ok) {
         toast.success('✅ Транзакция отмечена как выплаченная!');
-        loadTransactions();
+        loadDeposits();
       } else {
         throw new Error('Failed to mark as paid');
       }
@@ -523,17 +598,23 @@ const loadData = () => {
               <TrendingUp className="w-5 h-5 mx-auto mb-1" />
               <span className="text-sm">Статистика</span>
             </button>
-            <button
-              onClick={() => setActiveTab('transactions')}
-              className={`py-3 px-4 rounded-xl font-medium transition-all ${
-                activeTab === 'transactions'
-                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg'
-                  : 'hover:bg-white/10'
-              }`}
-            >
-              <DollarSign className="w-5 h-5 mx-auto mb-1" />
-              <span className="text-sm">Выплаты</span>
-            </button>
+{/* Пополнения */}
+          <button
+            onClick={() => setActiveTab('deposits')}
+            className={`p-4 rounded-xl font-semibold transition-all flex flex-col items-center justify-center ${
+              activeTab === 'deposits'
+                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
+                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <DollarSign className="w-6 h-6 mb-2" />
+            <span className="text-sm">Пополнения</span>
+            {deposits.length > 0 && (
+              <span className="mt-1 px-2 py-0.5 rounded-full bg-yellow-500 text-white text-xs font-bold">
+                {deposits.length}
+              </span>
+            )}
+          </button>
           </div>
         </div>
 
@@ -1003,180 +1084,235 @@ const loadData = () => {
                 </div>
               </div>
             )}
-            {/* Transactions Tab */}
-            {activeTab === 'transactions' && (
-              <div className="space-y-4">
-                {/* Фильтры */}
-                <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                  <button
-                    onClick={() => setTransactionFilter('ALL')}
-                    className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
-                      transactionFilter === 'ALL' 
-                        ? 'bg-cyan-500 shadow-lg' 
-                        : 'bg-white/10 hover:bg-white/20'
-                    }`}
-                  >
-                    Все транзакции
-                  </button>
-                  <button
-                    onClick={() => setTransactionFilter('PENDING')}
-                    className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
-                      transactionFilter === 'PENDING' 
-                        ? 'bg-yellow-500 shadow-lg' 
-                        : 'bg-white/10 hover:bg-white/20'
-                    }`}
-                  >
-                    Ожидают выплаты
-                  </button>
-                  <button
-                    onClick={() => setTransactionFilter('PAID')}
-                    className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
-                      transactionFilter === 'PAID' 
-                        ? 'bg-green-500 shadow-lg' 
-                        : 'bg-white/10 hover:bg-white/20'
-                    }`}
-                  >
-                    Выплачено
-                  </button>
-                </div>
-
-                {/* Список транзакций */}
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-bold">
-                    Транзакции ({transactions.length})
-                  </h2>
-                  {transactionFilter === 'PENDING' && transactions.length > 0 && (
-                    <div className="text-right">
-                      <div className="text-sm text-slate-400">К выплате:</div>
-                      <div className="text-2xl font-bold text-yellow-400">
-                        {transactions
-                          .filter((t: any) => t.status === 'PENDING')
-                          .reduce((sum: number, t: any) => sum + t.netAmount, 0)
-                          .toLocaleString('ru-RU')} ₸
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {transactions.length === 0 ? (
-                  <div className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-12 text-center">
-                    <DollarSign className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                    <p className="text-slate-400">Нет транзакций</p>
-                  </div>
+{/* Пополнения */}
+        {activeTab === 'deposits' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">💰 Заявки на пополнение</h2>
+              <button
+                onClick={loadDeposits}
+                disabled={loadingDeposits}
+                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
+              >
+                {loadingDeposits ? (
+                  <Loader className="w-5 h-5 animate-spin" />
                 ) : (
-                  transactions.map((tx: any) => (
-                    <div
-                      key={tx.id}
-                      className={`rounded-2xl backdrop-blur-xl border p-6 ${
-                        tx.status === 'PENDING'
-                          ? 'bg-gradient-to-br from-yellow-500/10 to-orange-500/5 border-yellow-500/30'
-                          : 'bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-green-500/30'
-                      }`}
-                    >
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                            tx.status === 'PENDING' ? 'bg-yellow-500/20' : 'bg-green-500/20'
-                          }`}>
-                            <DollarSign className={`w-6 h-6 ${
-                              tx.status === 'PENDING' ? 'text-yellow-400' : 'text-green-400'
-                            }`} />
-                          </div>
-                          <div>
-                            <div className="font-semibold text-lg">
-                              {tx.medic.name}
-                            </div>
-                            <div className="text-sm text-slate-400">
-                              {tx.medic.phone}
-                            </div>
-                          </div>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                          tx.status === 'PENDING'
-                            ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400'
-                            : 'bg-green-500/20 border-green-500/30 text-green-400'
-                        }`}>
-                          {tx.status === 'PENDING' ? '⏳ Ожидает' : '✓ Выплачено'}
-                        </span>
-                      </div>
-
-                      {/* Детали заказа */}
-                      <div className="mb-4 p-4 rounded-xl bg-white/5 border border-white/10">
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            <div className="text-xs text-slate-400">Заказ</div>
-                            <div className="font-medium">
-                              {tx.order.serviceType}
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              #{tx.order.id.substring(0, 8)}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs text-slate-400">Дата</div>
-                            <div className="font-medium text-sm">
-                              {new Date(tx.createdAt).toLocaleDateString('ru-RU')}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Суммы */}
-                      <div className="grid grid-cols-3 gap-4 mb-4">
-                        <div className="text-center p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                          <div className="text-xs text-blue-300 mb-1">Сумма заказа</div>
-                          <div className="text-lg font-bold text-white">
-                            {tx.amount.toLocaleString('ru-RU')} ₸
-                          </div>
-                        </div>
-                        <div className="text-center p-3 rounded-xl bg-red-500/10 border border-red-500/30">
-                          <div className="text-xs text-red-300 mb-1">Комиссия (50%)</div>
-                          <div className="text-lg font-bold text-white">
-                            -{tx.commission.toLocaleString('ru-RU')} ₸
-                          </div>
-                        </div>
-                        <div className="text-center p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                          <div className="text-xs text-emerald-300 mb-1">К выплате</div>
-                          <div className="text-lg font-bold text-emerald-400">
-                            {tx.netAmount.toLocaleString('ru-RU')} ₸
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Кнопка выплаты */}
-                      {tx.status === 'PENDING' && (
-                        <button
-                          onClick={() => {
-                            if (confirm(`Подтвердить выплату ${tx.netAmount.toLocaleString('ru-RU')} ₸ медику ${tx.medic.name}?`)) {
-                              markTransactionAsPaid(tx.id);
-                            }
-                          }}
-                          className="w-full py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-semibold shadow-lg transition-all flex items-center justify-center"
-                        >
-                          <CheckCircle className="w-5 h-5 mr-2" />
-                          Отметить как выплачено
-                        </button>
-                      )}
-
-                      {/* Информация о выплате */}
-                      {tx.status === 'PAID' && tx.paidAt && (
-                        <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-green-300">
-                              ✓ Выплачено
-                            </span>
-                            <span className="text-slate-400">
-                              {new Date(tx.paidAt).toLocaleString('ru-RU')}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))
+                  '🔄 Обновить'
                 )}
+              </button>
+            </div>
+
+            {loadingDeposits ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader className="w-8 h-8 animate-spin text-cyan-400" />
+              </div>
+            ) : deposits.length === 0 ? (
+              <div className="rounded-2xl bg-white/5 border border-white/10 p-12 text-center">
+                <div className="text-4xl mb-4">✅</div>
+                <h3 className="text-xl font-semibold mb-2">Нет заявок</h3>
+                <p className="text-slate-400">Все пополнения обработаны</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {deposits.map((deposit) => (
+                  <div
+                    key={deposit.id}
+                    className="rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/20 p-6"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-2xl">
+                          💰
+                        </div>
+                        <div>
+                          <div className="font-bold text-xl mb-1">
+                            {deposit.medic.name}
+                          </div>
+                          <div className="text-sm text-slate-400">
+                            {deposit.medic.phone}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            {new Date(deposit.createdAt).toLocaleString('ru-RU')}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="text-3xl font-bold text-green-400">
+                          +{deposit.amount.toLocaleString('ru-RU')} ₸
+                        </div>
+                        <div className="text-xs text-slate-400 mt-1">
+                          Пополнение баланса
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Текущий баланс медика */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                      <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                        <div className="text-xs text-slate-400 mb-1">Текущий баланс</div>
+                        <div className="text-xl font-bold text-cyan-400">
+                          {deposit.medic.medic.balance.toLocaleString('ru-RU')} ₸
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                        <div className="text-xs text-slate-400 mb-1">После пополнения</div>
+                        <div className="text-xl font-bold text-green-400">
+                          {(deposit.medic.medic.balance + deposit.amount).toLocaleString('ru-RU')} ₸
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Описание */}
+                    {deposit.description && (
+                      <div className="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                        <p className="text-sm text-blue-300">{deposit.description}</p>
+                      </div>
+                    )}
+
+                    {/* Кнопки */}
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => handleApproveDeposit(deposit.id)}
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-bold transition-all flex items-center justify-center"
+                      >
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        Одобрить
+                      </button>
+                      <button
+                        onClick={() => handleRejectDeposit(deposit.id)}
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 font-bold transition-all flex items-center justify-center"
+                      >
+                        <XCircle className="w-5 h-5 mr-2" />
+                        Отклонить
+                      </button>
+                      <button
+                        onClick={() => loadMedicBalanceHistory(deposit.medicId)}
+                        className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-all"
+                        title="История баланса"
+                      >
+                        <Clock className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Модалка истории баланса медика */}
+        {selectedMedicHistory && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-900 rounded-2xl border border-white/20 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              
+              {/* Header */}
+              <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold mb-1">
+                      История баланса
+                    </h2>
+                    <div className="text-sm text-slate-400">
+                      {selectedMedicHistory.medic.name} • {selectedMedicHistory.medic.phone}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedMedicHistory(null)}
+                    className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                {/* Статистика */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/30">
+                    <div className="text-xs text-cyan-300 mb-1">Текущий баланс</div>
+                    <div className="text-2xl font-bold text-white">
+                      {selectedMedicHistory.medic.balance.toLocaleString('ru-RU')} ₸
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/30">
+                    <div className="text-xs text-green-300 mb-1">Всего заработано</div>
+                    <div className="text-2xl font-bold text-white">
+                      {selectedMedicHistory.medic.totalEarned.toLocaleString('ru-RU')} ₸
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-red-500/10 to-pink-500/10 border border-red-500/30">
+                    <div className="text-xs text-red-300 mb-1">Комиссий уплачено</div>
+                    <div className="text-2xl font-bold text-white">
+                      {selectedMedicHistory.medic.totalSpent.toLocaleString('ru-RU')} ₸
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30">
+                    <div className="text-xs text-purple-300 mb-1">Минимум</div>
+                    <div className="text-2xl font-bold text-white">
+                      {selectedMedicHistory.medic.minBalance.toLocaleString('ru-RU')} ₸
+                    </div>
+                  </div>
+                </div>
+
+                {/* Транзакции */}
+                <h3 className="text-lg font-bold mb-4">📋 История операций</h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {selectedMedicHistory.transactions.map((tx: any) => (
+                    <div
+                      key={tx.id}
+                      className="p-4 rounded-xl bg-white/5 border border-white/10"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            tx.type === 'DEPOSIT' ? 'bg-green-500/20' : 'bg-red-500/20'
+                          }`}>
+                            {tx.type === 'DEPOSIT' ? '💰' : '💸'}
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">
+                              {tx.description || (tx.type === 'DEPOSIT' ? 'Пополнение' : 'Комиссия')}
+                            </div>
+                            <div className="text-xs text-slate-400">
+                              {new Date(tx.createdAt).toLocaleString('ru-RU')}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          <div className={`font-bold text-lg ${
+                            tx.type === 'DEPOSIT' ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString('ru-RU')} ₸
+                          </div>
+                          <div className="text-xs">
+                            {tx.status === 'PENDING' && (
+                              <span className="px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-400 text-xs">
+                                ⏳ Ожидает
+                              </span>
+                            )}
+                            {tx.status === 'APPROVED' && (
+                              <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 text-xs">
+                                ✓ Завершено
+                              </span>
+                            )}
+                            {tx.status === 'REJECTED' && (
+                              <span className="px-2 py-1 rounded-full bg-red-500/20 text-red-400 text-xs">
+                                ✗ Отклонено
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
           </>
         )}
       </div>
