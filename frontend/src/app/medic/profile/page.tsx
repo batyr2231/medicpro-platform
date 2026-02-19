@@ -30,6 +30,11 @@ export default function MedicProfilePage() {
   const [balance, setBalance] = useState<any>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
 
+  // Модалка пополнения
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [submittingDeposit, setSubmittingDeposit] = useState(false);
+
   // Модалка оплаты
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingCommission, setPendingCommission] = useState<any>(null);
@@ -137,6 +142,54 @@ export default function MedicProfilePage() {
       console.error('Failed to load balance:', err);
     } finally {
       setLoadingBalance(false);
+    }
+  };
+
+  const handleDepositRequest = async () => {
+    try {
+      const amount = parseFloat(depositAmount);
+
+      if (!amount || amount < 1000) {
+        toast.error('Минимальная сумма пополнения: 1,000 тг');
+        return;
+      }
+
+      setSubmittingDeposit(true);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/medics/balance/deposit`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ amount })
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Ошибка создания заявки');
+      }
+
+      toast.success('✅ Заявка создана! Переведите деньги через Kaspi', {
+        duration: 5000
+      });
+
+      setShowDepositModal(false);
+      setDepositAmount('');
+      
+      // Обновляем баланс
+      loadBalance();
+
+    } catch (err: any) {
+      console.error('Deposit request error:', err);
+      toast.error('❌ ' + err.message);
+    } finally {
+      setSubmittingDeposit(false);
     }
   };
 
@@ -742,13 +795,13 @@ export default function MedicProfilePage() {
         </div>
       </div>
 
-      {/* Баланс медика */}
+{/* ✅ НОВЫЙ БЛОК БАЛАНСА */}
       {medicStatus === 'APPROVED' && (
         <div className="max-w-4xl mx-auto px-4 pb-8">
           <div className="rounded-2xl bg-gradient-to-br from-emerald-500/10 to-green-500/10 backdrop-blur-xl border-2 border-emerald-500/30 p-6">
             <h2 className="text-2xl font-bold mb-6 flex items-center">
               <span className="text-3xl mr-3">💰</span>
-              Баланс и выплаты
+              Баланс
             </h2>
 
             {loadingBalance ? (
@@ -757,127 +810,149 @@ export default function MedicProfilePage() {
               </div>
             ) : balance ? (
               <div className="space-y-6">
-                {/* Карточки статистики */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Всего заработано */}
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30">
-                    <div className="text-sm text-blue-300 mb-1">Всего заработано</div>
+                {/* Текущий баланс */}
+                <div className="p-6 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <div className="text-sm text-slate-400 mb-1">Текущий баланс</div>
+                      <div className="text-5xl font-bold text-white">
+                        {balance.balance.toLocaleString('ru-RU')} ₸
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowDepositModal(true)}
+                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-bold text-lg shadow-lg transition-all"
+                    >
+                      + Пополнить
+                    </button>
+                  </div>
+
+                  {/* Предупреждение о низком балансе */}
+                  {balance.balance < balance.minBalance && (
+                    <div className="mt-4 p-4 rounded-xl bg-red-500/20 border border-red-500/30">
+                      <p className="text-sm text-red-300 font-medium">
+                        ⚠️ Баланс ниже минимума ({balance.minBalance.toLocaleString('ru-RU')} ₸). Пополните для получения новых заказов.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Ожидающие пополнения */}
+                  {balance.pendingDeposits > 0 && (
+                    <div className="mt-4 p-4 rounded-xl bg-yellow-500/20 border border-yellow-500/30">
+                      <p className="text-sm text-yellow-300">
+                        ⏳ Пополнение на {balance.pendingDeposits.toLocaleString('ru-RU')} ₸ ожидает подтверждения администратора
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Статистика */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/30">
+                    <div className="text-xs text-blue-300 mb-1">Всего заработано</div>
                     <div className="text-2xl font-bold text-white">
                       {balance.totalEarned.toLocaleString('ru-RU')} ₸
                     </div>
-                    <div className="text-xs text-slate-400 mt-1">
-                      {balance.transactions?.length || 0} заказов
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-red-500/10 to-pink-500/10 border border-red-500/30">
+                    <div className="text-xs text-red-300 mb-1">Комиссий уплачено</div>
+                    <div className="text-2xl font-bold text-white">
+                      {balance.totalSpent.toLocaleString('ru-RU')} ₸
                     </div>
                   </div>
 
-{/* Комиссия к оплате */}
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
-                    <div className="text-sm text-yellow-300 mb-1">Комиссия к оплате</div>
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30">
+                    <div className="text-xs text-purple-300 mb-1">Минимальный баланс</div>
                     <div className="text-2xl font-bold text-white">
-                      {balance.totalCommission.toLocaleString('ru-RU')} ₸
+                      {balance.minBalance.toLocaleString('ru-RU')} ₸
                     </div>
-                    <div className="text-xs text-slate-400 mt-1">Необходимо перевести</div>
-                  </div>
-
-                  {/* Выплачено */}
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/20 to-green-500/20 border border-emerald-500/30">
-                    <div className="text-sm text-emerald-300 mb-1">Выплачено</div>
-                    <div className="text-2xl font-bold text-white">
-                      {balance.totalPaid.toLocaleString('ru-RU')} ₸
-                    </div>
-                    <div className="text-xs text-slate-400 mt-1">Получено на руки</div>
                   </div>
                 </div>
-
- {/* Кнопка оплаты комиссии */}
-                {balance.totalCommission > 0 && (
-                  <div className="mt-6">
-                    <button
-                      onClick={loadPendingCommission}
-                      className="w-full py-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 font-bold text-lg shadow-lg transition-all animate-pulse flex items-center justify-center"
-                    >
-                      <DollarSign className="w-6 h-6 mr-2" />
-                      💰 Оплатить комиссию {balance.totalCommission.toLocaleString('ru-RU')} ₸
-                    </button>
-                  </div>
-                )}
 
                 {/* История транзакций */}
                 {balance.transactions && balance.transactions.length > 0 && (
                   <div className="mt-6">
                     <h3 className="text-lg font-bold mb-4 flex items-center">
                       <span className="mr-2">📋</span>
-                      История выплат
+                      История операций
                     </h3>
                     
                     <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {balance.transactions.slice(0, 10).map((tx: any) => (
+                      {balance.transactions.slice(0, 20).map((tx: any) => (
                         <div
                           key={tx.id}
                           className="p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
                         >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-lg">💉</span>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                tx.type === 'DEPOSIT' ? 'bg-green-500/20' : 'bg-red-500/20'
+                              }`}>
+                                {tx.type === 'DEPOSIT' ? (
+                                  <span className="text-lg">💰</span>
+                                ) : (
+                                  <span className="text-lg">💸</span>
+                                )}
+                              </div>
                               <div>
                                 <div className="font-medium text-sm">
-                                  {tx.serviceType}
+                                  {tx.description || (tx.type === 'DEPOSIT' ? 'Пополнение' : 'Комиссия')}
                                 </div>
                                 <div className="text-xs text-slate-400">
-                                  Заказ #{tx.orderNumber}
+                                  {new Date(tx.createdAt).toLocaleString('ru-RU')}
                                 </div>
                               </div>
                             </div>
                             
                             <div className="text-right">
-                              <div className="font-bold text-emerald-400">
-                                +{tx.netAmount.toLocaleString('ru-RU')} ₸
+                              <div className={`font-bold text-lg ${
+                                tx.type === 'DEPOSIT' ? 'text-green-400' : 'text-red-400'
+                              }`}>
+                                {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString('ru-RU')} ₸
                               </div>
-                              <div className="text-xs text-slate-500">
-                                -{tx.commission.toLocaleString('ru-RU')} ₸ комиссия
+                              <div className="text-xs">
+                                {tx.status === 'PENDING' && (
+                                  <span className="px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                                    ⏳ Ожидает
+                                  </span>
+                                )}
+                                {tx.status === 'APPROVED' && (
+                                  <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+                                    ✓ Завершено
+                                  </span>
+                                )}
+                                {tx.status === 'REJECTED' && (
+                                  <span className="px-2 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                                    ✗ Отклонено
+                                  </span>
+                                )}
                               </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="text-slate-400">
-                              {new Date(tx.createdAt).toLocaleDateString('ru-RU')}
-                            </div>
-                            <div>
-                              {tx.status === 'PAID' ? (
-                                <span className="px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                  ✓ Выплачено
-                                </span>
-                              ) : (
-                                <span className="px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                                  ⏳ Ожидает
-                                </span>
-                              )}
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
 
-                    {balance.transactions.length > 10 && (
+                    {balance.transactions.length > 20 && (
                       <div className="mt-3 text-center text-sm text-slate-400">
-                        Показано 10 из {balance.transactions.length} транзакций
+                        Показано 20 из {balance.transactions.length} операций
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Информация о комиссии */}
+                {/* Информация */}
                 <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
                   <div className="flex items-start space-x-3">
                     <div className="text-2xl">ℹ️</div>
                     <div className="text-sm text-cyan-300">
-                      <p className="font-medium mb-2">Как работают выплаты:</p>
+                      <p className="font-medium mb-2">Как работает баланс:</p>
                       <ul className="list-disc list-inside space-y-1 text-cyan-400/80">
-                         <li>Комиссия платформы: 10%</li>
-                        <li>Клиент платит вам наличными всю сумму</li>
-                        <li>Вы переводите комиссию платформе через Kaspi</li>
-                        <li>Оплата проверяется администратором в течение 24 часов</li>
+                        <li>Пополняйте баланс через Kaspi (минимум 1,000 тг)</li>
+                        <li>Комиссия 10% списывается автоматически после каждого заказа</li>
+                        <li>Минимальный баланс для работы: {balance.minBalance.toLocaleString('ru-RU')} ₸</li>
+                        <li>Пополнения проверяются администратором в течение 1-2 часов</li>
                       </ul>
                     </div>
                   </div>
@@ -885,7 +960,7 @@ export default function MedicProfilePage() {
               </div>
             ) : (
               <div className="text-center py-8 text-slate-400">
-                <p>Нет данных о балансе</p>
+                <p>Не удалось загрузить баланс</p>
               </div>
             )}
           </div>
@@ -1475,63 +1550,69 @@ export default function MedicProfilePage() {
           </div>
         </div>
       )}
-             {/* ✅ МОДАЛЬНОЕ ОКНО ОПЛАТЫ */}
-      {showPaymentModal && pendingCommission && (
+      {/* ✅ МОДАЛЬНОЕ ОКНО ПОПОЛНЕНИЯ */}
+      {showDepositModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-white/20 max-w-md w-full max-h-[90vh] overflow-y-auto">
             
             {/* Header */}
             <div className="sticky top-0 bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-6">
-              <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center mx-auto mb-4">
-                  <DollarSign className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold mb-2">💰 Оплата комиссии</h2>
-                <p className="text-sm text-slate-400">
-                  Переведите комиссию платформе через Kaspi
-                </p>
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">💰 Пополнение баланса</h2>
+                <button
+                  onClick={() => setShowDepositModal(false)}
+                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
             </div>
 
             {/* Content */}
             <div className="p-6 space-y-6">
               
-              {/* Накопленный долг */}
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/30">
-                <div className="text-center">
-                  <div className="text-sm text-yellow-300 mb-2">Комиссия к оплате (10%)</div>
-                  <div className="text-5xl font-bold text-white mb-1">
-                    {pendingCommission.pendingCommission.toLocaleString('ru-RU')} ₸
-                  </div>
-                  <div className="text-xs text-yellow-400">
-                    {pendingCommission.ordersCount} завершённых заказов
-                  </div>
-                </div>
+              {/* Ввод суммы */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-3">
+                  Сумма пополнения *
+                </label>
+                <input
+                  type="number"
+                  min="1000"
+                  step="100"
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  placeholder="Минимум 1,000 тг"
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-cyan-500 focus:outline-none text-white text-2xl font-bold text-center"
+                />
+                <p className="text-xs text-slate-400 mt-2 text-center">
+                  Минимальная сумма: 1,000 тг
+                </p>
               </div>
 
-              {/* Детализация */}
-              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                <div className="text-xs text-slate-400 mb-3">💡 Как считается:</div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-300">Вы получили от клиентов:</span>
-                    <span className="font-bold text-white">
-                      {pendingCommission.totalReceived.toLocaleString('ru-RU')} ₸
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-300">Комиссия (10%):</span>
-                    <span className="font-bold text-yellow-400">
-                      -{pendingCommission.pendingCommission.toLocaleString('ru-RU')} ₸
-                    </span>
-                  </div>
-                  <div className="border-t border-white/10 pt-2 flex justify-between">
-                    <span className="text-slate-300">Ваш чистый доход:</span>
-                    <span className="font-bold text-green-400">
-                      {pendingCommission.netIncome.toLocaleString('ru-RU')} ₸
-                    </span>
-                  </div>
-                </div>
+              {/* Быстрые кнопки */}
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => setDepositAmount('5000')}
+                  className="py-3 rounded-xl bg-white/5 hover:bg-cyan-500/20 border border-white/10 hover:border-cyan-500/50 transition-all"
+                >
+                  <div className="text-sm text-slate-400">+5,000</div>
+                  <div className="text-lg font-bold">5K</div>
+                </button>
+                <button
+                  onClick={() => setDepositAmount('10000')}
+                  className="py-3 rounded-xl bg-white/5 hover:bg-cyan-500/20 border border-white/10 hover:border-cyan-500/50 transition-all"
+                >
+                  <div className="text-sm text-slate-400">+10,000</div>
+                  <div className="text-lg font-bold">10K</div>
+                </button>
+                <button
+                  onClick={() => setDepositAmount('20000')}
+                  className="py-3 rounded-xl bg-white/5 hover:bg-cyan-500/20 border border-white/10 hover:border-cyan-500/50 transition-all"
+                >
+                  <div className="text-sm text-slate-400">+20,000</div>
+                  <div className="text-lg font-bold">20K</div>
+                </button>
               </div>
 
               {/* QR КОД */}
@@ -1602,43 +1683,49 @@ export default function MedicProfilePage() {
                 <div className="flex items-start space-x-3">
                   <div className="text-2xl">📋</div>
                   <div className="text-sm text-blue-300">
-                    <p className="font-semibold mb-2">Как оплатить:</p>
+                    <p className="font-semibold mb-2">Как пополнить:</p>
                     <ol className="list-decimal list-inside space-y-1 text-blue-400/90">
-                      <li>Откройте Kaspi на телефоне</li>
-                      <li>Выберите "Переводы" или отсканируйте QR</li>
-                      <li>Введите сумму: <strong>{pendingCommission.pendingCommission.toLocaleString('ru-RU')} ₸</strong></li>
-                      <li>Отправьте перевод</li>
-                      <li>Нажмите "Я оплатил" ниже</li>
+                      <li>Переведите указанную сумму через Kaspi</li>
+                      <li>Нажмите "Подтвердить заявку" ниже</li>
+                      <li>Ожидайте подтверждения (1-2 часа)</li>
+                      <li>Баланс пополнится автоматически</li>
                     </ol>
                   </div>
                 </div>
               </div>
 
-              {/* КНОПКИ */}
+              {/* КНОПКА ПОДТВЕРЖДЕНИЯ */}
               <div className="space-y-3">
                 <button
-                  onClick={handleConfirmPayment}
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-bold text-lg shadow-lg transition-all flex items-center justify-center"
+                  onClick={handleDepositRequest}
+                  disabled={submittingDeposit || !depositAmount || parseFloat(depositAmount) < 1000}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-lg shadow-lg transition-all flex items-center justify-center"
                 >
-                  <CheckCircle className="w-6 h-6 mr-2" />
-                  ✓ Я оплатил комиссию
+                  {submittingDeposit ? (
+                    <>
+                      <Loader className="w-6 h-6 mr-2 animate-spin" />
+                      Отправка...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-6 h-6 mr-2" />
+                      Подтвердить заявку
+                    </>
+                  )}
                 </button>
                 
                 <button
-                  onClick={() => setShowPaymentModal(false)}
+                  onClick={() => setShowDepositModal(false)}
                   className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 font-medium transition-all"
                 >
-                  Оплачу позже
+                  Отмена
                 </button>
               </div>
 
               {/* ПРЕДУПРЕЖДЕНИЕ */}
               <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-                <p className="text-xs text-yellow-300 text-center mb-2">
-                  ⚠️ Оплатите комиссию до <strong>00:00 сегодня</strong>
-                </p>
-                <p className="text-xs text-yellow-400/80 text-center">
-                  Иначе завтра вы не сможете получать новые заказы
+                <p className="text-xs text-yellow-300 text-center">
+                  ⚠️ Убедитесь что перевели деньги ПЕРЕД подтверждением заявки
                 </p>
               </div>
             </div>
