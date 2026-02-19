@@ -199,13 +199,13 @@ const loadDeposits = async () => {
     }
   };
 
-  const handleApproveDeposit = async (transactionId: string) => {
+    const handleApproveDeposit = async (transactionId: string) => {
     if (!confirm('Вы уверены что хотите одобрить это пополнение?')) return;
 
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/balance/pending`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/balance/${transactionId}/approve`, // ← ИСПРАВЛЕНО
         {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` }
@@ -231,7 +231,7 @@ const loadDeposits = async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/balance/pending`,
+       `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/balance/${transactionId}/reject`,
         {
           method: 'POST',
           headers: {
@@ -258,7 +258,7 @@ const loadDeposits = async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/balance/pending`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/medics/${medicId}/balance-history`,
         {
           headers: { 'Authorization': `Bearer ${token}` }
         }
@@ -271,32 +271,6 @@ const loadDeposits = async () => {
     } catch (err) {
       console.error('Failed to load medic history:', err);
       toast.error('Ошибка загрузки истории');
-    }
-  };
-
-  const markTransactionAsPaid = async (transactionId: string, notes?: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/admin/transactions/${transactionId}/mark-paid`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ notes })
-        }
-      );
-
-      if (response.ok) {
-        toast.success('✅ Транзакция отмечена как выплаченная!');
-        loadDeposits();
-      } else {
-        throw new Error('Failed to mark as paid');
-      }
-    } catch (err) {
-      toast.error('Ошибка обновления транзакции');
     }
   };
 
