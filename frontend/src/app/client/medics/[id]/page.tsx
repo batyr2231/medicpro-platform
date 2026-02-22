@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
+import ProcedureSelector from '@/components/ProcedureSelector';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { ArrowLeft, MapPin, Star, Award, Briefcase, Users, Phone, Loader, GraduationCap, MessageCircle, Clock, X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -19,6 +20,9 @@ export default function MedicProfilePage() {
   const [loading, setLoading] = useState(true);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState(false);
+
+  // Выбранные процедуры для персонального заказа
+  const [selectedProcedures, setSelectedProcedures] = useState<string[]>([]);
 
   // Форма быстрого заказа
   const [orderForm, setOrderForm] = useState({
@@ -89,6 +93,13 @@ export default function MedicProfilePage() {
   };
 
 const handleCreateOrder = async () => {
+
+    // Проверка процедур
+  if (selectedProcedures.length === 0) {
+    toast.error('Выберите хотя бы одну процедуру');
+    return;
+  }
+
   if (!orderForm.address || !orderForm.scheduledTime) {
     toast.error('Заполните все обязательные поля');
     return;
@@ -120,6 +131,7 @@ const handleCreateOrder = async () => {
           scheduledTime: orderForm.scheduledTime,
           comment: orderForm.comment,
           price: orderForm.price ? parseInt(orderForm.price) : undefined,
+          procedures: selectedProcedures, 
           isPersonalized: true, // ← КРИТИЧНО: Флаг персонального заказа!
         }),
       }
@@ -156,6 +168,16 @@ const handleCreateOrder = async () => {
 
     toast.success('✅ Заказ создан! Открываем чат...');
 
+        // Очищаем форму
+    setShowOrderModal(false);
+    setSelectedProcedures([]); // ← ОЧИСТКА
+    setOrderForm({
+      address: '',
+      scheduledTime: '',
+      comment: '',
+      price: '',
+    });
+
     // 3️⃣ Сохраняем для возврата
     sessionStorage.setItem('chatReturnTo', 'order');
     sessionStorage.setItem('chatOrderId', order.id);
@@ -172,6 +194,8 @@ const handleCreateOrder = async () => {
     setCreatingOrder(false);
   }
 };
+
+
 
   if (loading) {
     return (
@@ -508,6 +532,19 @@ const handleCreateOrder = async () => {
 
               {/* ❌ УБРАНО: Город и Район */}
 
+              {/* ✅ ВЫБОР ПРОЦЕДУР */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-3">
+                  Выберите процедуры *
+                </label>
+                
+                <ProcedureSelector
+                  selectedProcedures={selectedProcedures}
+                   onChange={setSelectedProcedures} // ← ПРАВИЛЬНО
+                required={true}
+                />
+              </div>
+
               {/* Адрес */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">{t('order.address')} *</label>
@@ -569,7 +606,7 @@ const handleCreateOrder = async () => {
                 </button>
                 <button
                   onClick={handleCreateOrder}
-                  disabled={creatingOrder || !orderForm.address || !orderForm.scheduledTime}
+                  disabled={creatingOrder || !orderForm.address || !orderForm.scheduledTime || selectedProcedures.length === 0}
                   className="flex-1 py-4 sm:py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-sm sm:text-base transition-all flex items-center justify-center shadow-lg shadow-cyan-500/30 active:scale-95"
                 >
                   {creatingOrder ? (
