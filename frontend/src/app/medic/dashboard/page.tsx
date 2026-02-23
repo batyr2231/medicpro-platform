@@ -87,9 +87,16 @@ useEffect(() => {
   });
 
   socket.on('connect', () => {
-    console.log('✅ Dashboard socket connected');
-    socket.emit('authenticate', token);
-  });
+      console.log('✅ Dashboard socket connected');
+      socket.emit('authenticate', token);
+      
+      // ✅ Присоединяемся к личному room для уведомлений
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user.id) {
+        socket.emit('join', `user:${user.id}`);
+        console.log(`📍 Joined personal room: user:${user.id}`);
+      }
+    });
 
   // Слушаем новые заказы
   socket.on('new-order', (order: any) => {
@@ -113,7 +120,7 @@ useEffect(() => {
   });
 
   // 🔔 Слушаем новые сообщения
-  socket.on('new-message', (data: any) => {
+  socket.on('web-notification', (data: any) =>{
     console.log('💬 New message received:', data);
     
     // Обновляем список заказов с новым счётчиком непрочитанных
