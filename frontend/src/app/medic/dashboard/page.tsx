@@ -8,32 +8,7 @@ import { useOrders } from '../../hooks/useOrders';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import OrderSkeleton from '@/components/OrderSkeleton';
-import { io } from 'socket.io-client';
 import ProcedureList from '@/components/ProcedureList';
-
-// Функция воспроизведения звука уведомления
-const playNotificationSound = () => {
-  try {
-    // Создаём короткий beep звук через Web Audio API
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    // Настройки звука
-    oscillator.frequency.value = 800; // Частота (Hz)
-    oscillator.type = 'sine'; // Тип волны
-    gainNode.gain.value = 0.3; // Громкость (0-1)
-    
-    // Воспроизведение
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.2); // Длительность 0.2 сек
-  } catch (err) {
-    console.error('Failed to play sound:', err);
-  }
-};
 
 
 export default function MedicDashboard() {
