@@ -771,7 +771,7 @@ app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // ✅ ДОБАВЛЕНО: Загружаем полную информацию о медике
+    // ✅ ИСПРАВЛЕНО: Загружаем полную информацию о медике
     let medicData = null;
     if (order.medicId) {
       const medicProfile = await prisma.medic.findUnique({
@@ -791,21 +791,19 @@ app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
               name: true,
               phone: true
             }
-          },
-          // ✅ Считаем завершённые заказы
-          _count: {
-            select: {
-              medicOrders: {
-                where: {
-                  status: 'PAID'
-                }
-              }
-            }
           }
         }
       });
 
       if (medicProfile) {
+        // ✅ Считаем завершённые заказы отдельным запросом
+        const completedOrdersCount = await prisma.order.count({
+          where: {
+            medicId: order.medicId,
+            status: 'PAID'
+          }
+        });
+
         medicData = {
           id: medicProfile.user.id,
           name: medicProfile.user.name,
@@ -818,7 +816,7 @@ app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
           avgRating: medicProfile.ratingAvg,
           reviewCount: medicProfile.reviewsCount,
           availableProcedures: medicProfile.availableProcedures || [],
-          completedOrders: medicProfile._count.medicOrders
+          completedOrders: completedOrdersCount
         };
       }
     }
