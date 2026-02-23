@@ -11,6 +11,30 @@ import OrderSkeleton from '@/components/OrderSkeleton';
 import { io } from 'socket.io-client';
 import ProcedureList from '@/components/ProcedureList';
 
+// Функция воспроизведения звука уведомления
+const playNotificationSound = () => {
+  try {
+    // Создаём короткий beep звук через Web Audio API
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Настройки звука
+    oscillator.frequency.value = 800; // Частота (Hz)
+    oscillator.type = 'sine'; // Тип волны
+    gainNode.gain.value = 0.3; // Громкость (0-1)
+    
+    // Воспроизведение
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.2); // Длительность 0.2 сек
+  } catch (err) {
+    console.error('Failed to play sound:', err);
+  }
+};
+
 
 export default function MedicDashboard() {
   const [activeTab, setActiveTab] = useState('available');
@@ -88,12 +112,43 @@ useEffect(() => {
     });
   });
 
+  // 🔔 Слушаем новые сообщения
+  socket.on('new-message', (data: any) => {
+    console.log('💬 New message received:', data);
+    
+    // Обновляем список заказов с новым счётчиком непрочитанных
+    setMyOrders(prev => 
+      prev.map(order => 
+        order.id === data.orderId
+          ? { ...order, unreadCount: (order.unreadCount || 0) + 1 }
+          : order
+      )
+    );
+    
+    // ✅ Воспроизводим звук
+    (window as any).playNotificationSound?.();
+    
+    // Показываем toast уведомление
+    toast('💬 Новое сообщение от клиента', {
+      duration: 5000,
+      icon: '📨',
+      style: {
+        background: '#1e293b',
+        color: '#fff',
+        border: '1px solid #06b6d4',
+      },
+    });
+  });
+
+  (window as any).playNotificationSound = playNotificationSound;
+
   socket.on('disconnect', () => {
     console.log('❌ Dashboard socket disconnected');
   });
 
   return () => {
     socket.disconnect();
+    delete (window as any).playNotificationSound;
   };
 }, []); // Пустой массив - выполняется 1 раз при монтировании
 
