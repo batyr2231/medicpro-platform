@@ -742,6 +742,7 @@ app.get('/api/orders/available', authenticateToken, async (req, res) => {
 
 
 // Получение одного заказа по ID
+// Получение одного заказа по ID
 app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -770,18 +771,35 @@ app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // ✅ ИСПРАВЛЕНО: Загружаем медика с аватаром через связь medic
+    // ✅ ДОБАВЛЕНО: Загружаем полную информацию о медике
     let medicData = null;
     if (order.medicId) {
       const medicProfile = await prisma.medic.findUnique({
         where: { userId: order.medicId },
         select: {
+          id: true,
           avatar: true,
+          specialty: true,
+          experience: true,
+          description: true,
+          ratingAvg: true,
+          reviewsCount: true,
+          availableProcedures: true,
           user: {
             select: {
               id: true,
               name: true,
               phone: true
+            }
+          },
+          // ✅ Считаем завершённые заказы
+          _count: {
+            select: {
+              medicOrders: {
+                where: {
+                  status: 'PAID'
+                }
+              }
             }
           }
         }
@@ -792,7 +810,15 @@ app.get('/api/orders/:orderId', authenticateToken, async (req, res) => {
           id: medicProfile.user.id,
           name: medicProfile.user.name,
           phone: medicProfile.user.phone,
-          avatar: medicProfile.avatar // ← ДОБАВЛЕНО!
+          avatar: medicProfile.avatar,
+          specialization: medicProfile.specialty,
+          experience: medicProfile.experience,
+          education: medicProfile.description,
+          bio: medicProfile.description,
+          avgRating: medicProfile.ratingAvg,
+          reviewCount: medicProfile.reviewsCount,
+          availableProcedures: medicProfile.availableProcedures || [],
+          completedOrders: medicProfile._count.medicOrders
         };
       }
     }
@@ -1556,7 +1582,7 @@ app.get('/api/orders/:orderId/messages', authenticateToken, async (req, res) => 
 
     res.json(messages);
   } catch (error) {
-    console.error('Fetch messages error:', error);
+    console.error('Fetch  error:', error);
     res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
