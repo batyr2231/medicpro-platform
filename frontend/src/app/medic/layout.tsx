@@ -71,7 +71,7 @@ export default function MedicLayout({
         console.log('❌ MedicLayout: Disconnected');
       });
 console.log('🎧 Registering web-notification listener');
-      newSocket.on('web-notification', (notification: any) => {
+      newSocket.on('new-chat-message', (notification: any) => {
         console.log('💬 Web notification received:', notification);
 console.log('🔔 Event triggered!');
 
