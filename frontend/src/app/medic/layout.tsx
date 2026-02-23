@@ -6,6 +6,29 @@ import { io, Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import { MessageSquare } from 'lucide-react';
 
+// Функция воспроизведения звука уведомления
+const playNotificationSound = () => {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = 800;
+    oscillator.type = 'sine';
+    gainNode.gain.value = 0.3;
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.2);
+    
+    console.log('🔔 Notification sound played');
+  } catch (err) {
+    console.error('Failed to play sound:', err);
+  }
+};
+
 export default function MedicLayout({
   children,
 }: {
@@ -16,7 +39,6 @@ export default function MedicLayout({
   const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
-    // Проверяем что пользователь - медик
     const userStr = localStorage.getItem('user');
     if (!userStr) return;
 
@@ -27,7 +49,6 @@ export default function MedicLayout({
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      // Подключаемся к Socket.IO
       console.log('🔌 MedicLayout: Connecting...');
       const newSocket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000', {
         transports: ['websocket', 'polling'],
@@ -37,7 +58,6 @@ export default function MedicLayout({
         console.log('✅ MedicLayout: Connected');
         newSocket.emit('authenticate', token);
         
-        // Присоединяемся к личному room
         if (user.id) {
           newSocket.emit('join', `user:${user.id}`);
           console.log(`📍 Joined personal room: user:${user.id}`);
@@ -48,20 +68,16 @@ export default function MedicLayout({
         console.log('❌ MedicLayout: Disconnected');
       });
 
-      // ✅ УВЕДОМЛЕНИЯ О НОВЫХ СООБЩЕНИЯХ В ЧАТАХ
       newSocket.on('web-notification', (notification: any) => {
-        console.log('💬 New message notification:', notification);
+        console.log('💬 Web notification received:', notification);
 
-        // ✅ ПРОВЕРКА: Не показываем уведомление если мы УЖЕ В ЭТОМ ЧАТЕ!
         if (pathname === `/chat/${notification.orderId}`) {
           console.log('⚠️ Already in this chat, skipping notification');
           return;
         }
 
-        // ✅ ВОСПРОИЗВОДИМ ЗВУК
         (window as any).playNotificationSound?.();
 
-        // Показываем кликабельный toast
         toast.custom(
           (t) => (
             <div
@@ -113,11 +129,9 @@ export default function MedicLayout({
         );
       });
 
-      // ✅ УВЕДОМЛЕНИЯ О НОВЫХ ЗАКАЗАХ
       newSocket.on('new-order', (order: any) => {
         console.log('🔔 New order received:', order);
         
-        // ✅ ВОСПРОИЗВОДИМ ЗВУК
         (window as any).playNotificationSound?.();
         
         toast.success('🔔 Новый заказ доступен!', {
@@ -126,16 +140,20 @@ export default function MedicLayout({
         });
       });
 
+      // Регистрируем функцию звука глобально
+      (window as any).playNotificationSound = playNotificationSound;
+
       setSocket(newSocket);
 
       return () => {
         console.log('🧹 MedicLayout: Cleaning up...');
         newSocket.disconnect();
+        delete (window as any).playNotificationSound;
       };
     } catch (error) {
       console.error('❌ MedicLayout error:', error);
     }
-  }, []); // ← Пустой массив = выполняется 1 раз при монтировании
+  }, []);
 
   return <>{children}</>;
 }
