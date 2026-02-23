@@ -62,14 +62,18 @@ export default function MedicLayout({
           newSocket.emit('join', `user:${user.id}`);
           console.log(`📍 Joined personal room: user:${user.id}`);
         }
+
+      // ✅ ЛОГИРУЕМ ЧТО СЛУШАТЕЛЬ ЗАРЕГИСТРИРОВАН
+        console.log('👂 Listening for web-notification events');
       });
 
       newSocket.on('disconnect', () => {
         console.log('❌ MedicLayout: Disconnected');
       });
-
+console.log('🎧 Registering web-notification listener');
       newSocket.on('web-notification', (notification: any) => {
         console.log('💬 Web notification received:', notification);
+console.log('🔔 Event triggered!');
 
         if (pathname === `/chat/${notification.orderId}`) {
           console.log('⚠️ Already in this chat, skipping notification');
@@ -139,6 +143,9 @@ export default function MedicLayout({
           icon: '💉',
         });
       });
+      newSocket.onAny((eventName, ...args) => {
+  console.log('🎯 Socket event received:', eventName, args);
+});
 
       // Регистрируем функцию звука глобально
       (window as any).playNotificationSound = playNotificationSound;
@@ -150,10 +157,13 @@ export default function MedicLayout({
         newSocket.disconnect();
         delete (window as any).playNotificationSound;
       };
+      
+      
     } catch (error) {
       console.error('❌ MedicLayout error:', error);
     }
   }, []);
+  
 
   return <>{children}</>;
 }
